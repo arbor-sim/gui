@@ -42,9 +42,7 @@ struct trace_callback {
                 trace_.t.push_back(recs[i].time);
                 trace_.v.push_back(*p);
             }
-            else {
-                throw std::runtime_error("unexpected sample type");
-            }
+            else log_error("unexpected sample type");
         }
     }
 };
@@ -148,17 +146,10 @@ struct single_cell_model {
     //      m.probe('voltage', arbor.location(2,0.5))
     //      m.probe('voltage', '(location 2 0.5)')
     //      m.probe('voltage', 'term')
-
     void probe(const std::string& what, const arb::locset& where, double frequency) {
-        if (what != "voltage") {
-            throw std::runtime_error("{} does not name a valid variable to trace (currently only 'voltage' is supported)");
-        }
-        if (frequency<=0) {
-            throw std::runtime_error("sampling frequency is not greater than zero");
-        }
-        for (auto& l: cell_.concrete_locset(where)) {
-            probes_.push_back({l, frequency});
-        }
+        if (what != "voltage") log_error("{} does not name a valid variable to trace (currently only 'voltage' is supported)", what);
+        if (frequency<=0) log_error("sampling frequency is not greater than zero");
+        for (auto& l: cell_.concrete_locset(where)) probes_.push_back({l, frequency});
     }
 
     void run(double tfinal, double dt) {

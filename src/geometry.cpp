@@ -8,6 +8,7 @@ struct point {
 };
 
 auto make_shader(const std::string& fn, unsigned shader_type) {
+    log_info("Loading shader {}", fn);
     std::ifstream fd(fn);
     std::string src(std::istreambuf_iterator<char>(fd), {});
     auto src_str = src.c_str();
@@ -19,10 +20,11 @@ auto make_shader(const std::string& fn, unsigned shader_type) {
     int success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if(!success) {
-        char infoLog[512];
-        glGetShaderInfoLog(shader, 512, NULL, infoLog);
-        std::cout << "Shader failed to compile\n" << infoLog << std::endl;
+        char info[512];
+        glGetShaderInfoLog(shader, sizeof(info), NULL, info);
+        log_error("Shader {} failed to compile\n{}", fn, info);
     }
+    log_info("Loading shader {}: complete", fn);
     return shader;
 }
 
@@ -50,24 +52,27 @@ struct geometry {
     }
 
     void make_program() {
-        auto vertex_shader   = make_shader("vertex.glsl",   GL_VERTEX_SHADER);
-        auto fragment_shader = make_shader("fragment.glsl", GL_FRAGMENT_SHADER);
+        log_info("Setting up shader program");
+        auto vertex_shader   = make_shader("glsl/vertex.glsl",   GL_VERTEX_SHADER);
+        auto fragment_shader = make_shader("glsl/fragment.glsl", GL_FRAGMENT_SHADER);
 
         program = glCreateProgram();
         glAttachShader(program, vertex_shader);
         glAttachShader(program, fragment_shader);
         glLinkProgram(program);
 
-        int  success;
+        int success;
         glGetProgramiv(program, GL_LINK_STATUS, &success);
         if(!success) {
-            char infoLog[512];
-            glGetProgramInfoLog(program, 512, NULL, infoLog);
-            std::cout << "Linking of program failed\n" << infoLog << std::endl;
+            char info[512];
+            glGetProgramInfoLog(program, 512, NULL, info);
+            log_error("Shader program failed to link\n{}", info);
         }
+        log_info("Setting up shader program: complete");
     }
 
     void make_vao() {
+        log_info("Setting up VAO");
         glGenVertexArrays(1, &vao);
         glBindVertexArray(vao);
 
@@ -84,6 +89,7 @@ struct geometry {
         glEnableVertexAttribArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
+        log_info("Setting up VAO: complete");
     }
 
     void render(float zoom, float phi, float width, float height) {
@@ -119,6 +125,7 @@ struct geometry {
     }
 
     void load_geometry(parameters& p) {
+        log_info("Making geometry");
         auto N = 8;
         auto root = p.swc[0];
         for (auto ix = 0ul; ix < p.swc.size(); ++ix) {
@@ -156,6 +163,7 @@ struct geometry {
                 }
             }
         }
+        log_debug("Cylinders generated: {} ({} points)", p.swc.size(), tris.size());
         auto scale = 0.0f;
         for (auto& tri: tris) {
             scale = std::max(scale, std::abs(tri.x));
@@ -166,10 +174,8 @@ struct geometry {
             tri.x /= scale;
             tri.y /= scale;
             tri.z /= scale;
-            if ((tri.tag > 4) || (tri.tag < 0)) std::cerr << "Tag oob\n";
-
         }
+        log_debug("Geometry re-scaled by 1/{}", scale);
+        log_info("Making geometry: completed");
     }
-
-
 };

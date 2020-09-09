@@ -14,15 +14,18 @@
 #CXX = g++
 #CXX = clang++
 
-EXE = example_glfw_opengl3
+EXE = arbor-gui
+
+IMGUI = 3rd-party/imgui
+
 SOURCES = main.cpp
-SOURCES += ../imgui_impl_glfw.cpp ../imgui_impl_opengl3.cpp
-SOURCES += ../../imgui.cpp ../../imgui_demo.cpp ../../imgui_draw.cpp ../../imgui_widgets.cpp
+SOURCES += ${IMGUI}/examples/imgui_impl_glfw.cpp ${IMGUI}/examples/imgui_impl_opengl3.cpp
+SOURCES += ${IMGUI}/imgui.cpp $IMGUI/imgui_demo.cpp ${IMGUI}/imgui_draw.cpp ${IMGUI}/imgui_widgets.cpp
 
 OBJS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))
 UNAME_S := $(shell uname -s)
 
-CXXFLAGS = -I../ -I../../
+CXXFLAGS = -I${IMGUI}/examples -I${IMGUI}/ -I3rd-party/fmt/include -I3rd-party/spdlog/include/  -I3rd-party/json/single_include -Isrc
 CXXFLAGS += -g -Wall -Wformat
 LIBS =
 
@@ -31,8 +34,8 @@ LIBS =
 ##---------------------------------------------------------------------
 
 ## Using OpenGL loader: gl3w [default]
-SOURCES += ../libs/gl3w/GL/gl3w.c
-CXXFLAGS += -I../libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W
+SOURCES += ${IMGUI}/examples/libs/gl3w/GL/gl3w.c
+CXXFLAGS += -I${IMGUI}/examples/libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W
 
 ## Using OpenGL loader: glew
 ## (This assumes a system-wide installation)
@@ -94,23 +97,24 @@ endif
 %.o:%.cpp
 	$(CXX) $(CXXFLAGS) -std=c++17 -c -o $@ $<
 
-%.o:../%.cpp
+%.o:${IMGUI}/examples/%.cpp
 	$(CXX) $(CXXFLAGS) -std=c++17 -c -o $@ $<
 
-%.o:../../%.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+%.o:${IMGUI}/%.cpp
+	$(CXX) $(CXXFLAGS) -std=c++17 -c -o $@ $<
 
-%.o:../libs/gl3w/GL/%.c
+%.o:${IMGUI}/examples/libs/gl3w/GL/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-%.o:../libs/glad/src/%.c
+%.o:${IMGUI}/examples/libs/glad/src/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 all: $(EXE)
 	@echo Build complete for $(ECHO_MESSAGE)
 
 $(EXE): $(OBJS)
-	$(CXX) -o $@ $^ $(CXXFLAGS) $(LIBS) -larbor
+	echo ${LIBS}
+	$(CXX) -o $@ $^  -std=c++17 $(CXXFLAGS) $(LIBS) -larbor
 
 clean:
 	rm -f $(EXE) $(OBJS)

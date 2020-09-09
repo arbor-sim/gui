@@ -15,28 +15,19 @@ constexpr float PI = 3.141f;
 #include <fstream>
 #include <unordered_map>
 
-#include "json/single_include/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 using json = nlohmann::json;
+#include "spdlog/spdlog.h"
 
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
 
-#include "arbor-interface/single-cell.cpp"
-#include "arbor-interface/parameters.cpp"
-#include "arbor-interface/geometry.cpp"
-
-bool ends_with(std::string const& value, std::string const& ending) {
-    if (ending.size() > value.size()) return false;
-    return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
-}
+#include "utils.cpp"
+#include "single-cell.cpp"
+#include "parameters.cpp"
+#include "geometry.cpp"
 
 auto load_allen_fit(parameters& p, const std::string& dyn) {
-
-    std::unordered_map<std::string, std::string> lut = {{"cm", "membrane_capacitance"},
-                                                        {"Ra", "axial_resistivity"},
-                                                        {"ra", "axial_resistivity"},
-                                                        {"Vm",  "init_membrane_potential"},
-                                                        {"vm",  "init_membrane_potential"}};
     json genome;
     {
         std::ifstream fd(dyn.c_str());
@@ -67,8 +58,23 @@ auto load_allen_fit(parameters& p, const std::string& dyn) {
             if (ends_with(name, "_pas")) {
                 mech = "pas";
             } else {
-                p.set_parameter(region, lut[name], value);
-                continue;
+                if (name == "cm") {
+                    p.set_parameter(region, "membrane_capacitance", value/100.0);
+                    continue;
+                }
+                if ((name == "ra") || (name == "Ra")) {
+                    p.set_parameter(region, "axial_resistivity", value);
+                    continue;
+                }
+                if (name == "vm") {
+                    p.set_parameter(region, "init_membrane_potential", value);
+                    continue;
+                }
+                if (name == "celsius") {
+                    p.set_parameter(region, "temperature_K", value);
+                    continue;
+                }
+                log_error("Unknown parameter {}", name);
             }
         }
         name.erase(name.size() - mech.size() - 1, mech.size() + 1);
@@ -77,6 +83,7 @@ auto load_allen_fit(parameters& p, const std::string& dyn) {
 }
 
 auto make_simulation(parameters& p) {
+    log_info("Deriving simulation");
     auto cell = arb::cable_cell(p.morph, p.labels);
 
     // This takes care of
@@ -98,12 +105,15 @@ auto make_simulation(parameters& p) {
         }
     }
 
-    auto model = single_cell_model(cell);
-
-    for (const auto& probe: p.probes) {
-        model.probe(probe.variable, probe.site, probe.frequency);
+    for (const auto& [location, iclamp]: p.sim.stimuli) {
+        cell.place(location, iclamp);
     }
 
+    auto model = single_cell_model(cell);
+    for (const auto& probe: p.sim.probes) {
+        model.probe(probe.variable, probe.location, probe.frequency);
+    }
+    log_info("Deriving simulation: complete");
     return model;
 }
 
@@ -120,9 +130,10 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 }
 
 
-static void glfw_error_callback(int error, const char* description) { std::cerr << "Glfw Error: " << error << "\n --> " << description << '\n'; }
+static void glfw_error_callback(int error, const char* description) { log_error("Glfw error:\n{}", description); }
 
 int main(int, char**) {
+    log_init();
     // Setup window
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -152,11 +163,7 @@ int main(int, char**) {
     glfwSwapInterval(1); // Enable vsync
 
     // Initialize OpenGL loader
-    bool err = gl3wInit() != 0;
-    if (err) {
-        std::cerr << "Failed to initialize OpenGL loader!\n";
-        return 1;
-    }
+    if (gl3wInit()) log_fatal("Failed to initialize OpenGL loader");
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -190,8 +197,8 @@ int main(int, char**) {
 
     ImVec4 clear_color = ImVec4(214.0f/255, 214.0f/255, 214.0f/255, 1.00f);
 
-    auto param = parameters{"full.swc"};
-    load_allen_fit(param, "full-dyn.json");
+    auto param = parameters{"data/full.swc"};
+    load_allen_fit(param, "data/full-dyn.json");
     auto draw = geometry{param};
 
     glfwSetScrollCallback(window, scroll_callback);
@@ -213,7 +220,6 @@ int main(int, char**) {
 
         {
             ImGui::Begin("Probes, Parameters, and Mechanisms");
-
             if (ImGui::TreeNode("Global Parameters")) {
                 for (auto& key: param.keys) {
                     float tmp = param.get_parameter(key);
@@ -244,96 +250,115 @@ int main(int, char**) {
                 ImGui::TreePop();
             }
             ImGui::Separator();
-            ImGui::LabelText("", "Regions");
-            for (auto& region: param.regions) {
-                if (ImGui::TreeNode(region.first.c_str())) {
-                    if (ImGui::TreeNode("Parameters")) {
-                        for (auto& key: param.keys) {
-                            float tmp = param.get_parameter(region.first, key);
-                            ImGui::InputFloat(key.c_str(), &tmp);
-                            param.set_parameter(region.first, key, tmp);
-                        }
-                        ImGui::TreePop();
-                    }
-                    if (ImGui::TreeNode("Mechanisms")) {
-                        for (auto& mechanism: region.second.mechanisms) {
-                            if (ImGui::TreeNode(mechanism.first.c_str())) {
-                                for (auto& mechanism_param: mechanism.second.values()) {
-                                    float tmp = mechanism_param.second;
-                                    ImGui::InputFloat(mechanism_param.first.c_str(), &tmp);
-                                    mechanism.second.set(mechanism_param.first, tmp);
-                                }
-                                ImGui::TreePop();
+            if (ImGui::TreeNode("Regions")) {
+                for (auto& [region, region_data]: param.regions) {
+                    if (ImGui::TreeNode(region.c_str())) {
+                        ImGui::BulletText("Location: %s", to_string(region_data.location).c_str());
+                        if (ImGui::TreeNode("Parameters")) {
+                            for (auto& key: param.keys) {
+                                float tmp = param.get_parameter(region, key);
+                                ImGui::InputFloat(key.c_str(), &tmp);
+                                param.set_parameter(region, key, tmp);
                             }
+                            ImGui::TreePop();
                         }
-                        ImGui::TreePop();
-                    }
-                    if (ImGui::TreeNode("Ions")) {
-                        for (auto& ion: region.second.values.ion_data) {
-                            if (ImGui::TreeNode(ion.first.c_str())) {
-                                for (auto& key: param.ion_keys) {
-                                    float tmp = param.get_ion(region.first, ion.first, key);
-                                    ImGui::InputFloat(key.c_str(), &tmp);
-                                    param.set_ion(region.first, ion.first, key, tmp);
+                        if (ImGui::TreeNode("Mechanisms")) {
+                            for (auto& mechanism: region_data.mechanisms) {
+                                if (ImGui::TreeNode(mechanism.first.c_str())) {
+                                    for (auto& mechanism_param: mechanism.second.values()) {
+                                        float tmp = mechanism_param.second;
+                                        ImGui::InputFloat(mechanism_param.first.c_str(), &tmp);
+                                        mechanism.second.set(mechanism_param.first, tmp);
+                                    }
+                                    ImGui::TreePop();
                                 }
-                                ImGui::TreePop();
                             }
+                            ImGui::TreePop();
+                        }
+                        if (ImGui::TreeNode("Ions")) {
+                            for (auto& ion: region_data.values.ion_data) {
+                                if (ImGui::TreeNode(ion.first.c_str())) {
+                                    for (auto& key: param.ion_keys) {
+                                        float tmp = param.get_ion(region, ion.first, key);
+                                        ImGui::InputFloat(key.c_str(), &tmp);
+                                        param.set_ion(region, ion.first, key, tmp);
+                                    }
+                                    ImGui::TreePop();
+                                }
+                            }
+                            ImGui::TreePop();
                         }
                         ImGui::TreePop();
                     }
-                    ImGui::TreePop();
                 }
+                ImGui::TreePop();
+            }
+
+            ImGui::Separator();
+            if (ImGui::TreeNode("Probes")) {
+                for (auto& trace: param.sim.probes) {
+                    ImGui::BulletText("%s", to_string(trace.location).c_str());
+                    {
+                        float tmp = trace.frequency;
+                        ImGui::InputFloat("Frequency (Hz)", &tmp);
+                        trace.frequency = tmp;
+                    }
+                    ImGui::LabelText("Variable", "%s", trace.variable.c_str());
+                }
+                ImGui::TreePop();
             }
             ImGui::Separator();
-            ImGui::LabelText("", "Probes");
-            for (auto& trace: param.probes) {
-                std::stringstream ss;
-                ss << trace.site;
-                ImGui::BulletText("Voltage @ %s %f Hz", ss.str().c_str(), trace.frequency);
+            if (ImGui::TreeNode("Stimuli")) {
+                size_t n = param.sim.t_stop/param.sim.dt;
+                std::vector<float> ic(n, 0.0);
+                for (auto& [location, iclamp]: param.sim.stimuli) {
+                    ImGui::BulletText("%s", to_string(location).c_str());
+                    for (auto ix = 0ul; ix < n; ++ix) {
+                        auto t = ix*param.sim.dt;
+                        ic[ix] = ((t >= iclamp.delay) && (t < (iclamp.duration + iclamp.delay))) ? iclamp.amplitude : 0.0f;
+                    }
+                    {
+                        float tmp = iclamp.delay;
+                        ImGui::InputFloat("From (ms)", &tmp);
+                        iclamp.delay = tmp;
+                    }
+                    {
+                        float tmp = iclamp.duration;
+                        ImGui::InputFloat("Length (ms)", &tmp);
+                        iclamp.duration = tmp;
+                    }
+                    {
+                        float tmp = iclamp.amplitude;
+                        ImGui::InputFloat("Amplitude (mA)", &tmp);
+                        iclamp.amplitude = tmp;
+                    }
+                    ImGui::PlotLines("IClamp", ic.data(), ic.size(), 0);
+                }
+                ImGui::TreePop();
             }
+            ImGui::Separator();
             ImGui::End();
         }
 
-        static float simulation_stop  = 1000.0f;
-        static float simulation_delta = 0.25f;
-        size_t n = simulation_stop/simulation_delta;
-        static std::vector<float> ts;
-        static std::vector<float> vs;
-        static std::vector<float> ic;
-        ts.resize(n);
-        ic.resize(n);
-        for (auto ix = 0ul; ix < n; ++ix) {
-            auto t = ix*simulation_delta;
-            ic[ix] = ((t >= param.iclamp.delay) && (t < (param.iclamp.duration + param.iclamp.delay))) ? param.iclamp.amplitude : 0.0f;
-        }
-
+        size_t n = param.sim.t_stop/param.sim.dt;
+        static std::vector<float> vs(n, 0.0);
         {
             ImGui::Begin("Simulation");
             ImGui::LabelText("", "Simulation");
-            ImGui::InputFloat("To (ms)",   &simulation_stop);
-            ImGui::InputFloat("dt (ms)",   &simulation_delta);
-            ImGui::LabelText("", "Stimulus (Rectangle)");
             {
-                float tmp = param.iclamp.delay;
-                ImGui::InputFloat("From (ms)", &tmp);
-                param.iclamp.delay = tmp;
+                float tmp = param.sim.t_stop;
+                ImGui::InputFloat("To (ms)", &tmp);
+                param.sim.t_stop = tmp;
             }
             {
-                float tmp = param.iclamp.duration;
-                ImGui::InputFloat("Length (ms)", &tmp);
-                param.iclamp.duration = tmp;
+                float tmp = param.sim.dt;
+                ImGui::InputFloat("dt (ms)", &tmp);
+                param.sim.dt = tmp;
             }
-            {
-                float tmp = param.iclamp.amplitude;
-                ImGui::InputFloat("Amplitude (mA)", &tmp);
-                param.iclamp.amplitude = tmp;
-            }
-            ImGui::PlotLines("IClamp", ic.data(), ic.size(), 0);
-
             static bool show_results = false;
             if (ImGui::Button("Run")) {
                 auto sim = make_simulation(param);
-                sim.run(simulation_stop, simulation_delta);
+                sim.run(param.sim.t_stop, param.sim.dt);
                 for (auto& trace: sim.traces_) {
                     vs.resize(trace.v.size());
                     std::copy(trace.v.begin(), trace.v.end(), vs.begin());
