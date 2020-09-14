@@ -7,11 +7,12 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 proj;
 
-uniform float lut[15] = float[15]( 27.0f, 158.0f, 119.0f,
+uniform float lut[18] = float[18]( 27.0f, 158.0f, 119.0f,
                                   217.0f,  95.0f,   2.0f,
                                   117.0f, 112.0f, 179.0f,
                                   231.0f,  41.0f, 138.0f,
-                                  102.0f, 166.0f,  30.0f);
+                                  102.0f, 166.0f,  30.0f,
+                                   30.0f,  30.0f,  30.0f);
 
 out vec3 color;
 

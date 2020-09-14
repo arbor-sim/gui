@@ -99,20 +99,22 @@ struct parameters {
     arb::cable_cell_parameter_set values;
     std::unordered_map<std::string, region> regions;
 
-    std::vector<arb::swc_record> swc;
     arb::segment_tree tree;
-    arb::morphology morph;
-    arb::label_dict labels;
+    arb::label_dict   labels;
+    arb::morphology   morph;
+    arb::place_pwlin  pwlin;
+    arb::mprovider    provider;
     simulation sim;
 
     parameters(const std::string& swc_fn):
-        values{arb::neuron_parameter_defaults}
-    {
+        values{arb::neuron_parameter_defaults}, labels{}, morph{}, pwlin{morph}, provider{morph, labels} {
         log_debug("Reading {}", swc_fn);
         std::ifstream in(swc_fn.c_str());
-        swc    = arb::parse_swc_file(in);
-        tree   = arb::swc_as_segment_tree(swc);
-        morph  = arb::morphology{tree};
+        auto swc = arb::parse_swc_file(in);
+        tree     = arb::swc_as_segment_tree(swc);
+        morph    = arb::morphology{tree};
+        pwlin    = arb::place_pwlin{morph};
+        provider = arb::mprovider{morph, labels};
         log_debug("Generated morphology");
         log_debug("Tagging regions");
         // These are for SWC files.
@@ -312,4 +314,40 @@ void to_json(json& j, const parameters& p) {
              {"simulation", p.sim},
              {"morphology",  {{"kind", "swc"},
                               {"file", "data/full.swc"}}}};
+}
+
+auto make_simulation(parameters& p) {
+    log_info("Deriving simulation");
+    auto cell = arb::cable_cell(p.morph, p.labels);
+
+    // This takes care of
+    //  * Baseline parameters: cm, Vm, Ra, T
+    //  * Ion concentrations
+    //  * Reversal potentials
+    cell.default_parameters = p.values;
+
+    // Now paint in the region-specifc values and place the clamps
+    for (const auto& [region, region_data]: p.regions) {
+        cell.paint(region, arb::membrane_capacitance{p.get_parameter(region, "membrane_capacitance")}); // cm
+        cell.paint(region, arb::init_membrane_potential{p.get_parameter(region, "init_membrane_potential")}); // Vm
+        cell.paint(region, arb::axial_resistivity{p.get_parameter(region, "axial_resistivity")}); // Ra
+        cell.paint(region, arb::temperature_K{p.get_parameter(region, "temperature_K")}); // T
+        for (const auto& [ion, data]: region_data.values.ion_data) {
+            cell.paint(region, {ion, data});
+        }
+        for (const auto& [mech, data]: region_data.mechanisms) {
+            cell.paint(arb::reg::named(region), mech);
+        }
+    }
+
+    for (const auto& [location, iclamp]: p.sim.stimuli) {
+        cell.place(location, iclamp);
+    }
+    // Derive model from cell
+    auto model = single_cell_model(cell);
+    for (const auto& probe: p.sim.probes) {
+        model.probe(probe.variable, probe.location, probe.frequency);
+    }
+    log_info("Deriving simulation: complete");
+    return model;
 }
