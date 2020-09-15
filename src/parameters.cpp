@@ -106,8 +106,13 @@ struct parameters {
     arb::mprovider    provider;
     simulation sim;
 
-    parameters(const std::string& swc_fn):
+    parameters():
         values{arb::neuron_parameter_defaults}, labels{}, morph{}, pwlin{morph}, provider{morph, labels} {
+        // This is for placing debug things
+        labels.set("center", arb::ls::location(0, 0.5));
+    }
+
+    void load_allen_swc(const std::string& swc_fn) {
         log_debug("Reading {}", swc_fn);
         std::ifstream in(swc_fn.c_str());
         auto swc = arb::parse_swc_file(in);
@@ -115,18 +120,66 @@ struct parameters {
         morph    = arb::morphology{tree};
         pwlin    = arb::place_pwlin{morph};
         provider = arb::mprovider{morph, labels};
-        log_debug("Generated morphology");
-        log_debug("Tagging regions");
-        // These are for SWC files.
+
         add_region("soma", arb::reg::tagged(1));
         add_region("axon", arb::reg::tagged(2));
         add_region("dend", arb::reg::tagged(3));
         add_region("apic", arb::reg::tagged(4));
+    }
 
-        // This is for placing debug things
-        labels.set("center", arb::ls::location(0, 0.5));
+    auto load_allen_fit(const std::string& dyn) {
+        json genome;
+        {
+            std::ifstream fd(dyn.c_str());
+            fd >> genome;
+        }
+        auto cond = genome["conditions"][0];
+        values.axial_resistivity       = double{genome["passive"][0]["ra"]};
+        values.temperature_K           = double{cond["celsius"]} + 273.15;
+        values.init_membrane_potential = double{cond["v_init"]};
 
-        log_debug("Parameters generated");
+        for (auto& block: cond["erev"]) {
+            const std::string& region = block["section"];
+            for (auto& kv: block.items()) {
+                if (kv.key() == "section") continue;
+                std::string ion = kv.key();
+                ion.erase(0, 1);
+                regions[region].values.ion_data[ion].init_reversal_potential = double{kv.value()};
+            }
+        }
+
+        for (auto& block: genome["genome"]) {
+            std::string region = std::string{block["section"]};
+            std::string name   = std::string{block["name"]};
+            double value       = block["value"].is_string() ? std::stod(std::string{block["value"]}) : double{block["value"]};
+            std::string mech   = std::string{block["mechanism"]};
+
+            if (mech == "") {
+                if (ends_with(name, "_pas")) {
+                    mech = "pas";
+                } else {
+                    if (name == "cm") {
+                        regions[region].values.membrane_capacitance = value/100.0;
+                        continue;
+                    }
+                    if ((name == "ra") || (name == "Ra")) {
+                        regions[region].values.axial_resistivity = value;
+                        continue;
+                    }
+                    if (name == "vm") {
+                        regions[region].values.init_membrane_potential = value;
+                        continue;
+                    }
+                    if (name == "celsius") {
+                        regions[region].values.temperature_K = value;
+                        continue;
+                    }
+                    log_error("Unknown parameter {}", name);
+                }
+            }
+            name.erase(name.size() - mech.size() - 1, mech.size() + 1);
+            set_mech(region, mech, name, value);
+        }
     }
 
     void add_region(const std::string& name, const arb::region& ls) {
@@ -140,58 +193,6 @@ struct parameters {
         auto& mechs = regions[region].mechanisms;
         if (mechs.find(mech) == mechs.end()) mechs[mech] = arb::mechanism_desc{mech};
         mechs[mech].set(key, value);
-    }
-
-    double get_mech(const std::string& region, const std::string& mech, const std::string& key) {
-        if (regions.find(region) == regions.end()) log_error("Unknown region");
-        auto& mechs = regions[region].mechanisms;
-        if (mechs.find(mech) == mechs.end()) mechs[mech] = arb::mechanism_desc{mech};
-        return mechs[mech][key];
-    }
-
-    void set_parameter(const std::string& region, const std::string& key, double value) {
-        if (regions.find(region) == regions.end()) log_error("Unknown region");
-        if      (key == "axial_resistivity")       regions[region].values.axial_resistivity = value;
-        else if (key == "temperature_K")           regions[region].values.temperature_K = value;
-        else if (key == "init_membrane_potential") regions[region].values.init_membrane_potential = value;
-        else if (key == "membrane_capacitance")    regions[region].values.membrane_capacitance = value;
-        else log_error("Unknown key: '{}'");
-    }
-
-    double get_parameter(const std::string& region, const std::string& key) {
-        if (regions.find(region) == regions.end()) log_error("Unknown region");
-        if      (key == "axial_resistivity")       return regions[region].values.axial_resistivity.value_or(values.axial_resistivity.value());
-        else if (key == "temperature_K")           return regions[region].values.temperature_K.value_or(values.temperature_K.value());
-        else if (key == "init_membrane_potential") return regions[region].values.init_membrane_potential.value_or(values.init_membrane_potential.value());
-        else if (key == "membrane_capacitance")    return regions[region].values.membrane_capacitance.value_or(values.membrane_capacitance.value());
-        log_error("Unknown key: '{}'");
-    }
-
-    void set_parameter(const std::string& key, double value) {
-        if      (key == "axial_resistivity")       values.axial_resistivity = value;
-        else if (key == "temperature_K")           values.temperature_K = value;
-        else if (key == "init_membrane_potential") values.init_membrane_potential = value;
-        else if (key == "membrane_capacitance")    values.membrane_capacitance = value;
-        else log_error("Unknown key: '{}'");
-    }
-
-    double get_parameter(const std::string& key) {
-        if      (key == "axial_resistivity")       return values.axial_resistivity.value_or(values.axial_resistivity.value());
-        else if (key == "temperature_K")           return values.temperature_K.value_or(values.temperature_K.value());
-        else if (key == "init_membrane_potential") return values.init_membrane_potential.value_or(values.init_membrane_potential.value());
-        else if (key == "membrane_capacitance")    return values.membrane_capacitance.value_or(values.membrane_capacitance.value());
-        log_error("Unknown key: '{}'");
-    }
-
-    double get_ion(const std::string& region, const std::string& name, const std::string& key) {
-        if (regions.find(region) == regions.end()) log_error("{}: Unknown region: '{}'", __FUNCTION__, region);
-        if (values.ion_data.find(name) == values.ion_data.end()) log_error("{}: Unknown ion: '{}'", __FUNCTION__, name);
-        auto& ion = values.ion_data[name];
-        if (regions[region].values.ion_data.find(name) != regions[region].values.ion_data.end()) ion = regions[region].values.ion_data[name];
-        if (key == "init_int_concentration")  return ion.init_int_concentration;
-        if (key == "init_ext_concentration")  return ion.init_ext_concentration;
-        if (key == "init_reversal_potential") return ion.init_reversal_potential;
-        log_error("Unknown key: '{}'");
     }
 
     void set_reversal_potential_method(const std::string& ion, int method) {
@@ -216,51 +217,6 @@ struct parameters {
         return reversal_potential_methods[get_reversal_potential_method(ion)];
     }
 
-    double get_ion(const std::string& name, const std::string& key) {
-        if (values.ion_data.find(name) == values.ion_data.end()) log_error("{}: Unknown ion: '{}'", __FUNCTION__, name);
-        auto& ion = values.ion_data[name];
-        if (key == "init_int_concentration")  return ion.init_int_concentration;
-        if (key == "init_ext_concentration")  return ion.init_ext_concentration;
-        if (key == "init_reversal_potential") return ion.init_reversal_potential;
-        log_error("Unknown key: '{}' for ion '{}'", key, name);
-    }
-
-    void set_ion(const std::string& region, const std::string& name, const std::string& key, double value) {
-        auto& ion = regions[region].values.ion_data[name];
-        if      (key == "init_int_concentration")  ion.init_int_concentration  = value;
-        else if (key == "init_ext_concentration")  ion.init_ext_concentration  = value;
-        else if (key == "init_reversal_potential") ion.init_reversal_potential = value;
-        else log_error("Unknown key: '{}'", key);
-    }
-
-    void set_ion(const std::string& name, const std::string& key, double value) {
-        auto& ion = values.ion_data[name];
-        if      (key == "init_int_concentration")  ion.init_int_concentration  = value;
-        else if (key == "init_ext_concentration")  ion.init_ext_concentration  = value;
-        else if (key == "init_reversal_potential") ion.init_reversal_potential = value;
-        else log_error("Unknown key: '{}'");
-    }
-
-    std::vector<std::string> get_ions() {
-        std::vector<std::string> result;
-        for (const auto& ion: values.ion_data) result.push_back(ion.first);
-        return result;
-    }
-
-    std::vector<std::string> get_regions() {
-        std::vector<std::string> result;
-        for (const auto& region: regions) result.push_back(region.first);
-        return result;
-    }
-
-    std::vector<std::string> get_mechs(const std::string& name) {
-        std::vector<std::string> result;
-        for (const auto& mech: regions[name].mechanisms) result.push_back(mech.first);
-        return result;
-    }
-
-    const std::vector<const std::string> ion_keys = {"init_int_concentration", "init_ext_concentration", "init_reversal_potential"};
-    const std::vector<const std::string> keys = {"temperature_K", "axial_resistivity", "init_membrane_potential", "membrane_capacitance"};
     static const char* reversal_potential_methods[];
 };
 
@@ -328,10 +284,14 @@ auto make_simulation(parameters& p) {
 
     // Now paint in the region-specifc values and place the clamps
     for (const auto& [region, region_data]: p.regions) {
-        cell.paint(region, arb::membrane_capacitance{p.get_parameter(region, "membrane_capacitance")}); // cm
-        cell.paint(region, arb::init_membrane_potential{p.get_parameter(region, "init_membrane_potential")}); // Vm
-        cell.paint(region, arb::axial_resistivity{p.get_parameter(region, "axial_resistivity")}); // Ra
-        cell.paint(region, arb::temperature_K{p.get_parameter(region, "temperature_K")}); // T
+        auto cm = region_data.values.membrane_capacitance.value_or(p.values.membrane_capacitance.value());
+        cell.paint(region, arb::membrane_capacitance{cm});
+        auto vm = region_data.values.init_membrane_potential.value_or(p.values.init_membrane_potential.value());
+        cell.paint(region, arb::init_membrane_potential{vm});
+        auto ra = region_data.values.axial_resistivity.value_or(p.values.axial_resistivity.value());
+        cell.paint(region, arb::axial_resistivity{ra});
+        auto T  = region_data.values.temperature_K.value_or(p.values.temperature_K.value());
+        cell.paint(region, arb::temperature_K{T});
         for (const auto& [ion, data]: region_data.values.ion_data) {
             cell.paint(region, {ion, data});
         }

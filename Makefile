@@ -11,9 +11,9 @@
 #   pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-glfw
 #
 
-#CXX = g++
+CXX = /usr/local/opt/llvm/bin/clang++
 #CXX = clang++
-
+#CXX = /usr/local/bin/g++-10
 EXE = arbor-gui
 
 IMGUI = 3rd-party/imgui

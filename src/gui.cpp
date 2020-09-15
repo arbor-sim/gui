@@ -12,9 +12,9 @@ void gui_mechanism(arb::mechanism_desc& mech) {
 
 void gui_iclamp(arb::locset& location, arb::i_clamp& iclamp, float dt, std::vector<float>& ic) {
     ImGui::BulletText("%s", to_string(location).c_str());
-    iclamp.delay     = input_double("From (ms)",      iclamp.delay);
-    iclamp.duration  = input_double("Length (ms)",    iclamp.duration);
-    iclamp.amplitude = input_double("Amplitude (mA)", iclamp.amplitude);
+    ImGui::InputDouble("From (ms)",      &iclamp.delay);
+    ImGui::InputDouble("Length (ms)",    &iclamp.duration);
+    ImGui::InputDouble("Amplitude (mA)", &iclamp.amplitude);
     // Make a nice sparkline (NB std::transform_on_index where are you?)
     for (auto ix = 0ul; ix < ic.size(); ++ix) {
         auto t = ix*dt;
@@ -25,7 +25,7 @@ void gui_iclamp(arb::locset& location, arb::i_clamp& iclamp, float dt, std::vect
 
 void gui_probe(probe& p) {
     ImGui::BulletText("%s", to_string(p.location).c_str());
-    p.frequency = input_double("Frequency (Hz)", p.frequency);
+    ImGui::InputDouble("Frequency (Hz)", &p.frequency);
     ImGui::LabelText("Variable", "%s", p.variable.c_str());
 }
 
@@ -50,8 +50,8 @@ void gui_simulation(parameters& param) {
     }
     ImGui::Separator();
     if (ImGui::TreeNode("Execution")) {
-        sim.t_stop = input_double("To (ms)", sim.t_stop);
-        sim.dt     = input_double("dt (ms)", sim.dt);
+        ImGui::InputDouble("To (ms)", &sim.t_stop);
+        ImGui::InputDouble("dt (ms)", &sim.dt);
         ImGui::TreePop();
     }
     ImGui::Separator();
@@ -72,7 +72,22 @@ void gui_simulation(parameters& param) {
     ImGui::End();
 }
 
-void gui_main() {
+void gui_menu_bar(parameters& p, geometry& g) {
+    ImGui::BeginMenuBar();
+    if (ImGui::BeginMenu("File")) {
+        if (ImGui::MenuItem("Open SWC+Fit")) {
+            parameters q;
+            q.load_allen_swc("data/full.swc");
+            q.load_allen_fit("data/full-dyn.json");
+            p = q;
+            g = geometry{p};
+        }
+        ImGui::EndMenu();
+    }
+    ImGui::EndMenuBar();
+}
+
+void gui_main(parameters& p, geometry& g) {
     static bool opt_fullscreen = true;
     static bool opt_padding = false;
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
@@ -80,8 +95,7 @@ void gui_main() {
     // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
     // because it would be confusing to have two docking targets within each others.
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-    if (opt_fullscreen)
-    {
+    if (opt_fullscreen) {
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->GetWorkPos());
         ImGui::SetNextWindowSize(viewport->GetWorkSize());
@@ -90,16 +104,13 @@ void gui_main() {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
         window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
         window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-    }
-    else
-    {
+    } else {
         dockspace_flags &= ~ImGuiDockNodeFlags_PassthruCentralNode;
     }
 
     // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background
     // and handle the pass-thru hole, so we ask Begin() to not render a background.
-    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
-        window_flags |= ImGuiWindowFlags_NoBackground;
+    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) window_flags |= ImGuiWindowFlags_NoBackground;
 
     // Important: note that we proceed even if Begin() returns false (aka window is collapsed).
     // This is because we want to keep our DockSpace() active. If a DockSpace() is inactive,
@@ -117,13 +128,7 @@ void gui_main() {
         ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
         ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
     }
-
-    ImGui::BeginMenuBar();
-    if (ImGui::BeginMenu("File")) {
-        ImGui::MenuItem("Open", NULL, nullptr);
-        ImGui::EndMenu();
-    }
-    ImGui::EndMenuBar();
+    gui_menu_bar(p, g);
     ImGui::End();
 }
 
@@ -162,4 +167,55 @@ void gui_render(parameters& p, geometry& g) {
         }
     }
     ImGui::End();
+}
+
+void gui_param(arb::cable_cell_parameter_set& p, arb::cable_cell_parameter_set& defaults) {
+    {
+        auto tmp = p.axial_resistivity.value_or(defaults.axial_resistivity.value());
+        if (ImGui::InputDouble("axial_resistivity", &tmp)) {
+            p.axial_resistivity = tmp;
+        }
+    }
+    {
+        auto tmp = p.temperature_K.value_or(defaults.temperature_K.value());
+        if (ImGui::InputDouble("temperature_K", &tmp)) {
+            p.temperature_K = tmp;
+        }
+    }
+    {
+        auto tmp = p.init_membrane_potential.value_or(defaults.init_membrane_potential.value());
+        if (ImGui::InputDouble("init_membrane_potential", &tmp)) {
+            p.init_membrane_potential = tmp;
+        }
+    }
+    {
+        auto tmp = p.membrane_capacitance.value_or(defaults.membrane_capacitance.value());
+        if (ImGui::InputDouble("membrane_capacitance", &tmp)) {
+            p.membrane_capacitance = tmp;
+        }
+    }
+}
+
+void gui_ion(arb::cable_cell_ion_data& ion, arb::cable_cell_ion_data& defaults) {
+    {
+        auto tmp = ion.init_int_concentration;
+        if (std::isnan(tmp)) tmp = defaults.init_int_concentration;
+        if (ImGui::InputDouble("init_int_concentration", &tmp)) {
+            ion.init_int_concentration = tmp;
+        }
+    }
+    {
+        auto tmp = ion.init_ext_concentration;
+        if (std::isnan(tmp)) tmp = defaults.init_ext_concentration;
+        if (ImGui::InputDouble("init_ext_concentration", &tmp)) {
+            ion.init_ext_concentration = tmp;
+        }
+    }
+    {
+        auto tmp = ion.init_reversal_potential;
+        if (std::isnan(tmp)) tmp = defaults.init_reversal_potential;
+        if (ImGui::InputDouble("init_reversal_potential", &tmp)) {
+            ion.init_reversal_potential = tmp;
+        }
+    }
 }

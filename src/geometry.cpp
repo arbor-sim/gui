@@ -189,7 +189,7 @@ struct geometry {
 
     void load_geometry(parameters& p) {
         log_info("Making geometry");
-        const auto& root = p.tree.segments()[0].prox;
+        const auto& root = p.tree.segments()[0].prox; // is always the root
         size_t index = 0;
         for (const auto& [id, prox, dist, tag]: p.tree.segments()) {
             // Shift to root and find vector along the segment

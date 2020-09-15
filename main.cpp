@@ -35,61 +35,6 @@ using json = nlohmann::json;
 #include "glfw.cpp"
 #include "gui.cpp"
 
-auto load_allen_fit(parameters& p, const std::string& dyn) {
-    json genome;
-    {
-        std::ifstream fd(dyn.c_str());
-        fd >> genome;
-    }
-
-    p.set_parameter("axial_resistivity",       double{genome["passive"][0]["ra"]});
-    p.set_parameter("temperature_K",           double{genome["conditions"][0]["celsius"]} + 273.15);
-    p.set_parameter("init_membrane_potential", double{genome["conditions"][0]["v_init"]});
-
-    for (auto& block: genome["conditions"][0]["erev"]) {
-        const std::string& region = block["section"];
-        for (auto& kv: block.items()) {
-            if (kv.key() == "section") continue;
-            std::string ion = kv.key();
-            ion.erase(0, 1);
-            p.set_ion(region, ion, "init_reversal_potential", double{kv.value()});
-        }
-    }
-
-    for (auto& block: genome["genome"]) {
-        std::string region = std::string{block["section"]};
-        std::string name   = std::string{block["name"]};
-        double value       = block["value"].is_string() ? std::stod(std::string{block["value"]}) : double{block["value"]};
-        std::string mech   = std::string{block["mechanism"]};
-
-        if (mech == "") {
-            if (ends_with(name, "_pas")) {
-                mech = "pas";
-            } else {
-                if (name == "cm") {
-                    p.set_parameter(region, "membrane_capacitance", value/100.0);
-                    continue;
-                }
-                if ((name == "ra") || (name == "Ra")) {
-                    p.set_parameter(region, "axial_resistivity", value);
-                    continue;
-                }
-                if (name == "vm") {
-                    p.set_parameter(region, "init_membrane_potential", value);
-                    continue;
-                }
-                if (name == "celsius") {
-                    p.set_parameter(region, "temperature_K", value);
-                    continue;
-                }
-                log_error("Unknown parameter {}", name);
-            }
-        }
-        name.erase(name.size() - mech.size() - 1, mech.size() + 1);
-        p.set_mech(region, mech, name, value);
-    }
-}
-
 int main(int, char**) {
     log_init();
     Window window{};
@@ -128,8 +73,7 @@ int main(int, char**) {
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != NULL);
 
-    auto param = parameters{"data/full.swc"};
-    load_allen_fit(param, "data/full-dyn.json");
+    auto param = parameters{};
     auto draw = geometry{param};
 
     // Main loop
@@ -140,33 +84,21 @@ int main(int, char**) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        gui_main();
+        gui_main(param, draw);
 
         ImGui::Begin("Parameters");
         if (ImGui::TreeNode("Global Parameters")) {
-            for (auto& key: param.keys) {
-                float tmp = param.get_parameter(key);
-                ImGui::InputFloat(key.c_str(), &tmp);
-                param.set_parameter(key, tmp);
-            }
+            gui_param(param.values, param.values);
             ImGui::TreePop();
         }
         ImGui::Separator();
         if (ImGui::TreeNode("Ions")) {
-            for (auto& ion: param.get_ions()) {
+            for (auto& [ion, ion_data]: param.values.ion_data) {
                 if (ImGui::TreeNode(ion.c_str())) {
-                    for (auto& key: param.ion_keys) {
-                        {
-                            float tmp = param.get_ion(ion, key);
-                            ImGui::InputFloat(key.c_str(), &tmp);
-                            param.set_ion(ion, key, tmp);
-                        }
-                    }
-                    {
-                        int tmp = param.get_reversal_potential_method(ion);
-                        ImGui::Combo("reversal_potential_method", &tmp, parameters::reversal_potential_methods, 2);
-                        param.set_reversal_potential_method(ion, tmp);
-                    }
+                    gui_ion(ion_data, ion_data);
+                    int tmp = param.get_reversal_potential_method(ion);
+                    ImGui::Combo("reversal_potential_method", &tmp, parameters::reversal_potential_methods, 2);
+                    param.set_reversal_potential_method(ion, tmp);
                     ImGui::TreePop();
                 }
             }
@@ -178,11 +110,7 @@ int main(int, char**) {
                 if (ImGui::TreeNode(region.c_str())) {
                     ImGui::BulletText("Location: %s", to_string(region_data.location).c_str());
                     if (ImGui::TreeNode("Parameters")) {
-                        for (auto& key: param.keys) {
-                            float tmp = param.get_parameter(region, key);
-                            ImGui::InputFloat(key.c_str(), &tmp);
-                            param.set_parameter(region, key, tmp);
-                        }
+                        gui_param(region_data.values, param.values);
                         ImGui::TreePop();
                     }
                     if (ImGui::TreeNode("Mechanisms")) {
@@ -195,13 +123,9 @@ int main(int, char**) {
                         ImGui::TreePop();
                     }
                     if (ImGui::TreeNode("Ions")) {
-                        for (auto& [ion_name, ion_data]: region_data.values.ion_data) {
-                            if (ImGui::TreeNode(ion_name.c_str())) {
-                                for (auto& key: param.ion_keys) {
-                                    float tmp = param.get_ion(region, ion_name, key);
-                                    ImGui::InputFloat(key.c_str(), &tmp);
-                                    param.set_ion(region, ion_name, key, tmp);
-                                }
+                        for (auto& [ion, ion_data]: region_data.values.ion_data) {
+                            if (ImGui::TreeNode(ion.c_str())) {
+                                gui_ion(ion_data, param.values.ion_data[ion]);
                                 ImGui::TreePop();
                             }
                         }
