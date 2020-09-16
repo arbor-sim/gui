@@ -1,12 +1,9 @@
-double input_double(const char* label, double variable) {
-    float tmp = variable;
-    ImGui::InputFloat(label, &tmp);
-    return tmp;
-}
-
 void gui_mechanism(arb::mechanism_desc& mech) {
     for (auto& [key, value]: mech.values()) {
-        mech.set(key, input_double(key.c_str(), value));
+        auto tmp = value;
+        if (ImGui::InputDouble(key.c_str(), &tmp)) {
+            mech.set(key, tmp);
+        }
     }
 }
 
@@ -56,6 +53,10 @@ void gui_simulation(parameters& param) {
     }
     ImGui::Separator();
     static std::vector<float> vs;
+    if (ImGui::BeginPopupModal("Results")) {
+        ImGui::PlotLines("Voltage", vs.data(), vs.size(), 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(640, 480));
+        ImGui::EndPopup();
+    }
     if (ImGui::Button("Run")) {
         auto model = make_simulation(param);
         model.run(sim.t_stop, sim.dt);
@@ -64,10 +65,7 @@ void gui_simulation(parameters& param) {
             std::copy(trace.v.begin(), trace.v.end(), vs.begin());
             break;
         }
-        if (ImGui::BeginPopupModal("Results")) {
-            ImGui::PlotLines("Voltage", vs.data(), vs.size(), 0, nullptr, FLT_MAX, FLT_MAX, ImVec2(640, 480));
-            ImGui::EndPopup();
-        }
+        ImGui::OpenPopup("Results");
     }
     ImGui::End();
 }
@@ -169,7 +167,7 @@ void gui_render(parameters& p, geometry& g) {
     ImGui::End();
 }
 
-void gui_param(arb::cable_cell_parameter_set& p, arb::cable_cell_parameter_set& defaults) {
+void gui_values(arb::cable_cell_parameter_set& p, arb::cable_cell_parameter_set& defaults) {
     {
         auto tmp = p.axial_resistivity.value_or(defaults.axial_resistivity.value());
         if (ImGui::InputDouble("axial_resistivity", &tmp)) {
@@ -218,4 +216,119 @@ void gui_ion(arb::cable_cell_ion_data& ion, arb::cable_cell_ion_data& defaults) 
             ion.init_reversal_potential = tmp;
         }
     }
+}
+
+void gui_locations(parameters& p) {
+    ImGui::Begin("Locations");
+    static std::vector<char> lbl(128, 0);
+    static std::vector<char> def(512, 0);
+    if (ImGui::BeginPopupModal("Define region")) {
+        ImGui::InputText("Name",       lbl.data(), lbl.size());
+        ImGui::InputText("Definition", def.data(), def.size());
+        if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+        if (ImGui::Button("Ok")) {
+            // Add me to label dict
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    if (ImGui::TreeNode("Regions")) {
+        for (const auto& [name, loc]: p.labels.regions()) {
+            ImGui::BulletText("%s: %s", name.c_str(), to_string(loc).c_str());
+        }
+        ImGui::TreePop();
+    }
+    ImGui::SameLine();
+    if (ImGui::SmallButton("+")) {
+        lbl[0] = 0;
+        def[0] = 0;
+        ImGui::OpenPopup("Define region");
+    }
+    if (ImGui::BeginPopupModal("Define Locset")) {
+        ImGui::InputText("Name",       lbl.data(), lbl.size());
+        ImGui::InputText("Definition", def.data(), def.size());
+        if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+        if (ImGui::Button("Ok")) {
+            // Add me to label dict
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    if (ImGui::TreeNode("Locsets")) {
+        for (const auto& [name, loc]: p.labels.locsets()) {
+            ImGui::BulletText("%s: %s", name.c_str(), to_string(loc).c_str());
+        }
+        ImGui::TreePop();
+    }
+    ImGui::SameLine();
+    if (ImGui::SmallButton("+")) {
+        lbl[0] = 0;
+        def[0] = 0;
+        ImGui::OpenPopup("Define region");
+    }
+    ImGui::End();
+}
+
+void gui_region(region& r, arb::cable_cell_parameter_set& defaults) {
+    ImGui::BulletText("Location: %s", to_string(r.location).c_str());
+    if (ImGui::TreeNode("Parameters")) {
+        gui_values(r.values, defaults);
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNode("Mechanisms")) {
+        for (auto& [mech_name, mech_data]: r.mechanisms) {
+            if (ImGui::TreeNode(mech_name.c_str())) {
+                gui_mechanism(mech_data);
+                ImGui::TreePop();
+            }
+        }
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNode("Ions")) {
+        for (auto& [ion, ion_data]: r.values.ion_data) {
+            if (ImGui::TreeNode(ion.c_str())) {
+                gui_ion(ion_data, defaults.ion_data[ion]);
+                ImGui::TreePop();
+            }
+        }
+        ImGui::TreePop();
+    }
+}
+
+void gui_erev(parameters& p, const std::string& ion) {
+    int tmp = p.get_reversal_potential_method(ion);
+    ImGui::Combo("reversal_potential_method", &tmp, parameters::reversal_potential_methods, 2);
+    p.set_reversal_potential_method(ion, tmp);
+}
+
+void gui_parameters(parameters& p) {
+    ImGui::Begin("Parameters");
+    if (ImGui::TreeNode("Global Parameters")) {
+        gui_values(p.values, p.values);
+        ImGui::TreePop();
+    }
+    ImGui::Separator();
+    if (ImGui::TreeNode("Ions")) {
+        for (auto& [ion, ion_data]: p.values.ion_data) {
+            if (ImGui::TreeNode(ion.c_str())) {
+                gui_ion(ion_data, ion_data);
+                gui_erev(p, ion);
+                ImGui::TreePop();
+            }
+        }
+        ImGui::TreePop();
+    }
+    ImGui::Separator();
+    if (ImGui::TreeNode("Regions")) {
+        for (auto& [region, region_data]: p.regions) {
+            if (ImGui::TreeNode(region.c_str())) {
+                gui_region(region_data, p.values);
+                ImGui::TreePop();
+            }
+
+        }
+        ImGui::TreePop();
+    }
+    ImGui::Separator();
+    ImGui::End();
 }

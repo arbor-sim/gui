@@ -85,59 +85,8 @@ int main(int, char**) {
         ImGui::NewFrame();
 
         gui_main(param, draw);
-
-        ImGui::Begin("Parameters");
-        if (ImGui::TreeNode("Global Parameters")) {
-            gui_param(param.values, param.values);
-            ImGui::TreePop();
-        }
-        ImGui::Separator();
-        if (ImGui::TreeNode("Ions")) {
-            for (auto& [ion, ion_data]: param.values.ion_data) {
-                if (ImGui::TreeNode(ion.c_str())) {
-                    gui_ion(ion_data, ion_data);
-                    int tmp = param.get_reversal_potential_method(ion);
-                    ImGui::Combo("reversal_potential_method", &tmp, parameters::reversal_potential_methods, 2);
-                    param.set_reversal_potential_method(ion, tmp);
-                    ImGui::TreePop();
-                }
-            }
-            ImGui::TreePop();
-        }
-        ImGui::Separator();
-        if (ImGui::TreeNode("Regions")) {
-            for (auto& [region, region_data]: param.regions) {
-                if (ImGui::TreeNode(region.c_str())) {
-                    ImGui::BulletText("Location: %s", to_string(region_data.location).c_str());
-                    if (ImGui::TreeNode("Parameters")) {
-                        gui_param(region_data.values, param.values);
-                        ImGui::TreePop();
-                    }
-                    if (ImGui::TreeNode("Mechanisms")) {
-                        for (auto& [mech_name, mech_data]: region_data.mechanisms) {
-                            if (ImGui::TreeNode(mech_name.c_str())) {
-                                gui_mechanism(mech_data);
-                                ImGui::TreePop();
-                            }
-                        }
-                        ImGui::TreePop();
-                    }
-                    if (ImGui::TreeNode("Ions")) {
-                        for (auto& [ion, ion_data]: region_data.values.ion_data) {
-                            if (ImGui::TreeNode(ion.c_str())) {
-                                gui_ion(ion_data, param.values.ion_data[ion]);
-                                ImGui::TreePop();
-                            }
-                        }
-                        ImGui::TreePop();
-                    }
-                    ImGui::TreePop();
-                }
-            }
-            ImGui::TreePop();
-        }
-        ImGui::Separator();
-        ImGui::End();
+        gui_parameters(param);
+        gui_locations(param);
         gui_render(param, draw);
         gui_simulation(param);
         gui_cell(draw);
