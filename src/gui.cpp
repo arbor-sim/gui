@@ -1,8 +1,66 @@
+const static std::unordered_map<std::string, arb::mechanism_catalogue>
+catalogues = {{"default", arb::global_default_catalogue()},
+              {"allen",   arb::global_allen_catalogue()}};
+
+const std::vector<const char*>& all_mechanisms() {
+    static std::vector<const char*> names = {};
+    if (names.empty()) {
+        for (const auto& [cat_name, cat]: catalogues) {
+            for (const auto& name: cat.mechanism_names()) {
+                names.push_back(strdup(name.c_str()));
+            }
+        }
+    }
+    return names;
+}
+
+auto get_mechanism_info(const std::string& name) {
+    for (const auto& [cat_name, cat]: catalogues) {
+        if (cat.has(name)) return cat[name];
+    }
+    log_error("Unknown mechanism {}", name);
+}
+
 void gui_mechanism(arb::mechanism_desc& mech) {
-    for (auto& [key, value]: mech.values()) {
-        auto tmp = value;
-        if (ImGui::InputDouble(key.c_str(), &tmp)) {
-            mech.set(key, tmp);
+    auto name = mech.name();
+    auto info = get_mechanism_info(name);
+    if (!info.globals.empty()) {
+        if (ImGui::TreeNode("Globals")) {
+            for (const auto& [key, desc]: info.globals) {
+                ImGui::BulletText("%s", key.c_str());
+                // auto tmp = mech.get(key);
+                // if (ImGui::InputDouble(key.c_str(), &tmp)) mech.set(key, tmp);
+            }
+            ImGui::TreePop();
+        }
+    }
+    if (!info.parameters.empty()) {
+        if (ImGui::TreeNode("Parameters")) {
+            for (const auto& [key, desc]: info.parameters) {
+                auto tmp = mech.get(key);
+                if (ImGui::InputDouble(key.c_str(), &tmp)) mech.set(key, tmp);
+            }
+            ImGui::TreePop();
+        }
+    }
+    if (!info.state.empty()) {
+        if (ImGui::TreeNode("State variables")) {
+            for (const auto& [key, desc]: info.state) {
+                ImGui::BulletText("%s", key.c_str());
+                // auto tmp = mech.get(key);
+                // if (ImGui::InputDouble(key.c_str(), &tmp)) mech.set(key, tmp);
+            }
+            ImGui::TreePop();
+        }
+    }
+    if (!info.ions.empty()) {
+        if (ImGui::TreeNode("Ion dependencies")) {
+            for (const auto& [key, desc]: info.ions) {
+                ImGui::BulletText("%s", key.c_str());
+                // auto tmp = mech.get(key);
+                // if (ImGui::InputDouble(key.c_str(), &tmp)) mech.set(key, tmp);
+            }
+            ImGui::TreePop();
         }
     }
 }
@@ -78,7 +136,7 @@ void gui_menu_bar(parameters& p, geometry& g) {
             q.load_allen_swc("data/full.swc");
             q.load_allen_fit("data/full-dyn.json");
             p = q;
-            g = geometry{p};
+            g.load_geometry(p);
         }
         ImGui::EndMenu();
     }
@@ -130,7 +188,7 @@ void gui_main(parameters& p, geometry& g) {
     ImGui::End();
 }
 
-void gui_cell(geometry& geo) {
+void gui_cell(geometry& g) {
     ImGui::Begin("Cell");
     ImGui::BeginChild("Cell Render");
     // re-build fbo, if needed
@@ -138,16 +196,16 @@ void gui_cell(geometry& geo) {
     auto w = size.x;
     auto h = size.y;
     // log_info("Cell window {}x{}", w, h);
-    geo.maybe_make_fbo(w, h);
+    g.maybe_make_fbo(w, h);
     // render image to texture
     // glViewport(0, 0, w, h);
-    glBindFramebuffer(GL_FRAMEBUFFER, geo.fbo);
-    glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+    glBindFramebuffer(GL_FRAMEBUFFER, g.fbo);
+    glClearColor(g.clear_color.x, g.clear_color.y, g.clear_color.z, g.clear_color.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
-    geo.render(zoom, phi, w, h);
+    g.render(zoom, phi, w, h);
     // draw
-    ImGui::Image((ImTextureID) geo.tex, size, ImVec2(0, 1), ImVec2(1, 0));
+    ImGui::Image((ImTextureID) g.tex, size, ImVec2(0, 1), ImVec2(1, 0));
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     ImGui::EndChild();
     ImGui::End();
@@ -220,51 +278,67 @@ void gui_ion(arb::cable_cell_ion_data& ion, arb::cable_cell_ion_data& defaults) 
 
 void gui_locations(parameters& p) {
     ImGui::Begin("Locations");
-    static std::vector<char> lbl(128, 0);
-    static std::vector<char> def(512, 0);
-    if (ImGui::BeginPopupModal("Define region")) {
-        ImGui::InputText("Name",       lbl.data(), lbl.size());
-        ImGui::InputText("Definition", def.data(), def.size());
-        if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
-        if (ImGui::Button("Ok")) {
-            // Add me to label dict
-            ImGui::CloseCurrentPopup();
+    static std::string lbl(128, 0);
+    static std::string def(512, 0);
+    // Regions
+    {
+        ImGui::PushID("region");
+        ImGui::AlignTextToFramePadding();
+        auto open = ImGui::TreeNodeEx("Regions", ImGuiTreeNodeFlags_AllowItemOverlap);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("+")) {
+            ImGui::OpenPopup("Define region");
         }
-        ImGui::EndPopup();
-    }
-    if (ImGui::TreeNode("Regions")) {
-        for (const auto& [name, loc]: p.labels.regions()) {
-            ImGui::BulletText("%s: %s", name.c_str(), to_string(loc).c_str());
+        if (ImGui::BeginPopupModal("Define region")) {
+            ImGui::InputText("Name",       lbl.data(), lbl.size());
+            ImGui::InputText("Definition", def.data(), def.size());
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            if (ImGui::Button("Ok")) {
+                p.add_named_location(lbl, arb::reg::tagged(1)); // TODO Fix me, Ben
+                log_debug("Defining region {}: {}", lbl, def);
+                std::fill(def.begin(), def.end(), '\0');
+                std::fill(lbl.begin(), lbl.end(), '\0');
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
-        ImGui::TreePop();
-    }
-    ImGui::SameLine();
-    if (ImGui::SmallButton("+")) {
-        lbl[0] = 0;
-        def[0] = 0;
-        ImGui::OpenPopup("Define region");
-    }
-    if (ImGui::BeginPopupModal("Define Locset")) {
-        ImGui::InputText("Name",       lbl.data(), lbl.size());
-        ImGui::InputText("Definition", def.data(), def.size());
-        if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
-        if (ImGui::Button("Ok")) {
-            // Add me to label dict
-            ImGui::CloseCurrentPopup();
+        if (open) {
+            for (const auto& [name, loc]: p.labels.regions()) {
+                ImGui::BulletText("%s: %s", name.c_str(), to_string(loc).c_str());
+            }
+            ImGui::TreePop();
         }
-        ImGui::EndPopup();
+        ImGui::PopID();
     }
-    if (ImGui::TreeNode("Locsets")) {
-        for (const auto& [name, loc]: p.labels.locsets()) {
-            ImGui::BulletText("%s: %s", name.c_str(), to_string(loc).c_str());
+    {
+        // Locsets
+        ImGui::PushID("locset");
+        ImGui::AlignTextToFramePadding();
+        auto open = ImGui::TreeNodeEx("Locsets", ImGuiTreeNodeFlags_AllowItemOverlap);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("+")) {
+            ImGui::OpenPopup("Define locset");
         }
-        ImGui::TreePop();
-    }
-    ImGui::SameLine();
-    if (ImGui::SmallButton("+")) {
-        lbl[0] = 0;
-        def[0] = 0;
-        ImGui::OpenPopup("Define region");
+        if (ImGui::BeginPopupModal("Define locset")) {
+            ImGui::InputText("Name",       lbl.data(), lbl.size());
+            ImGui::InputText("Definition", def.data(), def.size());
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            if (ImGui::Button("Ok")) {
+                p.add_named_location(lbl, arb::ls::location(0, 0.5)); // TODO Fix me, Ben
+                log_debug("Defining locset {}: {}", lbl, def);
+                std::fill(def.begin(), def.end(), '\0');
+                std::fill(lbl.begin(), lbl.end(), '\0');
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        if (open) {
+            for (const auto& [name, loc]: p.labels.locsets()) {
+                ImGui::BulletText("%s: %s", name.c_str(), to_string(loc).c_str());
+            }
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
     }
     ImGui::End();
 }
@@ -275,14 +349,45 @@ void gui_region(region& r, arb::cable_cell_parameter_set& defaults) {
         gui_values(r.values, defaults);
         ImGui::TreePop();
     }
-    if (ImGui::TreeNode("Mechanisms")) {
-        for (auto& [mech_name, mech_data]: r.mechanisms) {
-            if (ImGui::TreeNode(mech_name.c_str())) {
-                gui_mechanism(mech_data);
-                ImGui::TreePop();
-            }
+    // Mechanisms
+    {
+        static int selection = 0;
+        ImGui::PushID("mechanism");
+        ImGui::AlignTextToFramePadding();
+        auto open = ImGui::TreeNodeEx("Mechanisms", ImGuiTreeNodeFlags_AllowItemOverlap);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("+")) {
+            ImGui::OpenPopup("Add mechanism");
         }
-        ImGui::TreePop();
+        if (ImGui::BeginPopupModal("Add mechanism")) {
+            const auto& mechanisms = all_mechanisms();
+            // TODO: Make this into sections by catalogue.
+            // TODO: Grey out already present stuff.
+            ImGui::Combo("Name", &selection, mechanisms.data(), mechanisms.size());
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            if (ImGui::Button("Ok")) {
+                auto name = mechanisms[selection];
+                auto info = get_mechanism_info(name);
+                auto desc = arb::mechanism_desc{name};
+                for (const auto& [k, v]: info.parameters) {
+                    desc.set(k, v.default_value);
+                }
+                r.mechanisms[name] = desc;
+                log_debug("Adding mechanism {}", name);
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        if (open) {
+            for (auto& [mech_name, mech_data]: r.mechanisms) {
+                if (ImGui::TreeNode(mech_name.c_str())) {
+                    gui_mechanism(mech_data);
+                    ImGui::TreePop();
+                }
+            }
+            ImGui::TreePop();
+        }
+        ImGui::PopID();
     }
     if (ImGui::TreeNode("Ions")) {
         for (auto& [ion, ion_data]: r.values.ion_data) {
@@ -325,7 +430,6 @@ void gui_parameters(parameters& p) {
                 gui_region(region_data, p.values);
                 ImGui::TreePop();
             }
-
         }
         ImGui::TreePop();
     }

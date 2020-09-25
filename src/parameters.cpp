@@ -109,22 +109,28 @@ struct parameters {
     parameters():
         values{arb::neuron_parameter_defaults}, labels{}, morph{}, pwlin{morph}, provider{morph, labels} {
         // This is for placing debug things
-        labels.set("center", arb::ls::location(0, 0.5));
+        add_named_location("center", arb::ls::location(0, 0.5));
     }
 
     void load_allen_swc(const std::string& swc_fn) {
         log_debug("Reading {}", swc_fn);
         std::ifstream in(swc_fn.c_str());
-        auto swc = arb::parse_swc_file(in);
-        tree     = arb::swc_as_segment_tree(swc);
+        tree = arb::swc_as_segment_tree(arb::parse_swc_file(in));
+        add_swc_tags();
+        make_morphology();
+    }
+
+    void add_swc_tags() {
+        add_named_location("soma", arb::reg::tagged(1));
+        add_named_location("axon", arb::reg::tagged(2));
+        add_named_location("dend", arb::reg::tagged(3));
+        add_named_location("apic", arb::reg::tagged(4));
+    }
+
+    void make_morphology() {
         morph    = arb::morphology{tree};
         pwlin    = arb::place_pwlin{morph};
         provider = arb::mprovider{morph, labels};
-
-        add_region("soma", arb::reg::tagged(1));
-        add_region("axon", arb::reg::tagged(2));
-        add_region("dend", arb::reg::tagged(3));
-        add_region("apic", arb::reg::tagged(4));
     }
 
     auto load_allen_fit(const std::string& dyn) {
@@ -182,11 +188,17 @@ struct parameters {
         }
     }
 
-    void add_region(const std::string& name, const arb::region& ls) {
-        if (regions.find(name) != regions.end()) log_error("Duplicate region name");
+    void add_named_location(const std::string& name, const arb::region& ls) {
+        if (labels.region(name)) log_error("Duplicate region name");
         labels.set(name, ls);
         regions[name].location = ls;
     }
+
+    void add_named_location(const std::string& name, const arb::locset& ls) {
+        if (labels.locset(name)) log_error("Duplicate locset name");
+        labels.set(name, ls);
+    }
+
 
     void set_mech(const std::string& region, const std::string& mech, const std::string& key, double value) {
         if (regions.find(region) == regions.end()) log_error("Unknown region");

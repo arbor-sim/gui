@@ -2,6 +2,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+constexpr float PI = 3.141f;
+
 // #define OGL_DEBUG
 
 auto randf() { return (float)rand()/(float)RAND_MAX; }
@@ -58,6 +60,9 @@ struct geometry {
     int width = -1;
     int height = -1;
 
+    // Background
+    ImVec4 clear_color{214.0f/255, 214.0f/255, 214.0f/255, 1.00f};
+
     // Model transformations
     glm::vec3 translation = {0.0f, 0.0f, 0.0f};
     glm::vec3 rotation    = {0.0f, 0.0f, 0.0f};
@@ -70,9 +75,7 @@ struct geometry {
     glm::vec3 target = {0.0f, 0.0f, 0.0f};
 
 
-    geometry(parameters& p) {
-        load_geometry(p);
-        make_vao();
+    geometry() {
         make_program();
     }
 
@@ -152,6 +155,7 @@ struct geometry {
     }
 
     void render(float zoom, float phi, float width, float height) {
+        if (triangles.size() == 0) return;
         gl_check_error("render init");
         glUseProgram(program);
         // Set up model matrix and transfer to shader
@@ -205,7 +209,7 @@ struct geometry {
             }
 
             // Generate cylinder from n_faces triangles
-            const auto dphi = 2.0f*3.141f/n_faces;
+            const auto dphi = 2.0f*PI/n_faces;
             const auto rot  = glm::mat3(glm::rotate(glm::mat4(1.0f), dphi, c_dif));
             for (auto rx = 0ul; rx <= n_faces; ++rx) {
                 auto v00 = static_cast<float>(prox.radius)*normal + c_prox;
@@ -240,6 +244,7 @@ struct geometry {
             tri.z /= scale;
         }
         log_debug("Geometry re-scaled by 1/{}", scale);
+        make_vao();
         log_info("Making geometry: completed");
     }
 
