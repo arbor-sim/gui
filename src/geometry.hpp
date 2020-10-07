@@ -26,6 +26,8 @@ struct renderable {
     glm::vec4 color;
 };
 
+auto make_lut(std::vector<glm::vec4> colors);
+
 struct geometry {
     std::vector<point> triangles = {};
     std::unordered_map<size_t, size_t> id_to_index = {};
