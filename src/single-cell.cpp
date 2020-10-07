@@ -116,7 +116,7 @@ struct single_cell_recipe: arb::recipe {
         return {}; // No gap junctions on a single cell model.
     }
 
-    virtual arb::util::any get_global_properties(arb::cell_kind) const override {
+    virtual std::any get_global_properties(arb::cell_kind) const override {
         return gprop_;
     }
 };

@@ -1,8 +1,8 @@
 namespace arb {
     void to_json(json& j, const cable_cell_ion_data& d) {
-        j = {{"int_concentration",         d.init_int_concentration},
-             {"ext_concentration",         d.init_ext_concentration},
-             {"reversal_potential",        d.init_reversal_potential}};
+        j = {{"int_concentration",  d.init_int_concentration.value_or(NAN)},
+             {"ext_concentration",  d.init_ext_concentration.value_or(NAN)},
+             {"reversal_potential", d.init_reversal_potential.value_or(NAN)}};
     }
 
     void to_json(json& j, const mechanism_desc& d) {
@@ -26,6 +26,45 @@ namespace arb {
         return ss.str();
     }
 }
+
+struct morphology {
+    arb::segment_tree tree;
+    arb::label_dict   label;
+    arb::morphology   morph;
+    arb::place_pwlin  pwlin;
+
+    morphology(): tree{}, label{}, morph{}, pwlin{morph} {};
+    morphology(const arb::segment_tree& t): tree{t}, label{}, morph{t}, pwlin{morph} {}
+
+    std::optional<renderable> make_renderable(geometry& renderer, reg_def& def) {
+        if (!def.data) return {};
+        log_info("Making frustrams for region {} '{}'", def.name, def.definition);
+        auto provider = arb::mprovider{morph, label};
+        auto region   = def.data.value();
+        auto concrete = thingify(region, provider);
+        auto segments = pwlin.all_segments(concrete);
+        return {renderer.derive_renderable(segments, {0.0f, 0.0f, 0.0f, 1.0f})};
+    }
+
+    std::optional<renderable> make_renderable(geometry& renderer, ls_def& def) {
+        if (!def.data) return {};
+        log_info("Making markers for locset {} '{}'", def.name, def.definition);
+        auto locset   = def.data.value();
+        auto provider = arb::mprovider{morph, label};
+        auto concrete = thingify(locset, provider);
+        std::vector<point> points;
+        for (const auto& loc: concrete) {
+            for (const auto p: pwlin.all_at(loc)) {
+                points.push_back({(float) p.x, (float) p.y, (float) p.z, 0.0f});
+            }
+        }
+        return {renderer.make_markers(points, {0.0f, 0.0f, 0.0f, 1.0f})};
+    }
+
+    auto make_cell() {
+        return arb::cable_cell(morph, label);
+    }
+};
 
 struct region {
     std::unordered_map<std::string, arb::mechanism_desc> mechanisms;
@@ -84,8 +123,8 @@ void to_json(json& j, const stimulus& c) {
 struct simulation {
     double t_stop  = 1400;
     double dt = 1.0/200.0;
-    std::vector<stimulus> stimuli = {{"center", 200, 1000, 0.15}};
-    std::vector<probe> probes = {{"center", 1000.0, "voltage"}};
+    std::vector<stimulus> stimuli = {{"\"center\"", 200, 1000, 0.15}};
+    std::vector<probe> probes = {{"\"center\"", 1000.0, "voltage"}};
 };
 
 void to_json(json& j, const simulation& s) {
@@ -99,38 +138,57 @@ struct parameters {
     arb::cable_cell_parameter_set values;
     std::unordered_map<std::string, region> regions;
 
-    arb::segment_tree tree;
-    arb::label_dict   labels;
-    arb::morphology   morph;
-    arb::place_pwlin  pwlin;
-    arb::mprovider    provider;
+    std::vector<renderable> to_render = {};
+    std::vector<renderable> billboard = {};
+
+    std::vector<reg_def> region_defs = {};
+    std::vector<ls_def>  locset_defs = {};
+
+    morphology morph;
     simulation sim;
 
+    std::filesystem::path cwd = std::filesystem::current_path();
+
+    parameters(const parameters&) = delete;
+
+
     parameters():
-        values{arb::neuron_parameter_defaults}, labels{}, morph{}, pwlin{morph}, provider{morph, labels} {
-        // This is for placing debug things
-        add_named_location("center", arb::ls::location(0, 0.5));
-    }
+        values{arb::neuron_parameter_defaults}, morph{} {}
 
     void load_allen_swc(const std::string& swc_fn) {
         log_debug("Reading {}", swc_fn);
         std::ifstream in(swc_fn.c_str());
-        tree = arb::swc_as_segment_tree(arb::parse_swc_file(in));
+        auto tree = arb::as_segment_tree(arb::parse_swc(in, arb::swc_mode::relaxed));
+        morph = morphology(tree);
         add_swc_tags();
-        make_morphology();
     }
 
     void add_swc_tags() {
-        add_named_location("soma", arb::reg::tagged(1));
-        add_named_location("axon", arb::reg::tagged(2));
-        add_named_location("dend", arb::reg::tagged(3));
-        add_named_location("apic", arb::reg::tagged(4));
+        add_region("soma", "(tag 1)");
+        add_region("axon", "(tag 2)");
+        add_region("dend", "(tag 3)");
+        add_region("apic", "(tag 4)");
+        add_locset("center", "(location 0 0)");
     }
 
-    void make_morphology() {
-        morph    = arb::morphology{tree};
-        pwlin    = arb::place_pwlin{morph};
-        provider = arb::mprovider{morph, labels};
+    void add_region(std::string_view l, std::string_view d) {
+        region_defs.emplace_back(l, d);
+        to_render.emplace_back();
+    }
+
+    void add_region() {
+        region_defs.emplace_back();
+        to_render.emplace_back();
+    }
+
+    void add_locset(std::string_view l, std::string_view d) {
+        locset_defs.emplace_back(l, d);
+        billboard.emplace_back();
+    }
+
+    void add_locset() {
+        locset_defs.emplace_back();
+        billboard.emplace_back();
     }
 
     auto load_allen_fit(const std::string& dyn) {
@@ -187,18 +245,6 @@ struct parameters {
             set_mech(region, mech, name, value);
         }
     }
-
-    void add_named_location(const std::string& name, const arb::region& ls) {
-        if (labels.region(name)) log_error("Duplicate region name");
-        labels.set(name, ls);
-        regions[name].location = ls;
-    }
-
-    void add_named_location(const std::string& name, const arb::locset& ls) {
-        if (labels.locset(name)) log_error("Duplicate locset name");
-        labels.set(name, ls);
-    }
-
 
     void set_mech(const std::string& region, const std::string& mech, const std::string& key, double value) {
         if (regions.find(region) == regions.end()) log_error("Unknown region");
@@ -286,7 +332,7 @@ void to_json(json& j, const parameters& p) {
 
 auto make_simulation(parameters& p) {
     log_info("Deriving simulation");
-    auto cell = arb::cable_cell(p.morph, p.labels);
+    auto cell   = p.morph.make_cell();
 
     // This takes care of
     //  * Baseline parameters: cm, Vm, Ra, T
@@ -305,7 +351,9 @@ auto make_simulation(parameters& p) {
         auto T  = region_data.values.temperature_K.value_or(p.values.temperature_K.value());
         cell.paint(region, arb::temperature_K{T});
         for (const auto& [ion, data]: region_data.values.ion_data) {
-            cell.paint(region, {ion, data});
+            if (data.init_int_concentration) cell.paint(region, arb::init_int_concentration{ion, data.init_int_concentration.value()});
+            if (data.init_ext_concentration) cell.paint(region, arb::init_ext_concentration{ion, data.init_ext_concentration.value()});
+            if (data.init_reversal_potential) cell.paint(region, arb::init_reversal_potential{ion, data.init_reversal_potential.value()});
         }
         for (const auto& [mech, data]: region_data.mechanisms) {
             cell.paint(arb::reg::named(region), mech);

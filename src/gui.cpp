@@ -130,15 +130,62 @@ void gui_simulation(parameters& param) {
 
 void gui_menu_bar(parameters& p, geometry& g) {
     ImGui::BeginMenuBar();
+    static auto open_file = false;
     if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("Open SWC+Fit")) {
-            parameters q;
-            q.load_allen_swc("data/full.swc");
-            q.load_allen_fit("data/full-dyn.json");
-            p = q;
-            g.load_geometry(p);
+        if (ImGui::MenuItem("Read morphology")) {
+            open_file = true;
         }
         ImGui::EndMenu();
+    }
+
+    if (open_file) {
+        ImGui::PushID("open_file");
+        ImGui::OpenPopup("Open");
+        std::vector<const char*> filters{"all", ".swc", ".asc"};
+        if (ImGui::BeginPopupModal("Open")) {
+            static int current_filter = 0;
+            static std::filesystem::path current_file = "";
+            auto new_cwd = p.cwd;
+            ImGui::LabelText("CWD", p.cwd.c_str(), "%s");
+            ImGui::Separator();
+            for (const auto& it: std::filesystem::directory_iterator(p.cwd)) {
+                if (it.is_directory()) {
+                    static bool selected = false;
+                    const auto& path = it.path();
+                    ImGui::Selectable(path.filename().c_str(), selected);
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+                        new_cwd = path;
+                        selected = !selected;
+                    }
+                }
+            }
+            for (const auto& it: std::filesystem::directory_iterator(p.cwd)) {
+                if (it.is_regular_file()) { // TODO add symlink, hardlink
+                    const auto& path = it.path();
+                    bool selected = (path == current_file);
+                    if (!current_filter || (path.extension() == filters[current_filter])) {
+                        if (ImGui::Selectable(path.filename().c_str(), selected)) {
+                            current_file = path;
+                        }
+                    }
+                }
+            }
+            ImGui::Combo("Filter", &current_filter, filters.data(), filters.size());
+            if (ImGui::Button("Open")) {
+                if (current_file.extension() == ".swc") {
+                    p.load_allen_swc(current_file);
+                    g.load_geometry(p.morph.tree);
+                }
+                open_file = false;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) {
+                open_file = false;
+            }
+            p.cwd = new_cwd;
+            ImGui::EndPopup();
+        }
+        ImGui::PopID();
     }
     ImGui::EndMenuBar();
 }
@@ -188,7 +235,7 @@ void gui_main(parameters& p, geometry& g) {
     ImGui::End();
 }
 
-void gui_cell(geometry& g) {
+void gui_cell(parameters& p, geometry& g) {
     ImGui::Begin("Cell");
     ImGui::BeginChild("Cell Render");
     // re-build fbo, if needed
@@ -203,25 +250,11 @@ void gui_cell(geometry& g) {
     glClearColor(g.clear_color.x, g.clear_color.y, g.clear_color.z, g.clear_color.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
-    g.render(zoom, phi, w, h);
+    g.render(zoom, phi, w, h, p.to_render, p.billboard);
     // draw
     ImGui::Image((ImTextureID) g.tex, size, ImVec2(0, 1), ImVec2(1, 0));
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     ImGui::EndChild();
-    ImGui::End();
-}
-
-void gui_render(parameters& p, geometry& g) {
-    ImGui::Begin("Colour");
-    if (ImGui::Button("By region")) g.set_colour_by_tag();
-    for (auto tag = 0; tag < 5; ++tag) {
-        if (ImGui::Button(fmt::format("Highlight tag={}", tag).c_str())) {
-            auto region   = arb::reg::tagged(tag);
-            auto concrete = thingify(region, p.provider);
-            auto segments = p.pwlin.all_segments(concrete);
-            g.set_colour_by_region(segments);
-        }
-    }
     ImGui::End();
 }
 
@@ -254,87 +287,134 @@ void gui_values(arb::cable_cell_parameter_set& p, arb::cable_cell_parameter_set&
 
 void gui_ion(arb::cable_cell_ion_data& ion, arb::cable_cell_ion_data& defaults) {
     {
-        auto tmp = ion.init_int_concentration;
-        if (std::isnan(tmp)) tmp = defaults.init_int_concentration;
+        auto tmp = ion.init_int_concentration.value_or(defaults.init_int_concentration.value());
         if (ImGui::InputDouble("init_int_concentration", &tmp)) {
             ion.init_int_concentration = tmp;
         }
     }
     {
-        auto tmp = ion.init_ext_concentration;
-        if (std::isnan(tmp)) tmp = defaults.init_ext_concentration;
+        auto tmp = ion.init_ext_concentration.value_or(defaults.init_ext_concentration.value());
         if (ImGui::InputDouble("init_ext_concentration", &tmp)) {
             ion.init_ext_concentration = tmp;
         }
     }
     {
-        auto tmp = ion.init_reversal_potential;
-        if (std::isnan(tmp)) tmp = defaults.init_reversal_potential;
+        auto tmp = ion.init_reversal_potential.value_or(defaults.init_reversal_potential.value());
         if (ImGui::InputDouble("init_reversal_potential", &tmp)) {
             ion.init_reversal_potential = tmp;
         }
     }
 }
 
-void gui_locations(parameters& p) {
+void gui_locations(parameters& p, geometry& g) {
     ImGui::Begin("Locations");
-    static std::string lbl(128, 0);
-    static std::string def(512, 0);
-    // Regions
     {
         ImGui::PushID("region");
         ImGui::AlignTextToFramePadding();
         auto open = ImGui::TreeNodeEx("Regions", ImGuiTreeNodeFlags_AllowItemOverlap);
         ImGui::SameLine();
-        if (ImGui::SmallButton("+")) {
-            ImGui::OpenPopup("Define region");
-        }
-        if (ImGui::BeginPopupModal("Define region")) {
-            ImGui::InputText("Name",       lbl.data(), lbl.size());
-            ImGui::InputText("Definition", def.data(), def.size());
-            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
-            if (ImGui::Button("Ok")) {
-                p.add_named_location(lbl, arb::reg::tagged(1)); // TODO Fix me, Ben
-                log_debug("Defining region {}: {}", lbl, def);
-                std::fill(def.begin(), def.end(), '\0');
-                std::fill(lbl.begin(), lbl.end(), '\0');
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
+        if (ImGui::SmallButton("+")) p.add_region();
+        if (p.region_defs.size() != p.to_render.size()) log_fatal("Invariant!");
         if (open) {
-            for (const auto& [name, loc]: p.labels.regions()) {
-                ImGui::BulletText("%s: %s", name.c_str(), to_string(loc).c_str());
+            std::vector<int> to_delete{};
+            for (auto idx = 0; idx < p.region_defs.size(); ++idx) {
+                auto& region = p.region_defs[idx];
+                auto& render = p.to_render[idx];
+                ImGui::PushID(fmt::format("{}", idx).c_str());
+                ImGui::Bullet();
+                ImGui::SameLine();
+                if (ImGui::Button("X")) {
+                    to_delete.push_back(idx);
+                }
+                ImGui::SameLine();
+                ImGui::Checkbox("Visible", &p.to_render[idx].active);
+                ImGui::Indent();
+                ImGui::InputText("Name", region.name.data(), region.name.size());
+                if (ImGui::ColorEdit4("Color", &render.color.x)) {
+                    // render.tex = make_lut({render.color});
+                }
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, to_imvec(region.bg_color));
+                if (ImGui::InputText("Definition", region.definition.data(), region.definition.size())) {
+                    region.update();
+                    auto maybe_render = p.morph.make_renderable(g, region);
+                    if (maybe_render) {
+                        render = maybe_render.value();
+                    } else {
+                        render.triangles.clear();
+                        render.active = false;
+                    }
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+                    ImGui::TextUnformatted(region.message.c_str());
+                    ImGui::PopTextWrapPos();
+                    ImGui::EndTooltip();
+                }
+                ImGui::PopStyleColor();
+                ImGui::Unindent();
+                ImGui::PopID();
+            }
+            std::sort(to_delete.begin(), to_delete.end(), std::greater<int>());
+            for (auto i: to_delete) {
+                p.region_defs.erase(p.region_defs.begin() + i);
+                p.to_render.erase(p.to_render.begin() + i);
             }
             ImGui::TreePop();
         }
         ImGui::PopID();
     }
     {
-        // Locsets
         ImGui::PushID("locset");
         ImGui::AlignTextToFramePadding();
-        auto open = ImGui::TreeNodeEx("Locsets", ImGuiTreeNodeFlags_AllowItemOverlap);
+        auto open = ImGui::TreeNodeEx("Locset", ImGuiTreeNodeFlags_AllowItemOverlap);
         ImGui::SameLine();
-        if (ImGui::SmallButton("+")) {
-            ImGui::OpenPopup("Define locset");
-        }
-        if (ImGui::BeginPopupModal("Define locset")) {
-            ImGui::InputText("Name",       lbl.data(), lbl.size());
-            ImGui::InputText("Definition", def.data(), def.size());
-            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
-            if (ImGui::Button("Ok")) {
-                p.add_named_location(lbl, arb::ls::location(0, 0.5)); // TODO Fix me, Ben
-                log_debug("Defining locset {}: {}", lbl, def);
-                std::fill(def.begin(), def.end(), '\0');
-                std::fill(lbl.begin(), lbl.end(), '\0');
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
+        if (ImGui::SmallButton("+")) p.add_locset();
+        if (p.locset_defs.size() != p.billboard.size()) log_fatal("Invariant!");
         if (open) {
-            for (const auto& [name, loc]: p.labels.locsets()) {
-                ImGui::BulletText("%s: %s", name.c_str(), to_string(loc).c_str());
+            std::vector<int> to_delete{};
+            for (auto idx = 0; idx < p.locset_defs.size(); ++idx) {
+                auto& locset = p.locset_defs[idx];
+                auto& render = p.billboard[idx];
+                ImGui::PushID(fmt::format("{}", idx).c_str());
+                ImGui::Bullet();
+                ImGui::SameLine();
+                if (ImGui::Button("X")) {
+                    to_delete.push_back(idx);
+                }
+                ImGui::SameLine();
+                ImGui::Checkbox("Visible", &p.billboard[idx].active);
+                ImGui::Indent();
+                ImGui::InputText("Name", locset.name.data(), locset.name.size());
+                if (ImGui::ColorEdit4("Color", &render.color.x)) {
+                    render.tex = make_lut({render.color});
+                }
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, to_imvec(locset.bg_color));
+                if (ImGui::InputText("Definition", locset.definition.data(), locset.definition.size())) {
+                    locset.update();
+                    auto maybe_render = p.morph.make_renderable(g, locset);
+                    if (maybe_render) {
+                        render = maybe_render.value();
+                    } else {
+                        render.triangles.clear();
+                        render.active = false;
+                    }
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+                    ImGui::TextUnformatted(locset.message.c_str());
+                    ImGui::PopTextWrapPos();
+                    ImGui::EndTooltip();
+                }
+                ImGui::PopStyleColor();
+                ImGui::Unindent();
+                ImGui::PopID();
+            }
+            std::sort(to_delete.begin(), to_delete.end(), std::greater<int>());
+            for (auto i: to_delete) {
+                p.locset_defs.erase(p.locset_defs.begin() + i);
+                p.billboard.erase(p.billboard.begin() + i);
             }
             ImGui::TreePop();
         }
@@ -435,4 +515,12 @@ void gui_parameters(parameters& p) {
     }
     ImGui::Separator();
     ImGui::End();
+}
+
+auto gui(parameters& p, geometry& g) {
+        gui_main(p, g);
+        gui_parameters(p);
+        gui_locations(p, g);
+        gui_simulation(p);
+        gui_cell(p, g);
 }

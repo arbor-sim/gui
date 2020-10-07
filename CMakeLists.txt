@@ -35,13 +35,23 @@ elseif (CMAKE_SYSTEM MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "BSD")
   endif()
 endif()
 
-add_executable(arbor-gui main.cpp 3rd-party/imgui/examples/libs/gl3w/GL/gl3w.c 3rd-party/imgui/examples/imgui_impl_opengl3.cpp 3rd-party/imgui/examples/imgui_impl_glfw.cpp 3rd-party/imgui/imgui.cpp 3rd-party/imgui/imgui_draw.cpp 3rd-party/imgui/imgui_widgets.cpp 3rd-party/imgui/imgui_demo.cpp)
+add_executable(arbor-gui main.cpp
+  src/utils.hpp src/utils.cpp
+  src/geometry.hpp src/geometry.cpp
+  src/location.hpp src/location.cpp
+  3rd-party/imgui/examples/libs/gl3w/GL/gl3w.c
+  3rd-party/imgui/examples/imgui_impl_opengl3.cpp
+  3rd-party/imgui/examples/imgui_impl_glfw.cpp
+  3rd-party/imgui/imgui.cpp 3rd-party/imgui/imgui_draw.cpp
+  3rd-party/imgui/imgui_widgets.cpp
+  3rd-party/imgui/imgui_demo.cpp)
 target_include_directories(arbor-gui PRIVATE 3rd-party/fmt/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/spdlog/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/json/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
+target_include_directories(arbor-gui PRIVATE 3rd-party/filebrowser)
 add_definitions(-DIMGUI_IMPL_OPENGL_LOADER_GL3W)
 target_include_directories(arbor-gui PRIVATE src)
 target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS})
