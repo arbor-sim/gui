@@ -3,7 +3,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-// #define OGL_DEBUG
+//#define OGL_DEBUG
 auto randf() { return (float)rand()/(float)RAND_MAX; }
 
 void gl_check_error(const std::string& where) {
@@ -15,6 +15,55 @@ void gl_check_error(const std::string& where) {
         log_debug("OpenGL OK @ {}", where);
     }
 #endif
+}
+
+void set_uniform(unsigned program, const std::string& name, const glm::vec3& data) {
+    auto loc = glGetUniformLocation(program, name.c_str());
+    glUniform3fv(loc, 1, glm::value_ptr(data));
+    gl_check_error(fmt::format("setting uniform vec3: {}", name));
+}
+
+void set_uniform(unsigned program, const std::string& name, const glm::vec4& data) {
+    auto loc = glGetUniformLocation(program, name.c_str());
+    glUniform4fv(loc, 1, glm::value_ptr(data));
+    gl_check_error(fmt::format("setting uniform vec3: {}", name));
+}
+
+void set_uniform(unsigned program, const std::string& name, const glm::mat4& data) {
+    auto loc = glGetUniformLocation(program, name.c_str());
+    glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(data));
+    gl_check_error(fmt::format("setting uniform mat4: {}", name));
+}
+
+void render(unsigned program,
+            glm::mat4 model,
+            glm::mat4 view,
+            glm::mat4 proj,
+            glm::vec3 camera,
+            glm::vec3 light,
+            glm::vec3 light_color,
+            std::vector<renderable> render) {
+    gl_check_error("render init");
+    glUseProgram(program);
+    set_uniform(program, "model", model);
+    set_uniform(program, "view", view);
+    set_uniform(program, "proj", proj);
+    set_uniform(program, "camera", camera);
+    set_uniform(program, "light", light);
+    set_uniform(program, "light_color", light_color);
+    // Render
+    for (const auto& [count, instances, vao, active, color]: render) {
+        if (active) {
+            // Set object color
+            set_uniform(program, "object_color", color);
+            // now render geometry
+            glBindVertexArray(vao);
+            glDrawArraysInstanced(GL_TRIANGLES, 0, count, instances);
+            glBindVertexArray(0);
+        }
+    }
+    glUseProgram(0);
+    gl_check_error("render end");
 }
 
 auto make_shader(const std::string& fn, unsigned shader_type) {
@@ -38,7 +87,7 @@ auto make_shader(const std::string& fn, unsigned shader_type) {
     return shader;
 }
 
-auto make_vao(const std::vector<point>& tris) {
+auto make_vao_instanced(const std::vector<point>& tris, const std::vector<glm::vec3> offset) {
     log_info("Setting up VAO");
     unsigned vao = 0;
     glGenVertexArrays(1, &vao);
@@ -47,24 +96,41 @@ auto make_vao(const std::vector<point>& tris) {
     unsigned int VBO;
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
     glBufferData(GL_ARRAY_BUFFER, tris.size()*sizeof(point), tris.data(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) nullptr);
-    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, tag)));
-    glEnableVertexAttribArray(1);
-
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, position)));
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, normal)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, tag)));
+    glEnableVertexAttribArray(2);
+    
+    unsigned int instanceVBO;
+    glGenBuffers(1, &instanceVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(point)*offset.size(), offset.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(point), nullptr);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glVertexAttribDivisor(2, 1);
+    glEnableVertexAttribArray(3);
+
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     log_info("Setting up VAO: complete");
     return vao;
 }
 
-auto make_program() {
+auto make_vao(const std::vector<point>& tris) {
+    return make_vao_instanced(tris, {{0.0f, 0.0f, 0.0f}});
+}
+
+auto make_program(const std::string& dn) {
     log_info("Setting up shader program");
-    auto vertex_shader   = make_shader("glsl/vertex.glsl",   GL_VERTEX_SHADER);
-    auto fragment_shader = make_shader("glsl/fragment.glsl", GL_FRAGMENT_SHADER);
+    auto vertex_shader   = make_shader(fmt::format("glsl/{}/vertex.glsl", dn), GL_VERTEX_SHADER);
+    auto fragment_shader = make_shader(fmt::format("glsl/{}/fragment.glsl", dn), GL_FRAGMENT_SHADER);
 
     unsigned program = glCreateProgram();
     glAttachShader(program, vertex_shader);
@@ -82,7 +148,7 @@ auto make_program() {
     return program;
 }
 
-auto make_lut(std::vector<glm::vec4> colors) {
+unsigned make_lut(std::vector<glm::vec4> colors) {
     // make and bind texture
     unsigned lut = 0;
     glGenTextures(1, &lut);
@@ -98,7 +164,9 @@ auto make_lut(std::vector<glm::vec4> colors) {
     return lut;
 }
 
-geometry::geometry(): program{make_program()} { }
+geometry::geometry():
+    region_program{make_program("region")},
+    marker_program{make_program("marker")} {}
 
 void geometry::maybe_make_fbo(int w, int h) {
     gl_check_error("make fbo init");
@@ -134,138 +202,68 @@ void geometry::maybe_make_fbo(int w, int h) {
     gl_check_error("end fbo init");
 }
 
-void geometry::render(float zoom, float phi, float width, float height, std::vector<renderable> to_render, std::vector<renderable> billboard) {
-    if (triangles.size() == 0) return;
-    gl_check_error("render init");
-    glUseProgram(program);
-    {
-        // Set up model matrix and transfer to shader
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, translation);
-        model = glm::rotate(model, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::rotate(model, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-        model = glm::scale(model, scale);
-        int model_loc = glGetUniformLocation(program, "model");
-        gl_check_error("render get model loc");
+void geometry::render(float zoom, float phi, float width, float height, std::vector<renderable> regions, std::vector<renderable> markers) {
+    // Set up transformations
+    // * model
+    // ** regions
+    glm::mat4 model_region = glm::mat4(1.0f);
+    // * view
+    float distance   = 1.75f;
+    auto camera      = distance*glm::vec3{std::sin(phi), 0.0f, std::cos(phi)};
+    glm::vec3 up     = {0.0f, 1.0f, 0.0f};
+    glm::vec3 target = {0.0f, 0.0f, 0.0f};
+    glm::mat4 view = glm::lookAt(camera, target, up);
+    // * projection
+    glm::mat4 proj = glm::perspective(glm::radians(zoom), width/height, 0.1f, 100.0f);
 
-        // Set up camera and push
-        camera = distance*glm::vec3{std::sin(phi), 0.0f, std::cos(phi)};
-        glm::mat4 view = glm::lookAt(camera, target, up);
-        int view_loc = glGetUniformLocation(program, "view");
-        glUniformMatrix4fv(view_loc, 1, GL_FALSE, glm::value_ptr(view));
-        gl_check_error("render set view");
+    glm::mat4 model_marker = glm::mat4(1.0f);
+    model_marker = glm::rotate(model_marker, phi, glm::vec3(0.0f, 1.0f, 0.0f));
 
-        // Set up projection and push
-        glm::mat4 proj = glm::perspective(glm::radians(zoom), width/height, 0.1f, 100.0f);
-        int proj_loc = glGetUniformLocation(program, "proj");
-        glUniformMatrix4fv(proj_loc, 1, GL_FALSE, glm::value_ptr(proj));
-        gl_check_error("render set projection");
+    auto light = camera;
+    auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
 
-        // Render
-        log_debug("Rendering {} regions.", to_render.size());
-        for (const auto& [tris, vao, tex, active, color]: to_render) {
-            if (active) {
-                glUniformMatrix4fv(model_loc, 1, GL_FALSE, glm::value_ptr(model));
-                // Push our LUT texture to the GPU
-                GLuint tex_loc = glGetUniformLocation(program, "lut");
-                glUniform1i(tex_loc, 0);
-                glActiveTexture(GL_TEXTURE0 + 0);
-                glBindTexture(GL_TEXTURE_1D, tex);
-                // now render geometry
-                glBindVertexArray(vao);
-                glDrawArrays(GL_TRIANGLES, 0, tris.size());
-                glBindVertexArray(0);
-            }
-        }
-    }
-    {
-        // glDisable(GL_DEPTH_TEST);
-        // Set up model matrix and transfer to shader
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, phi, glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::translate(model, translation);
-        model = glm::rotate(model, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::rotate(model, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-        model = glm::scale(model, scale);
-        int model_loc = glGetUniformLocation(program, "model");
-        gl_check_error("render get model loc");
-
-        // Set up camera and push
-        camera = distance*glm::vec3{std::sin(phi), 0.0f, std::cos(phi)};
-        glm::mat4 view = glm::lookAt(camera, target, up);
-        int view_loc = glGetUniformLocation(program, "view");
-        glUniformMatrix4fv(view_loc, 1, GL_FALSE, glm::value_ptr(view));
-        gl_check_error("render set view");
-
-        // Set up projection and push
-        glm::mat4 proj = glm::perspective(glm::radians(zoom), width/height, 0.1f, 100.0f);
-        int proj_loc = glGetUniformLocation(program, "proj");
-        glUniformMatrix4fv(proj_loc, 1, GL_FALSE, glm::value_ptr(proj));
-        gl_check_error("render set projection");
-
-        // log_debug("Rendering {} billboards", billboard.size());
-        for (const auto& [tris, vao, tex, active, color]: billboard) {
-            if (active) {
-                glUniformMatrix4fv(model_loc, 1, GL_FALSE, glm::value_ptr(model));
-                // Push our LUT texture to the GPU
-                GLuint tex_loc = glGetUniformLocation(program, "lut");
-                glUniform1i(tex_loc, 0);
-                glActiveTexture(GL_TEXTURE0 + 0);
-                glBindTexture(GL_TEXTURE_1D, tex);
-                // now render geometry
-                glBindVertexArray(vao);
-                glDrawArrays(GL_TRIANGLES, 0, tris.size());
-                glBindVertexArray(0);
-            }
-        }
-        glUseProgram(0);
-        gl_check_error("render end");
-    }
+    ::render(region_program, model_region, view, proj, camera, light, light_color, regions);
+    ::render(marker_program, model_marker, view, proj, camera, light, light_color, markers);
 }
 
-renderable geometry::make_markers(const std::vector<point>& points, glm::vec4 color) {
-    std::vector<point> tris;
+renderable geometry::make_marker(const std::vector<glm::vec3>& points, glm::vec4 color) {
+    std::vector<glm::vec3> off;
     for (const auto& marker: points) {
-        auto p = point{(marker.x - root.x)/rescale,
-        (marker.y - root.y)/rescale,
-        (marker.z - root.z)/rescale,
-        0.0f};
-        auto dx = 1.0f/40.0f;
-        auto dy = dx/2.0f;
-        // tris.push_back({0, 0, 0, 0}); tris.push_back({dx, 0, 0, 0}); tris.push_back({dx, dx, 0, 0});
-        // tris.push_back({0, 0, 0, 0}); tris.push_back({dx, 0, 0, 0}); tris.push_back({dx, 0, dx, 0});
-        tris.push_back({p.x, p.y, p.z, 0}); tris.push_back({p.x + dy, p.y + dx, p.z, 0}); tris.push_back({p.x + dx, p.y + dy, 0, 0});
-        // tris.push_back({0, 0, 0, 0}); tris.push_back({0, dx, 0, 0}); tris.push_back({0, dx, dx, 0});
-        // tris.push_back({0, 0, 0, 0}); tris.push_back({0, 0, dx, 0}); tris.push_back({dx, 0, dx, 0});
-        // tris.push_back({0, 0, 0, 0}); tris.push_back({0, 0, dx, 0}); tris.push_back({0, dx, dx, 0});
+        off.emplace_back((marker.x - root.x)/rescale,
+                         (marker.y - root.y)/rescale,
+                         (marker.z - root.z)/rescale);
     }
-    auto vao = make_vao(tris);
-    auto tex = make_lut({color});
-    return {std::move(tris), vao, tex, true};
+    auto dx = 1.0f/40.0f;
+    auto dy = dx/2.0f;
+    std::vector<point> tris{{{0.0f,      0.0f,      0.0f}, {0.0f, 0.0f, 0.0f}, 0.0f},
+                            {{0.0f + dy, 0.0f + dx, 0.0f}, {0.0f, 0.0f, 0.0f}, 0.0f},
+                            {{0.0f + dx, 0.0f + dy, 0.0f}, {0.0f, 0.0f, 0.0f}, 0.0f}};
+
+    auto vao = make_vao_instanced(tris, off);
+    return {tris.size(), off.size(), vao, true, color};
 }
 
-renderable geometry::derive_renderable(const std::vector<arb::msegment>& segments, glm::vec4 color) {
+renderable geometry::make_region(const std::vector<arb::msegment>& segments, glm::vec4 color) {
     std::vector<point> tris{};
     for (const auto& seg: segments) {
         const auto id  = seg.id;
         const auto idx = id_to_index[id];
         for (auto idy = 6*(n_faces + 1)*idx; idy < 6*(n_faces + 1)*(idx + 1); ++idy) {
-            auto tri = triangles[idy];
-            tri.tag = 0; // NOTE here we could make more colors happen
-            tris.push_back(std::move(tri));
+            tris.push_back(triangles[idy]);
         }
     }
     auto vao = make_vao(tris);
-    auto tex = make_lut({color});
-    return {std::move(tris), vao, tex, true};
+    return {tris.size(), 1, vao, true, color};
 }
 
 void geometry::load_geometry(arb::segment_tree& tree) {
     log_info("Making geometry");
+    if (tree.segments().size() == 0) {
+        log_info("Empty!");
+        return;
+    }
     auto tmp = tree.segments()[0].prox;
-    root = {(float) tmp.x, (float) tmp.y, (float) tmp.z, 0.0f}; // is always the root
+    root = {(float) tmp.x, (float) tmp.y, (float) tmp.z}; // is always the root
     size_t index = 0;
     for (const auto& [id, prox, dist, tag]: tree.segments()) {
         // Shift to root and find vector along the segment
@@ -276,7 +274,7 @@ void geometry::load_geometry(arb::segment_tree& tree) {
         // Make a normal to segment vector
         auto normal = glm::vec3{0.0, 0.0, 0.0};
         for (; normal == glm::vec3{0.0, 0.0, 0.0};) {
-            auto t = glm::vec3{ randf(), randf(), randf()};
+            auto t = glm::vec3{randf(), randf(), randf()};
             normal = glm::normalize(glm::cross(c_dif, t));
         }
 
@@ -290,12 +288,12 @@ void geometry::load_geometry(arb::segment_tree& tree) {
             auto v10 = static_cast<float>(prox.radius)*normal + c_prox;
             auto v11 = static_cast<float>(dist.radius)*normal + c_dist;
 
-            triangles.push_back({v00.x, v00.y, v00.z, 0.0f});
-            triangles.push_back({v01.x, v01.y, v01.z, 0.0f});
-            triangles.push_back({v10.x, v10.y, v10.z, 0.0f});
-            triangles.push_back({v11.x, v11.y, v11.z, 0.0f});
-            triangles.push_back({v01.x, v01.y, v01.z, 0.0f});
-            triangles.push_back({v10.x, v10.y, v10.z, 0.0f});
+            triangles.push_back({v00, normal, 0.0f}); // TODO fix normals
+            triangles.push_back({v01, normal, 0.0f});
+            triangles.push_back({v10, normal, 0.0f});
+            triangles.push_back({v11, normal, 0.0f});
+            triangles.push_back({v01, normal, 0.0f});
+            triangles.push_back({v10, normal, 0.0f});
         }
         id_to_index[id] = index;
         index++;
@@ -304,14 +302,14 @@ void geometry::load_geometry(arb::segment_tree& tree) {
     // Re-scale into [-1, 1]^3 box
     log_debug("Cylinders generated: {} ({} points)", triangles.size()/n_faces/2, triangles.size());
     for (auto& tri: triangles) {
-        rescale = std::max(rescale, std::abs(tri.x));
-        rescale = std::max(rescale, std::abs(tri.y));
-        rescale = std::max(rescale, std::abs(tri.z));
+        rescale = std::max(rescale, std::abs(tri.position.x));
+        rescale = std::max(rescale, std::abs(tri.position.y));
+        rescale = std::max(rescale, std::abs(tri.position.z));
     }
     for(auto& tri: triangles) {
-        tri.x /= rescale;
-        tri.y /= rescale;
-        tri.z /= rescale;
+        tri.position.x /= rescale;
+        tri.position.y /= rescale;
+        tri.position.z /= rescale;
     }
     log_debug("Geometry re-scaled by 1/{}", rescale);
     log_info("Making geometry: completed");

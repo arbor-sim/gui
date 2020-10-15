@@ -38,12 +38,12 @@ struct morphology {
 
     std::optional<renderable> make_renderable(geometry& renderer, reg_def& def) {
         if (!def.data) return {};
-        log_info("Making frustrams for region {} '{}'", def.name, def.definition);
+        log_info("Making frustrums for region {} '{}'", def.name, def.definition);
         auto provider = arb::mprovider{morph, label};
         auto region   = def.data.value();
         auto concrete = thingify(region, provider);
         auto segments = pwlin.all_segments(concrete);
-        return {renderer.derive_renderable(segments, {0.0f, 0.0f, 0.0f, 1.0f})};
+        return {renderer.make_region(segments, {0.0f, 0.0f, 0.0f, 1.0f})};
     }
 
     std::optional<renderable> make_renderable(geometry& renderer, ls_def& def) {
@@ -52,13 +52,13 @@ struct morphology {
         auto locset   = def.data.value();
         auto provider = arb::mprovider{morph, label};
         auto concrete = thingify(locset, provider);
-        std::vector<point> points;
+        std::vector<glm::vec3> points;
         for (const auto& loc: concrete) {
             for (const auto p: pwlin.all_at(loc)) {
-                points.push_back({(float) p.x, (float) p.y, (float) p.z, 0.0f});
+                points.emplace_back((float) p.x, (float) p.y, (float) p.z);
             }
         }
-        return {renderer.make_markers(points, {0.0f, 0.0f, 0.0f, 1.0f})};
+        return {renderer.make_marker(points, {0.0f, 0.0f, 0.0f, 1.0f})};
     }
 
     auto make_cell() {
@@ -138,6 +138,8 @@ struct parameters {
     arb::cable_cell_parameter_set values;
     std::unordered_map<std::string, region> regions;
 
+    geometry renderer;
+
     std::vector<renderable> to_render = {};
     std::vector<renderable> billboard = {};
 
@@ -157,9 +159,12 @@ struct parameters {
 
     void load_allen_swc(const std::string& swc_fn) {
         log_debug("Reading {}", swc_fn);
+        to_render.clear();
+        billboard.clear();
         std::ifstream in(swc_fn.c_str());
         auto tree = arb::as_segment_tree(arb::parse_swc(in, arb::swc_mode::relaxed));
-        morph = morphology(tree);
+        morph = morphology(std::move(tree));
+        renderer.load_geometry(morph.tree);
         add_swc_tags();
     }
 
@@ -173,7 +178,15 @@ struct parameters {
 
     void add_region(std::string_view l, std::string_view d) {
         region_defs.emplace_back(l, d);
+        auto& region = region_defs.back();
         to_render.emplace_back();
+        auto& render = to_render.back();
+        auto maybe_render = morph.make_renderable(renderer, region);
+        if (maybe_render) {
+            render = maybe_render.value();
+        } else {
+            render.active = false;
+        }
     }
 
     void add_region() {
@@ -183,7 +196,15 @@ struct parameters {
 
     void add_locset(std::string_view l, std::string_view d) {
         locset_defs.emplace_back(l, d);
+        auto& locset = locset_defs.back();
         billboard.emplace_back();
+        auto& render = billboard.back();
+        auto maybe_render = morph.make_renderable(renderer, locset);
+        if (maybe_render) {
+            render = maybe_render.value();
+        } else {
+            render.active = false;
+        }
     }
 
     void add_locset() {

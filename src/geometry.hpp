@@ -14,19 +14,20 @@
 #include <utils.hpp>
 
 struct point {
-    float x, y, z;
-    float tag;
+    glm::vec3 position;
+    glm::vec3 normal;
+    float tag;     // texture index
 };
 
 struct renderable {
-    std::vector<point> triangles = {};
-    unsigned vao = 0;
-    unsigned tex = 0;
-    bool active = false;
-    glm::vec4 color;
+    size_t count     = 0;
+    size_t instances = 0;
+    unsigned vao     = 0;
+    bool active      = false;
+    glm::vec4 color  = {0.2f, 0.2f, 0.2f, 1.0f};
 };
 
-auto make_lut(std::vector<glm::vec4> colors);
+unsigned make_lut(std::vector<glm::vec4> colors);
 
 struct geometry {
     std::vector<point> triangles = {};
@@ -34,12 +35,13 @@ struct geometry {
 
     unsigned fbo     = 0;
     unsigned tex     = 0;
-    unsigned program = 0;
+    unsigned region_program = 0;
+    unsigned marker_program = 0;
 
     // Geometry
     size_t n_faces = 8;
     float rescale = -1;
-    point root = {0, 0, 0, 0};
+    glm::vec3 root = {0.0f, 0.0f, 0.0f};
 
     // Viewport
     int width = -1;
@@ -47,24 +49,13 @@ struct geometry {
     // Background
     glm::vec4 clear_color{214.0f/255, 214.0f/255, 214.0f/255, 1.00f};
 
-    // Model transformations
-    glm::vec3 translation = {0.0f, 0.0f, 0.0f};
-    glm::vec3 rotation    = {0.0f, 0.0f, 0.0f};
-    glm::vec3 scale       = {1.0f, 1.0f, 1.0f};
-
-    // Camera
-    float distance   = 1.75f;
-    glm::vec3 camera = {distance, 0.0f, 0.0f};
-    glm::vec3 up     = {0.0f, 1.0f, 0.0f};
-    glm::vec3 target = {0.0f, 0.0f, 0.0f};
-
     geometry();
 
     void maybe_make_fbo(int w, int h);
     void render(float zoom, float phi, float width, float height, std::vector<renderable> to_render, std::vector<renderable> billboard);
-    renderable make_markers(const std::vector<point>& points, glm::vec4 color);
 
-    renderable derive_renderable(const std::vector<arb::msegment>& segments, glm::vec4 color);
+    renderable make_marker(const std::vector<glm::vec3>& points, glm::vec4 color);
+    renderable make_region(const std::vector<arb::msegment>& segments, glm::vec4 color);
 
     void load_geometry(arb::segment_tree& tree);
 };

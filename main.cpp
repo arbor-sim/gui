@@ -41,12 +41,11 @@ int main(int, char**) {
     Window window{};
 
     parameters param{};
-    auto draw = geometry{};
 
     // Main loop
     while (window.running()) {
         window.begin_frame();
-        gui(param, draw);
+        gui(param);
         window.end_frame();
     }
 }

@@ -128,7 +128,7 @@ void gui_simulation(parameters& param) {
     ImGui::End();
 }
 
-void gui_menu_bar(parameters& p, geometry& g) {
+void gui_menu_bar(parameters& p) {
     ImGui::BeginMenuBar();
     static auto open_file = false;
     if (ImGui::BeginMenu("File")) {
@@ -143,11 +143,14 @@ void gui_menu_bar(parameters& p, geometry& g) {
         ImGui::OpenPopup("Open");
         std::vector<const char*> filters{"all", ".swc", ".asc"};
         if (ImGui::BeginPopupModal("Open")) {
-            static int current_filter = 0;
+            static int current_filter = 1;
             static std::filesystem::path current_file = "";
             auto new_cwd = p.cwd;
             ImGui::LabelText("CWD", p.cwd.c_str(), "%s");
-            ImGui::Separator();
+            auto size = ImGui::GetWindowSize();
+            size.x -=   ImGui::GetTextLineHeightWithSpacing();
+            size.y -= 6.5*ImGui::GetTextLineHeightWithSpacing();
+            ImGui::BeginChild("Files", size, true);
             for (const auto& it: std::filesystem::directory_iterator(p.cwd)) {
                 if (it.is_directory()) {
                     static bool selected = false;
@@ -170,11 +173,11 @@ void gui_menu_bar(parameters& p, geometry& g) {
                     }
                 }
             }
+            ImGui::EndChild();
             ImGui::Combo("Filter", &current_filter, filters.data(), filters.size());
             if (ImGui::Button("Open")) {
                 if (current_file.extension() == ".swc") {
                     p.load_allen_swc(current_file);
-                    g.load_geometry(p.morph.tree);
                 }
                 open_file = false;
             }
@@ -190,7 +193,7 @@ void gui_menu_bar(parameters& p, geometry& g) {
     ImGui::EndMenuBar();
 }
 
-void gui_main(parameters& p, geometry& g) {
+void gui_main(parameters& p) {
     static bool opt_fullscreen = true;
     static bool opt_padding = false;
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
@@ -231,11 +234,11 @@ void gui_main(parameters& p, geometry& g) {
         ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
         ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
     }
-    gui_menu_bar(p, g);
+    gui_menu_bar(p);
     ImGui::End();
 }
 
-void gui_cell(parameters& p, geometry& g) {
+void gui_cell(parameters& p) {
     ImGui::Begin("Cell");
     ImGui::BeginChild("Cell Render");
     // re-build fbo, if needed
@@ -243,16 +246,16 @@ void gui_cell(parameters& p, geometry& g) {
     auto w = size.x;
     auto h = size.y;
     // log_info("Cell window {}x{}", w, h);
-    g.maybe_make_fbo(w, h);
+    p.renderer.maybe_make_fbo(w, h);
     // render image to texture
     // glViewport(0, 0, w, h);
-    glBindFramebuffer(GL_FRAMEBUFFER, g.fbo);
-    glClearColor(g.clear_color.x, g.clear_color.y, g.clear_color.z, g.clear_color.w);
+    glBindFramebuffer(GL_FRAMEBUFFER, p.renderer.fbo);
+    glClearColor(p.renderer.clear_color.x, p.renderer.clear_color.y, p.renderer.clear_color.z, p.renderer.clear_color.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
-    g.render(zoom, phi, w, h, p.to_render, p.billboard);
+    p.renderer.render(zoom, phi, w, h, p.to_render, p.billboard);
     // draw
-    ImGui::Image((ImTextureID) g.tex, size, ImVec2(0, 1), ImVec2(1, 0));
+    ImGui::Image((ImTextureID) p.renderer.tex, size, ImVec2(0, 1), ImVec2(1, 0));
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     ImGui::EndChild();
     ImGui::End();
@@ -306,7 +309,7 @@ void gui_ion(arb::cable_cell_ion_data& ion, arb::cable_cell_ion_data& defaults) 
     }
 }
 
-void gui_locations(parameters& p, geometry& g) {
+void gui_locations(parameters& p) {
     ImGui::Begin("Locations");
     {
         ImGui::PushID("region");
@@ -330,17 +333,14 @@ void gui_locations(parameters& p, geometry& g) {
                 ImGui::Checkbox("Visible", &p.to_render[idx].active);
                 ImGui::Indent();
                 ImGui::InputText("Name", region.name.data(), region.name.size());
-                if (ImGui::ColorEdit4("Color", &render.color.x)) {
-                    // render.tex = make_lut({render.color});
-                }
+                ImGui::ColorEdit4("Color", &render.color.x);
                 ImGui::PushStyleColor(ImGuiCol_FrameBg, to_imvec(region.bg_color));
                 if (ImGui::InputText("Definition", region.definition.data(), region.definition.size())) {
                     region.update();
-                    auto maybe_render = p.morph.make_renderable(g, region);
+                    auto maybe_render = p.morph.make_renderable(p.renderer, region);
                     if (maybe_render) {
                         render = maybe_render.value();
                     } else {
-                        render.triangles.clear();
                         render.active = false;
                     }
                 }
@@ -386,17 +386,14 @@ void gui_locations(parameters& p, geometry& g) {
                 ImGui::Checkbox("Visible", &p.billboard[idx].active);
                 ImGui::Indent();
                 ImGui::InputText("Name", locset.name.data(), locset.name.size());
-                if (ImGui::ColorEdit4("Color", &render.color.x)) {
-                    render.tex = make_lut({render.color});
-                }
+                ImGui::ColorEdit4("Color", &render.color.x);
                 ImGui::PushStyleColor(ImGuiCol_FrameBg, to_imvec(locset.bg_color));
                 if (ImGui::InputText("Definition", locset.definition.data(), locset.definition.size())) {
                     locset.update();
-                    auto maybe_render = p.morph.make_renderable(g, locset);
+                    auto maybe_render = p.morph.make_renderable(p.renderer, locset);
                     if (maybe_render) {
                         render = maybe_render.value();
                     } else {
-                        render.triangles.clear();
                         render.active = false;
                     }
                 }
@@ -517,10 +514,10 @@ void gui_parameters(parameters& p) {
     ImGui::End();
 }
 
-auto gui(parameters& p, geometry& g) {
-        gui_main(p, g);
+auto gui(parameters& p) {
+        gui_main(p);
         gui_parameters(p);
-        gui_locations(p, g);
+        gui_locations(p);
         gui_simulation(p);
-        gui_cell(p, g);
+        gui_cell(p);
 }
