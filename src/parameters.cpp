@@ -61,9 +61,7 @@ struct morphology {
         return {renderer.make_marker(points, {0.0f, 0.0f, 0.0f, 1.0f})};
     }
 
-    auto make_cell() {
-        return arb::cable_cell(morph, label);
-    }
+    auto make_cell() { return arb::cable_cell(morph, label); }
 };
 
 struct region {
@@ -140,8 +138,8 @@ struct parameters {
 
     geometry renderer;
 
-    std::vector<renderable> to_render = {};
-    std::vector<renderable> billboard = {};
+    std::vector<renderable> render_regions = {};
+    std::vector<renderable> render_locsets = {};
 
     std::vector<reg_def> region_defs = {};
     std::vector<ls_def>  locset_defs = {};
@@ -159,11 +157,14 @@ struct parameters {
 
     void load_allen_swc(const std::string& swc_fn) {
         log_debug("Reading {}", swc_fn);
-        to_render.clear();
-        billboard.clear();
+        render_regions.clear();
+        render_locsets.clear();
+        locset_defs.clear();
+        region_defs.clear();
         std::ifstream in(swc_fn.c_str());
         auto tree = arb::as_segment_tree(arb::parse_swc(in, arb::swc_mode::relaxed));
         morph = morphology(std::move(tree));
+        renderer = geometry{};
         renderer.load_geometry(morph.tree);
         add_swc_tags();
     }
@@ -178,38 +179,70 @@ struct parameters {
 
     void add_region(std::string_view l, std::string_view d) {
         region_defs.emplace_back(l, d);
-        auto& region = region_defs.back();
-        to_render.emplace_back();
-        auto& render = to_render.back();
-        auto maybe_render = morph.make_renderable(renderer, region);
-        if (maybe_render) {
-            render = maybe_render.value();
-        } else {
-            render.active = false;
-        }
+        render_regions.emplace_back();
+        render_regions.back().color = next_color();
     }
 
     void add_region() {
         region_defs.emplace_back();
-        to_render.emplace_back();
+        render_regions.emplace_back();
+        render_regions.back().color = next_color();
     }
 
     void add_locset(std::string_view l, std::string_view d) {
         locset_defs.emplace_back(l, d);
-        auto& locset = locset_defs.back();
-        billboard.emplace_back();
-        auto& render = billboard.back();
-        auto maybe_render = morph.make_renderable(renderer, locset);
-        if (maybe_render) {
-            render = maybe_render.value();
-        } else {
-            render.active = false;
-        }
+        render_locsets.emplace_back();
+        render_locsets.back().color = next_color();
     }
 
     void add_locset() {
         locset_defs.emplace_back();
-        billboard.emplace_back();
+        render_locsets.emplace_back();
+        render_locsets.back().color = next_color();
+    }
+
+    auto render_cell(float width, float height) {
+        if (region_defs.size() != render_regions.size()) log_fatal("Invariant!");
+        for (auto ix = 0ul; ix < region_defs.size(); ++ix) {
+            auto& def = region_defs[ix];
+            auto& render = render_regions[ix];
+            if (def.state == def_state::changed) {
+                render.active = false;
+                try {
+                    auto maybe_render = morph.make_renderable(renderer, def);
+                    if (maybe_render) {
+                        auto tmp = maybe_render.value();
+                        tmp.color = render.color;
+                        render = tmp;
+                    }
+                    def.state = def_state::clean;
+                } catch (arb::morphology_error& e) {
+                    def.error(e.what());
+                    continue;
+                }
+            }
+        }
+        if (locset_defs.size() != render_locsets.size()) log_fatal("Invariant!");
+        for (auto ix = 0ul; ix < locset_defs.size(); ++ix) {
+            auto& def = locset_defs[ix];
+            auto& render = render_locsets[ix];
+            if (def.state == def_state::changed) {
+                render.active = false;
+                try {
+                    auto maybe_render = morph.make_renderable(renderer, def);
+                    if (maybe_render) {
+                        auto tmp = maybe_render.value();
+                        tmp.color = render.color;
+                        render = tmp;
+                    }
+                    def.state = def_state::clean;
+                } catch (arb::morphology_error& e) {
+                    def.error(e.what());
+                    continue;
+                }
+            }
+        }
+        return renderer.render(zoom, phi, width, height, render_regions, render_locsets);
     }
 
     auto load_allen_fit(const std::string& dyn) {

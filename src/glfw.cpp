@@ -35,6 +35,8 @@ struct Window {
         glsl_version = "#version 130";
         log_info("Set up on Linux: OpenGL 3.0 GLSL v130");
 #endif
+        // glEnable(GL_MULTISAMPLE);
+        // glfwWindowHint(GLFW_SAMPLES, 4);
         // Create window with graphics context
         handle = glfwCreateWindow(1280, 720, "arbor-gui", NULL, NULL);
         if (handle == nullptr) log_fatal("Failed to obtain window");

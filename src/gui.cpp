@@ -141,9 +141,14 @@ void gui_menu_bar(parameters& p) {
     if (open_file) {
         ImGui::PushID("open_file");
         ImGui::OpenPopup("Open");
-        std::vector<const char*> filters{"all", ".swc", ".asc"};
+        const std::vector<const char*> filters{"all", ".swc", ".asc"};
+        std::unordered_map<std::string, std::vector<const char*>>
+            flavors{{"", {}},
+                    {".swc", {"Allen", "NEURON"}},
+                    {".asc", {}}};
         if (ImGui::BeginPopupModal("Open")) {
             static int current_filter = 1;
+            static int current_flavor = 1;
             static std::filesystem::path current_file = "";
             auto new_cwd = p.cwd;
             ImGui::LabelText("CWD", p.cwd.c_str(), "%s");
@@ -163,7 +168,7 @@ void gui_menu_bar(parameters& p) {
                 }
             }
             for (const auto& it: std::filesystem::directory_iterator(p.cwd)) {
-                if (it.is_regular_file()) { // TODO add symlink, hardlink
+                if (it.is_regular_file()) { // TODO add symlink, hardlink?
                     const auto& path = it.path();
                     bool selected = (path == current_file);
                     if (!current_filter || (path.extension() == filters[current_filter])) {
@@ -174,9 +179,21 @@ void gui_menu_bar(parameters& p) {
                 }
             }
             ImGui::EndChild();
+            ImGui::PushItemWidth(80.0f); // Args this is pixels
             ImGui::Combo("Filter", &current_filter, filters.data(), filters.size());
-            if (ImGui::Button("Open")) {
-                if (current_file.extension() == ".swc") {
+            auto extension = current_file.extension();
+            if (!extension.empty()) {
+                if (flavors.find(extension) != flavors.end()) {
+                    auto& flavor = flavors[extension];
+                    ImGui::SameLine();
+                    ImGui::Combo("Flavor", &current_flavor, flavor.data(), flavor.size());
+                } else {
+                    ImGui::Text("Unknown Extension: %s", extension.c_str());
+                }
+            }
+            ImGui::PopItemWidth();
+            if (ImGui::Button("Load!")) {
+                if (extension == ".swc") {
                     p.load_allen_swc(current_file);
                 }
                 open_file = false;
@@ -239,50 +256,38 @@ void gui_main(parameters& p) {
 }
 
 void gui_cell(parameters& p) {
-    ImGui::Begin("Cell");
-    ImGui::BeginChild("Cell Render");
-    // re-build fbo, if needed
-    auto size = ImGui::GetWindowSize();
-    auto w = size.x;
-    auto h = size.y;
-    // log_info("Cell window {}x{}", w, h);
-    p.renderer.maybe_make_fbo(w, h);
-    // render image to texture
-    // glViewport(0, 0, w, h);
-    glBindFramebuffer(GL_FRAMEBUFFER, p.renderer.fbo);
-    glClearColor(p.renderer.clear_color.x, p.renderer.clear_color.y, p.renderer.clear_color.z, p.renderer.clear_color.w);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
-    p.renderer.render(zoom, phi, w, h, p.to_render, p.billboard);
-    // draw
-    ImGui::Image((ImTextureID) p.renderer.tex, size, ImVec2(0, 1), ImVec2(1, 0));
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    ImGui::EndChild();
+    if (ImGui::Begin("Cell")) {
+        ImGui::BeginChild("Cell Render");
+        auto size = ImGui::GetWindowSize();
+        auto image = p.render_cell(size.x, size.y);
+        ImGui::Image((ImTextureID) image, size, ImVec2(0, 1), ImVec2(1, 0));
+        ImGui::EndChild();
+    }
     ImGui::End();
 }
 
 void gui_values(arb::cable_cell_parameter_set& p, arb::cable_cell_parameter_set& defaults) {
     {
         auto tmp = p.axial_resistivity.value_or(defaults.axial_resistivity.value());
-        if (ImGui::InputDouble("axial_resistivity", &tmp)) {
+        if (ImGui::InputDouble("axial resistivity", &tmp)) {
             p.axial_resistivity = tmp;
         }
     }
     {
         auto tmp = p.temperature_K.value_or(defaults.temperature_K.value());
-        if (ImGui::InputDouble("temperature_K", &tmp)) {
+        if (ImGui::InputDouble("Temperature (K)", &tmp)) {
             p.temperature_K = tmp;
         }
     }
     {
         auto tmp = p.init_membrane_potential.value_or(defaults.init_membrane_potential.value());
-        if (ImGui::InputDouble("init_membrane_potential", &tmp)) {
+        if (ImGui::InputDouble("Membrane Potential", &tmp)) {
             p.init_membrane_potential = tmp;
         }
     }
     {
         auto tmp = p.membrane_capacitance.value_or(defaults.membrane_capacitance.value());
-        if (ImGui::InputDouble("membrane_capacitance", &tmp)) {
+        if (ImGui::InputDouble("Membrane Capacitance", &tmp)) {
             p.membrane_capacitance = tmp;
         }
     }
@@ -291,131 +296,82 @@ void gui_values(arb::cable_cell_parameter_set& p, arb::cable_cell_parameter_set&
 void gui_ion(arb::cable_cell_ion_data& ion, arb::cable_cell_ion_data& defaults) {
     {
         auto tmp = ion.init_int_concentration.value_or(defaults.init_int_concentration.value());
-        if (ImGui::InputDouble("init_int_concentration", &tmp)) {
+        if (ImGui::InputDouble("int. Concentration", &tmp)) {
             ion.init_int_concentration = tmp;
         }
     }
     {
         auto tmp = ion.init_ext_concentration.value_or(defaults.init_ext_concentration.value());
-        if (ImGui::InputDouble("init_ext_concentration", &tmp)) {
+        if (ImGui::InputDouble("ext. Concentration", &tmp)) {
             ion.init_ext_concentration = tmp;
         }
     }
     {
         auto tmp = ion.init_reversal_potential.value_or(defaults.init_reversal_potential.value());
-        if (ImGui::InputDouble("init_reversal_potential", &tmp)) {
+        if (ImGui::InputDouble("Reversal Potential", &tmp)) {
             ion.init_reversal_potential = tmp;
         }
     }
 }
 
-void gui_locations(parameters& p) {
-    ImGui::Begin("Locations");
-    {
-        ImGui::PushID("region");
-        ImGui::AlignTextToFramePadding();
-        auto open = ImGui::TreeNodeEx("Regions", ImGuiTreeNodeFlags_AllowItemOverlap);
-        ImGui::SameLine();
-        if (ImGui::SmallButton("+")) p.add_region();
-        if (p.region_defs.size() != p.to_render.size()) log_fatal("Invariant!");
-        if (open) {
-            std::vector<int> to_delete{};
-            for (auto idx = 0; idx < p.region_defs.size(); ++idx) {
-                auto& region = p.region_defs[idx];
-                auto& render = p.to_render[idx];
-                ImGui::PushID(fmt::format("{}", idx).c_str());
-                ImGui::Bullet();
-                ImGui::SameLine();
-                if (ImGui::Button("X")) {
-                    to_delete.push_back(idx);
-                }
-                ImGui::SameLine();
-                ImGui::Checkbox("Visible", &p.to_render[idx].active);
-                ImGui::Indent();
-                ImGui::InputText("Name", region.name.data(), region.name.size());
-                ImGui::ColorEdit4("Color", &render.color.x);
-                ImGui::PushStyleColor(ImGuiCol_FrameBg, to_imvec(region.bg_color));
-                if (ImGui::InputText("Definition", region.definition.data(), region.definition.size())) {
-                    region.update();
-                    auto maybe_render = p.morph.make_renderable(p.renderer, region);
-                    if (maybe_render) {
-                        render = maybe_render.value();
-                    } else {
-                        render.active = false;
-                    }
-                }
-                if (ImGui::IsItemHovered()) {
-                    ImGui::BeginTooltip();
-                    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-                    ImGui::TextUnformatted(region.message.c_str());
-                    ImGui::PopTextWrapPos();
-                    ImGui::EndTooltip();
-                }
-                ImGui::PopStyleColor();
-                ImGui::Unindent();
-                ImGui::PopID();
-            }
-            std::sort(to_delete.begin(), to_delete.end(), std::greater<int>());
-            for (auto i: to_delete) {
-                p.region_defs.erase(p.region_defs.begin() + i);
-                p.to_render.erase(p.to_render.begin() + i);
-            }
-            ImGui::TreePop();
-        }
-        ImGui::PopID();
+void gui_locdef(loc_def& def, renderable& render) {
+    ImGui::Bullet();
+    ImGui::SameLine();
+    if (ImGui::Button("X")) def.state = def_state::erase;
+    ImGui::SameLine();
+    ImGui::Checkbox("Visible", &render.active);
+    ImGui::Indent();
+    ImGui::InputText("Name", def.name.data(), def.name.size());
+    ImGui::ColorEdit4("Color", &render.color.x);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, to_imvec(def.bg_color));
+    if (ImGui::InputText("Definition", def.definition.data(), def.definition.size())) {
+        def.update();
     }
-    {
-        ImGui::PushID("locset");
-        ImGui::AlignTextToFramePadding();
-        auto open = ImGui::TreeNodeEx("Locset", ImGuiTreeNodeFlags_AllowItemOverlap);
-        ImGui::SameLine();
-        if (ImGui::SmallButton("+")) p.add_locset();
-        if (p.locset_defs.size() != p.billboard.size()) log_fatal("Invariant!");
-        if (open) {
-            std::vector<int> to_delete{};
-            for (auto idx = 0; idx < p.locset_defs.size(); ++idx) {
-                auto& locset = p.locset_defs[idx];
-                auto& render = p.billboard[idx];
-                ImGui::PushID(fmt::format("{}", idx).c_str());
-                ImGui::Bullet();
-                ImGui::SameLine();
-                if (ImGui::Button("X")) {
-                    to_delete.push_back(idx);
+    if (ImGui::IsItemHovered()) {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(def.message.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+    ImGui::PopStyleColor();
+    ImGui::Unindent();
+}
+
+void gui_locations(parameters& p) {
+    if (ImGui::Begin("Locations")) {
+        {
+            ImGui::PushID("region");
+            ImGui::AlignTextToFramePadding();
+            auto open = ImGui::TreeNodeEx("Regions", ImGuiTreeNodeFlags_AllowItemOverlap);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("+")) p.add_region();
+            if (open) {
+                for (auto idx = 0; idx < p.region_defs.size(); ++idx) {
+                    ImGui::PushID(fmt::format("{}", idx).c_str());
+                    gui_locdef(p.region_defs[idx], p.render_regions[idx]);
+                    ImGui::PopID();
                 }
-                ImGui::SameLine();
-                ImGui::Checkbox("Visible", &p.billboard[idx].active);
-                ImGui::Indent();
-                ImGui::InputText("Name", locset.name.data(), locset.name.size());
-                ImGui::ColorEdit4("Color", &render.color.x);
-                ImGui::PushStyleColor(ImGuiCol_FrameBg, to_imvec(locset.bg_color));
-                if (ImGui::InputText("Definition", locset.definition.data(), locset.definition.size())) {
-                    locset.update();
-                    auto maybe_render = p.morph.make_renderable(p.renderer, locset);
-                    if (maybe_render) {
-                        render = maybe_render.value();
-                    } else {
-                        render.active = false;
-                    }
-                }
-                if (ImGui::IsItemHovered()) {
-                    ImGui::BeginTooltip();
-                    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-                    ImGui::TextUnformatted(locset.message.c_str());
-                    ImGui::PopTextWrapPos();
-                    ImGui::EndTooltip();
-                }
-                ImGui::PopStyleColor();
-                ImGui::Unindent();
-                ImGui::PopID();
+                ImGui::TreePop();
             }
-            std::sort(to_delete.begin(), to_delete.end(), std::greater<int>());
-            for (auto i: to_delete) {
-                p.locset_defs.erase(p.locset_defs.begin() + i);
-                p.billboard.erase(p.billboard.begin() + i);
-            }
-            ImGui::TreePop();
+            ImGui::PopID();
         }
-        ImGui::PopID();
+        {
+            ImGui::PushID("locset");
+            ImGui::AlignTextToFramePadding();
+            auto open = ImGui::TreeNodeEx("Locset", ImGuiTreeNodeFlags_AllowItemOverlap);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("+")) p.add_locset();
+            if (open) {
+                for (auto idx = 0; idx < p.locset_defs.size(); ++idx) {
+                    ImGui::PushID(fmt::format("{}", idx).c_str());
+                    gui_locdef(p.locset_defs[idx], p.render_locsets[idx]);
+                    ImGui::PopID();
+                }
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+        }
     }
     ImGui::End();
 }

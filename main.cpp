@@ -32,8 +32,8 @@ using json = nlohmann::json;
 #include <location.hpp>
 #include <geometry.hpp>
 #include "single-cell.cpp"
-#include "parameters.cpp"
 #include "glfw.cpp"
+#include "parameters.cpp"
 #include "gui.cpp"
 
 int main(int, char**) {

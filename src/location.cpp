@@ -14,6 +14,7 @@ reg_def::reg_def(): loc_def{"", ""} {
 }
 
 void reg_def::update() {
+    state = def_state::changed;
     if (definition.empty() || !definition[0]) {
         data = {};
         bg_color = yellow;
@@ -42,6 +43,7 @@ ls_def::ls_def(): loc_def{"", ""} {
 }
 
 void ls_def::update() {
+    state = def_state::changed;
     if (definition.empty() || !definition[0]) {
         data = {};
         bg_color = yellow;
