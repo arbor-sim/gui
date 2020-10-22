@@ -2,7 +2,6 @@
 
 #include <string>
 
-#include <OpenGL/gl.h>
 #include <glm/glm.hpp>
 
 #include <arbor/morph/region.hpp>

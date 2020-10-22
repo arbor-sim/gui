@@ -36,6 +36,8 @@ elseif (CMAKE_SYSTEM MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "BSD")
 endif()
 
 add_executable(arbor-gui main.cpp
+  src/gui_state.hpp src/gui_state.cpp
+  src/window.hpp src/window.cpp
   src/utils.hpp src/utils.cpp
   src/geometry.hpp src/geometry.cpp
   src/location.hpp src/location.cpp

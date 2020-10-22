@@ -1,3 +1,4 @@
+/*
 const static std::unordered_map<std::string, arb::mechanism_catalogue>
 catalogues = {{"default", arb::global_default_catalogue()},
               {"allen",   arb::global_allen_catalogue()}};
@@ -477,3 +478,4 @@ auto gui(parameters& p) {
         gui_simulation(p);
         gui_cell(p);
 }
+*/

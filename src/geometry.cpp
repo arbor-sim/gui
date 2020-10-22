@@ -5,9 +5,8 @@
 
 auto randf() { return (float)rand()/(float)RAND_MAX; }
 
-#define OGL_DEBUG
 void gl_check_error(const std::string& where) {
-#ifdef OGL_DEBUG
+#ifndef NDEBUG
     auto rc = glGetError();
     if (rc != GL_NO_ERROR) {
         log_error("OpenGL error @ {}: {}", where, rc);
@@ -164,6 +163,12 @@ geometry::geometry():
     region_program{make_program("region")},
     marker_program{make_program("marker")} {}
 
+geometry::geometry(const arb::segment_tree& tree):
+    region_program{make_program("region")},
+    marker_program{make_program("marker")} {
+    load_geometry(tree);
+}
+
 void geometry::maybe_make_fbo(int w, int h) {
     gl_check_error("make fbo init");
     glViewport(0, 0, w, h);
@@ -173,15 +178,8 @@ void geometry::maybe_make_fbo(int w, int h) {
     width = w;
     height = h;
 
-    if (fbo) {
-        glDeleteFramebuffers(1, &fbo);
-        fbo = 0;
-    }
-
-    if (tex) {
-        glDeleteTextures(1, &tex);
-        tex = 0;
-    }
+    if (fbo) { glDeleteFramebuffers(1, &fbo); fbo = 0; }
+    if (tex) { glDeleteTextures(1, &tex); tex = 0; }
 
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -280,7 +278,7 @@ renderable geometry::make_region(const std::vector<arb::msegment>& segments, glm
     return {tris.size(), 1, vao, true, color};
 }
 
-void geometry::load_geometry(arb::segment_tree& tree) {
+void geometry::load_geometry(const arb::segment_tree& tree) {
     log_info("Making geometry");
     if (tree.segments().size() == 0) {
         log_info("Empty!");
