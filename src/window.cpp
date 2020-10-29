@@ -1,8 +1,15 @@
 #include "window.hpp"
 
+#include <filesystem>
+
+#include <IconsForkAwesome.h>
+
 static void glfw_error_callback(int error, const char* description) {
     log_error("Glfw error:\n{}", description);
 }
+
+float phi  = 0.0f;
+float zoom = 45.0f;
 
 static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     phi += 0.1 * (float) xoffset;
@@ -55,6 +62,7 @@ Window::Window() {
     // Setup Platform/Renderer bindings
     ImGui_ImplGlfw_InitForOpenGL(handle, true);
     ImGui_ImplOpenGL3_Init(glsl_version.c_str());
+    load_font();
 }
 
 Window::~Window() {
@@ -74,12 +82,20 @@ void Window::load_font() {
     // - Read 'docs/FONTS.md' for more instructions and details.
     // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
     //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != NULL);
+    ImGuiIO& io = ImGui::GetIO();
+    std::filesystem::path base = ARBORGUI_RESOURCES_BASE;
+    {
+        auto path = base / "fonts/iosevka/iosevka-medium.ttf";
+        font = io.Fonts->AddFontFromFileTTF(path.c_str(), 16.0f);
+    }
+    {
+        static const ImWchar icons_ranges[] = { ICON_MIN_FK, ICON_MAX_FK, 0 };
+        ImFontConfig icons_config;
+        icons_config.MergeMode = true;
+        icons_config.PixelSnapH = true;
+        auto path = base / "fonts/icons" / FONT_ICON_FILE_NAME_FK;
+        io.Fonts->AddFontFromFileTTF(path.c_str(), 16.0f, &icons_config, icons_ranges);
+    }
 }
 
 bool Window::running() { return !glfwWindowShouldClose(handle); }
@@ -94,9 +110,11 @@ void Window::begin_frame() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+    ImGui::PushFont(font);
 }
 
 void Window::end_frame() {
+    ImGui::PopFont();
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(handle);

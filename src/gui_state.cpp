@@ -1,34 +1,7 @@
 #include "gui_state.hpp"
 
-cell_builder::cell_builder(): tree{}, morph{}, pwlin{morph}, labels{}, provider{morph, labels} {};
-cell_builder::cell_builder(const arb::segment_tree& t): tree{t}, morph{}, pwlin{morph}, labels{}, provider{morph, labels} {};
-
-std::optional<renderable>
-cell_builder::make_renderable(geometry& renderer, reg_def& def) {
-    if (!def.data) return {};
-    log_info("Making frustrums for region {} '{}'", def.name, def.definition);
-    auto region   = def.data.value();
-    auto concrete = thingify(region, provider);
-    auto segments = pwlin.all_segments(concrete);
-    return {renderer.make_region(segments, {0.0f, 0.0f, 0.0f, 1.0f})};
-}
-
-std::optional<renderable>
-cell_builder::make_renderable(geometry& renderer, ls_def& def) {
-    if (!def.data) return {};
-    log_info("Making markers for locset {} '{}'", def.name, def.definition);
-    auto locset   = def.data.value();
-    auto concrete = thingify(locset, provider);
-    std::vector<glm::vec3> points;
-    for (const auto& loc: concrete) {
-        for (const auto p: pwlin.all_at(loc)) {
-            points.emplace_back((float) p.x, (float) p.y, (float) p.z);
-        }
-    }
-    return {renderer.make_marker(points, {0.0f, 0.0f, 0.0f, 1.0f})};
-}
-
-arb::cable_cell cell_builder::make_cell() { return {morph, labels}; }
+extern float phi;
+extern float zoom;
 
 gui_state::gui_state(): builder{} {}
 
@@ -76,25 +49,14 @@ void gui_state::add_locset() {
     render_locsets.back().color = next_color();
 }
 
-unsigned long gui_state::render_cell(float width, float height, float zoom, float phi) {
+unsigned long gui_state::render_cell(float width, float height) {
     if (region_defs.size() != render_regions.size()) log_fatal("Invariant!");
     for (auto ix = 0ul; ix < region_defs.size(); ++ix) {
         auto& def = region_defs[ix];
         auto& render = render_regions[ix];
         if (def.state == def_state::changed) {
-            render.active = false;
-            try {
-                auto maybe_render = builder.make_renderable(renderer, def);
-                if (maybe_render) {
-                    auto tmp = maybe_render.value();
-                    tmp.color = render.color;
-                    render = tmp;
-                }
-                def.state = def_state::clean;
-            } catch (arb::morphology_error& e) {
-                def.error(e.what());
-                continue;
-            }
+            def.update();
+            def.set_renderable(renderer, builder, render);
         }
     }
     if (locset_defs.size() != render_locsets.size()) log_fatal("Invariant!");
@@ -102,19 +64,8 @@ unsigned long gui_state::render_cell(float width, float height, float zoom, floa
         auto& def = locset_defs[ix];
         auto& render = render_locsets[ix];
         if (def.state == def_state::changed) {
-            render.active = false;
-            try {
-                auto maybe_render = builder.make_renderable(renderer, def);
-                if (maybe_render) {
-                    auto tmp = maybe_render.value();
-                    tmp.color = render.color;
-                    render = tmp;
-                }
-                def.state = def_state::clean;
-            } catch (arb::morphology_error& e) {
-                def.error(e.what());
-                continue;
-            }
+            def.update();
+            def.set_renderable(renderer, builder, render);
         }
     }
     return renderer.render(zoom, phi, width, height, render_regions, render_locsets);

@@ -1,4 +1,3 @@
-/*
 const static std::unordered_map<std::string, arb::mechanism_catalogue>
 catalogues = {{"default", arb::global_default_catalogue()},
               {"allen",   arb::global_allen_catalogue()}};
@@ -129,144 +128,6 @@ void gui_simulation(parameters& param) {
     ImGui::End();
 }
 
-void gui_menu_bar(parameters& p) {
-    ImGui::BeginMenuBar();
-    static auto open_file = false;
-    if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("Read morphology")) {
-            open_file = true;
-        }
-        ImGui::EndMenu();
-    }
-
-    if (open_file) {
-        ImGui::PushID("open_file");
-        ImGui::OpenPopup("Open");
-        const std::vector<const char*> filters{"all", ".swc", ".asc"};
-        std::unordered_map<std::string, std::vector<const char*>>
-            flavors{{"", {}},
-                    {".swc", {"Allen", "NEURON"}},
-                    {".asc", {}}};
-        if (ImGui::BeginPopupModal("Open")) {
-            static int current_filter = 1;
-            static int current_flavor = 1;
-            static std::filesystem::path current_file = "";
-            auto new_cwd = p.cwd;
-            ImGui::LabelText("CWD", p.cwd.c_str(), "%s");
-            auto size = ImGui::GetWindowSize();
-            size.x -=   ImGui::GetTextLineHeightWithSpacing();
-            size.y -= 6.5*ImGui::GetTextLineHeightWithSpacing();
-            ImGui::BeginChild("Files", size, true);
-            for (const auto& it: std::filesystem::directory_iterator(p.cwd)) {
-                if (it.is_directory()) {
-                    static bool selected = false;
-                    const auto& path = it.path();
-                    ImGui::Selectable(path.filename().c_str(), selected);
-                    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-                        new_cwd = path;
-                        selected = !selected;
-                    }
-                }
-            }
-            for (const auto& it: std::filesystem::directory_iterator(p.cwd)) {
-                if (it.is_regular_file()) { // TODO add symlink, hardlink?
-                    const auto& path = it.path();
-                    bool selected = (path == current_file);
-                    if (!current_filter || (path.extension() == filters[current_filter])) {
-                        if (ImGui::Selectable(path.filename().c_str(), selected)) {
-                            current_file = path;
-                        }
-                    }
-                }
-            }
-            ImGui::EndChild();
-            ImGui::PushItemWidth(80.0f); // Args this is pixels
-            ImGui::Combo("Filter", &current_filter, filters.data(), filters.size());
-            auto extension = current_file.extension();
-            if (!extension.empty()) {
-                if (flavors.find(extension) != flavors.end()) {
-                    auto& flavor = flavors[extension];
-                    ImGui::SameLine();
-                    ImGui::Combo("Flavor", &current_flavor, flavor.data(), flavor.size());
-                } else {
-                    ImGui::Text("Unknown Extension: %s", extension.c_str());
-                }
-            }
-            ImGui::PopItemWidth();
-            if (ImGui::Button("Load!")) {
-                if (extension == ".swc") {
-                    p.load_allen_swc(current_file);
-                }
-                open_file = false;
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel")) {
-                open_file = false;
-            }
-            p.cwd = new_cwd;
-            ImGui::EndPopup();
-        }
-        ImGui::PopID();
-    }
-    ImGui::EndMenuBar();
-}
-
-void gui_main(parameters& p) {
-    static bool opt_fullscreen = true;
-    static bool opt_padding = false;
-    static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
-
-    // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window not dockable into,
-    // because it would be confusing to have two docking targets within each others.
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-    if (opt_fullscreen) {
-        ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(viewport->GetWorkPos());
-        ImGui::SetNextWindowSize(viewport->GetWorkSize());
-        ImGui::SetNextWindowViewport(viewport->ID);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-        window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-    } else {
-        dockspace_flags &= ~ImGuiDockNodeFlags_PassthruCentralNode;
-    }
-
-    // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render our background
-    // and handle the pass-thru hole, so we ask Begin() to not render a background.
-    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) window_flags |= ImGuiWindowFlags_NoBackground;
-
-    // Important: note that we proceed even if Begin() returns false (aka window is collapsed).
-    // This is because we want to keep our DockSpace() active. If a DockSpace() is inactive,
-    // all active windows docked into it will lose their parent and become undocked.
-    // We cannot preserve the docking relationship between an active window and an inactive docking, otherwise
-    // any change of dockspace/settings would lead to windows being stuck in limbo and never being visible.
-    if (!opt_padding) ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::Begin("DockSpace Demo", nullptr, window_flags);
-    if (!opt_padding) ImGui::PopStyleVar();
-    if (opt_fullscreen) ImGui::PopStyleVar(2);
-
-    // DockSpace
-    ImGuiIO& io = ImGui::GetIO();
-    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
-        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
-    }
-    gui_menu_bar(p);
-    ImGui::End();
-}
-
-void gui_cell(parameters& p) {
-    if (ImGui::Begin("Cell")) {
-        ImGui::BeginChild("Cell Render");
-        auto size = ImGui::GetWindowSize();
-        auto image = p.render_cell(size.x, size.y);
-        ImGui::Image((ImTextureID) image, size, ImVec2(0, 1), ImVec2(1, 0));
-        ImGui::EndChild();
-    }
-    ImGui::End();
-}
-
 void gui_values(arb::cable_cell_parameter_set& p, arb::cable_cell_parameter_set& defaults) {
     {
         auto tmp = p.axial_resistivity.value_or(defaults.axial_resistivity.value());
@@ -315,67 +176,6 @@ void gui_ion(arb::cable_cell_ion_data& ion, arb::cable_cell_ion_data& defaults) 
     }
 }
 
-void gui_locdef(loc_def& def, renderable& render) {
-    ImGui::Bullet();
-    ImGui::SameLine();
-    if (ImGui::Button("X")) def.state = def_state::erase;
-    ImGui::SameLine();
-    ImGui::Checkbox("Visible", &render.active);
-    ImGui::Indent();
-    ImGui::InputText("Name", def.name.data(), def.name.size());
-    ImGui::ColorEdit4("Color", &render.color.x);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, to_imvec(def.bg_color));
-    if (ImGui::InputText("Definition", def.definition.data(), def.definition.size())) {
-        def.update();
-    }
-    if (ImGui::IsItemHovered()) {
-        ImGui::BeginTooltip();
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-        ImGui::TextUnformatted(def.message.c_str());
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
-    }
-    ImGui::PopStyleColor();
-    ImGui::Unindent();
-}
-
-void gui_locations(parameters& p) {
-    if (ImGui::Begin("Locations")) {
-        {
-            ImGui::PushID("region");
-            ImGui::AlignTextToFramePadding();
-            auto open = ImGui::TreeNodeEx("Regions", ImGuiTreeNodeFlags_AllowItemOverlap);
-            ImGui::SameLine();
-            if (ImGui::SmallButton("+")) p.add_region();
-            if (open) {
-                for (auto idx = 0; idx < p.region_defs.size(); ++idx) {
-                    ImGui::PushID(fmt::format("{}", idx).c_str());
-                    gui_locdef(p.region_defs[idx], p.render_regions[idx]);
-                    ImGui::PopID();
-                }
-                ImGui::TreePop();
-            }
-            ImGui::PopID();
-        }
-        {
-            ImGui::PushID("locset");
-            ImGui::AlignTextToFramePadding();
-            auto open = ImGui::TreeNodeEx("Locset", ImGuiTreeNodeFlags_AllowItemOverlap);
-            ImGui::SameLine();
-            if (ImGui::SmallButton("+")) p.add_locset();
-            if (open) {
-                for (auto idx = 0; idx < p.locset_defs.size(); ++idx) {
-                    ImGui::PushID(fmt::format("{}", idx).c_str());
-                    gui_locdef(p.locset_defs[idx], p.render_locsets[idx]);
-                    ImGui::PopID();
-                }
-                ImGui::TreePop();
-            }
-            ImGui::PopID();
-        }
-    }
-    ImGui::End();
-}
 
 void gui_region(region& r, arb::cable_cell_parameter_set& defaults) {
     ImGui::BulletText("Location: %s", to_string(r.location).c_str());
@@ -471,11 +271,10 @@ void gui_parameters(parameters& p) {
     ImGui::End();
 }
 
-auto gui(parameters& p) {
-        gui_main(p);
-        gui_parameters(p);
-        gui_locations(p);
-        gui_simulation(p);
-        gui_cell(p);
+auto gui(gui_state& state) {
+        gui_main(state);
+        // gui_parameters(p);
+        // gui_locations(p);
+        // gui_simulation(p);
+        // gui_cell(p);
 }
-*/

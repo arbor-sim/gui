@@ -1,5 +1,7 @@
 #include "geometry.hpp"
 
+#include <filesystem>
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -63,9 +65,10 @@ void render(unsigned program,
     gl_check_error("render end");
 }
 
-auto make_shader(const std::string& fn, unsigned shader_type) {
-    log_info("Loading shader {}", fn);
+auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
+    log_info("Loading shader {}", fn.c_str());
     std::ifstream fd(fn);
+    if (!fd.good()) log_fatal("Could not find shader source {}", fn.c_str());
     std::string src(std::istreambuf_iterator<char>(fd), {});
     auto src_str = src.c_str();
 
@@ -78,9 +81,9 @@ auto make_shader(const std::string& fn, unsigned shader_type) {
     if(!success) {
         char info[512];
         glGetShaderInfoLog(shader, sizeof(info), NULL, info);
-        log_error("Shader {} failed to compile\n{}", fn, info);
+        log_error("Shader {} failed to compile\n{}", fn.c_str(), info);
     }
-    log_info("Loading shader {}: complete", fn);
+    log_info("Loading shader {}: complete", fn.c_str());
     return shader;
 }
 
@@ -123,9 +126,10 @@ auto make_vao(const std::vector<point>& tris) {
 }
 
 auto make_program(const std::string& dn) {
+    std::filesystem::path base = ARBORGUI_RESOURCES_BASE;
     log_info("Setting up shader program");
-    auto vertex_shader   = make_shader(fmt::format("glsl/{}/vertex.glsl", dn), GL_VERTEX_SHADER);
-    auto fragment_shader = make_shader(fmt::format("glsl/{}/fragment.glsl", dn), GL_FRAGMENT_SHADER);
+    auto vertex_shader   = make_shader(base / "glsl" / dn / "vertex.glsl", GL_VERTEX_SHADER);
+    auto fragment_shader = make_shader(base / "glsl" / dn / "fragment.glsl", GL_FRAGMENT_SHADER);
 
     unsigned program = glCreateProgram();
     glAttachShader(program, vertex_shader);

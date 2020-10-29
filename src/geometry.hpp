@@ -21,23 +21,32 @@ struct point {
     glm::vec3 normal;
 };
 
-constexpr float PHI = 1.61803398875;
+struct renderable {
+    size_t count = 0;
+    size_t instances = 0;
+    unsigned vao = 0;
+    bool active = false;
+    glm::vec4 color;
+};
 
 static glm::vec4 next_color() {
-    static glm::vec4 color = {0.1, 0.2, 0.4, 1.0f};
-    color.x = std::fmod(color.x*PHI, 1.0f);
-    color.y = std::fmod(color.y*PHI, 1.0f);
-    color.z = std::fmod(color.z*PHI, 1.0f);
-    return color;
-}
+    static size_t nxt = 0;
 
-struct renderable {
-    size_t count        = 0;
-    size_t instances    = 0;
-    unsigned vao        = 0;
-    bool active         = false;
-    glm::vec4 color  = {0.2f, 0.2f, 0.2f, 1.0f};
-};
+    const static std::vector<const glm::vec4>
+        colors = {{166.0f/255.0f,206.0f/255.0f,227.0f/255.0f, 1.0f},
+                  { 31.0f/255.0f,120.0f/255.0f,180.0f/255.0f, 1.0f},
+                  {178.0f/255.0f,223.0f/255.0f,138.0f/255.0f, 1.0f},
+                  { 51.0f/255.0f,160.0f/255.0f, 44.0f/255.0f, 1.0f},
+                  {251.0f/255.0f,154.0f/255.0f,153.0f/255.0f, 1.0f},
+                  {227.0f/255.0f, 26.0f/255.0f, 28.0f/255.0f, 1.0f},
+                  {253.0f/255.0f,191.0f/255.0f,111.0f/255.0f, 1.0f},
+                  {255.0f/255.0f,127.0f/255.0f,  0.0f/255.0f, 1.0f},
+                  {202.0f/255.0f,178.0f/255.0f,214.0f/255.0f, 1.0f},
+                  {106.0f/255.0f, 61.0f/255.0f,154.0f/255.0f, 1.0f},
+                  {255.0f/255.0f,255.0f/255.0f,153.0f/255.0f, 1.0f},
+                  {177.0f/255.0f, 89.0f/255.0f, 40.0f/255.0f, 1.0f}};
+    return colors[nxt++];
+}
 
 struct geometry {
     geometry();

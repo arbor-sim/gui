@@ -11,8 +11,8 @@
 
 #include <utils.hpp>
 
-static float phi  = 0.0f;
-static float zoom = 45.0f;
+extern float phi;
+extern float zoom;
 
 struct Window {
     Window();
@@ -23,6 +23,7 @@ struct Window {
     void end_frame();
 
     private:
+        ImFont* font = nullptr;
         void load_font();
         GLFWwindow* handle = nullptr;
         std::string glsl_version = "";

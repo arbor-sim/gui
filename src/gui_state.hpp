@@ -18,22 +18,7 @@
 
 #include <location.hpp>
 #include <geometry.hpp>
-
-struct cell_builder {
-    arb::segment_tree tree;
-    arb::morphology   morph;
-    arb::place_pwlin  pwlin;
-    arb::label_dict   labels;
-    arb::mprovider    provider;
-
-    cell_builder();
-    cell_builder(const arb::segment_tree& t);
-
-    std::optional<renderable> make_renderable(geometry& renderer, reg_def& def);
-    std::optional<renderable> make_renderable(geometry& renderer, ls_def& def);
-
-    arb::cable_cell make_cell();
-};
+#include <cell_builder.hpp>
 
 struct region {
     std::unordered_map<std::string, arb::mechanism_desc> mechanisms;
@@ -75,5 +60,5 @@ struct gui_state {
     void add_locset(std::string_view l, std::string_view d);
     void add_locset();
 
-    unsigned long render_cell(float width, float height, float zoom, float phi);
+    unsigned long render_cell(float width, float height);
 };

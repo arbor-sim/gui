@@ -11,3 +11,6 @@
 [submodule "3rd-party/spdlog"]
 	path = 3rd-party/spdlog
 	url = https://github.com/gabime/spdlog.git
+[submodule "3rd-party/icons"]
+	path = 3rd-party/icons
+	url = https://github.com/juliettef/IconFontCppHeaders.git
