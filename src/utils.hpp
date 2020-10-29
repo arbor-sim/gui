@@ -7,9 +7,6 @@
 
 #include <spdlog/spdlog.h>
 
-// Check string suffix
-bool ends_with(std::string const& value, std::string const& ending);
-
 // Logging
 void log_init();
 

@@ -78,12 +78,6 @@ void gui_iclamp(arb::locset& location, arb::i_clamp& iclamp, float dt, std::vect
     ImGui::PlotLines("IClamp", ic.data(), ic.size(), 0);
 }
 
-void gui_probe(probe& p) {
-    ImGui::BulletText("%s", to_string(p.location).c_str());
-    ImGui::InputDouble("Frequency (Hz)", &p.frequency);
-    ImGui::LabelText("Variable", "%s", p.variable.c_str());
-}
-
 void gui_simulation(parameters& param) {
     ImGui::Begin("Simulation");
     auto& sim = param.sim;

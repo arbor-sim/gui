@@ -1,0 +1,13 @@
+#+TITLE: Readme
+
+* Acknowledgements
+
+
+
+This project uses various open source projects
+  - Dear ImGUI library https://github.com/ocornut/imgui
+  - Iosevka font https://github.com/be5invis/Iosevka
+  - ForkAwesome icon set https://github.com/ForkAwesome/Fork-Awesome
+  - C++ icon bindings https://github.com/juliettef/IconFontCppHeaders
+  - fmt formatting https://github.com/fmtlib/fmt
+  - spdlog logger https://github.com/gabime/spdlog
