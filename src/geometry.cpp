@@ -22,7 +22,10 @@ glm::vec4 next_color() {
                                   {106.0f/255.0f, 61.0f/255.0f,154.0f/255.0f, 1.0f},
                                   {255.0f/255.0f,255.0f/255.0f,153.0f/255.0f, 1.0f},
                                   {177.0f/255.0f, 89.0f/255.0f, 40.0f/255.0f, 1.0f}};
-  return colors[nxt++];
+  constexpr size_t count = sizeof(colors)/sizeof(glm::vec4);
+  log_debug("Loaded {}/{} colours.", nxt, count);
+  nxt = (nxt + 1) % count;
+  return colors[nxt];
 }
 
 void gl_check_error(const std::string& where) {
