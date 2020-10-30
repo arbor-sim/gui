@@ -24,6 +24,7 @@ struct Window {
 
     private:
         ImFont* font = nullptr;
+        std::string ini_file = "";
         void load_font();
         GLFWwindow* handle = nullptr;
         std::string glsl_version = "";

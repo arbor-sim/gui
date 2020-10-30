@@ -23,6 +23,7 @@ struct loc_def: definition {
     loc_def& operator=(const loc_def&) = default;
     loc_def(const std::string_view n, const std::string_view d);
 
+    virtual ~loc_def() {};
     virtual void set_renderable(geometry& renderer, cell_builder& builder, renderable& render) = 0;
 };
 
@@ -38,6 +39,7 @@ struct reg_def: loc_def {
     reg_def(const std::string_view n, const std::string_view d);
     reg_def();
 
+    virtual ~reg_def() = default;
     virtual void update() override;
     virtual void set_renderable(geometry& renderer, cell_builder& builder, renderable& render) override;
 };
@@ -51,6 +53,7 @@ struct ls_def: loc_def {
     ls_def(const std::string_view n, const std::string_view d);
     ls_def();
 
+    virtual ~ls_def() = default;
     virtual void update() override;
     virtual void set_renderable(geometry& renderer, cell_builder& builder, renderable& render) override;
 };

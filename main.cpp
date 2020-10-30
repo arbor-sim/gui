@@ -3,11 +3,6 @@
 
 #include <IconsForkAwesome.h>
 
-// Some useful colours
-const glm::vec4 red    = glm::vec4(215.0f/255.0f, 25.0f/255.0f, 28.0f/255.0f, 1.0f);
-const glm::vec4 yellow = glm::vec4(255.0f/255.0f,255.0f/255.0f,191/255.0f, 1.0f);
-const glm::vec4 green  = glm::vec4(26.0f/255.0f,150.0f/255.0f,65.0f/255.0f, 1.0f);
-
 void gui_main(gui_state& state);
 void gui_menu_bar(gui_state& state);
 void gui_read_morphology(gui_state& state, bool& open);
@@ -260,7 +255,7 @@ void gui_locations(gui_state& state) {
             ImGui::SameLine(ImGui::GetWindowWidth() - 30);
             if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) state.add_region();
             if (open) {
-                for (auto idx = 0; idx < state.region_defs.size(); ++idx) {
+                for (auto idx = 0ul; idx < state.region_defs.size(); ++idx) {
                     ImGui::PushID(idx);
                     gui_locdef(state.region_defs[idx], state.render_regions[idx]);
                     ImGui::PopID();
@@ -276,7 +271,7 @@ void gui_locations(gui_state& state) {
             ImGui::SameLine(ImGui::GetWindowWidth() - 30);
             if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) state.add_locset();
             if (open) {
-                for (auto idx = 0; idx < state.locset_defs.size(); ++idx) {
+                for (auto idx = 0ul; idx < state.locset_defs.size(); ++idx) {
                     ImGui::PushID(idx);
                     gui_locdef(state.locset_defs[idx], state.render_locsets[idx]);
                     ImGui::PopID();

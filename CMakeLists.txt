@@ -64,6 +64,7 @@ target_include_directories(arbor-gui PRIVATE src)
 target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS})
 target_link_libraries(arbor-gui PRIVATE arbor::arbor)
 target_link_libraries(arbor-gui PRIVATE glfw)
+target_compile_options(arbor-gui PRIVATE -Wall -Wextra -pedantic)
 
 install(TARGETS arbor-gui
   RUNTIME DESTINATION bin)
