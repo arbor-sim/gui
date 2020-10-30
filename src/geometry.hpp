@@ -34,7 +34,7 @@ struct renderable {
 static glm::vec4 next_color() {
   static size_t nxt = 0;
 
-  const static std::vector<const glm::vec4>
+  const static std::vector<glm::vec4>
     colors = {{166.0f/255.0f,206.0f/255.0f,227.0f/255.0f, 1.0f},
               { 31.0f/255.0f,120.0f/255.0f,180.0f/255.0f, 1.0f},
               {178.0f/255.0f,223.0f/255.0f,138.0f/255.0f, 1.0f},
