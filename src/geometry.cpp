@@ -53,11 +53,11 @@ void render(unsigned program,
     set_uniform(program, "light", light);
     set_uniform(program, "light_color", light_color);
     // Render
-    for (const auto& [count, instances, vao, active, color]: render) {
-        if (active) {
-            set_uniform(program, "object_color", color);
-            glBindVertexArray(vao);
-            glDrawArraysInstanced(GL_TRIANGLES, 0, count, instances);
+    for (const auto& r: render) {
+        if (r.active) {
+            set_uniform(program, "object_color", r.color);
+            glBindVertexArray(r.vao);
+            glDrawArraysInstanced(GL_TRIANGLES, 0, r.count, r.instances);
             glBindVertexArray(0);
         }
     }

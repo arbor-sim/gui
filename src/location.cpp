@@ -3,27 +3,26 @@
 loc_def::loc_def(const std::string_view n, const std::string_view d): name{n}, definition{d} {
     name.resize(512, '\0');
     definition.resize(512, '\0');
+    change();
 }
 
 reg_def::reg_def(const std::string_view n, const std::string_view d): loc_def{n, d} {}
 reg_def::reg_def(): loc_def{"", ""} {}
 
 void reg_def::update() {
+    if (state == def_state::erase) return;
     if (definition.empty() || !definition[0]) {
         data = {};
-        state = def_state::empty;
-        message = "Empty.";
+        empty();
     } else {
         try {
             data = arb::region{definition};
-            state = def_state::good;
-            message = "Ok.";
+            good();
         } catch (const arb::label_parse_error& e) {
             data = {};
-            state = def_state::error;
-            message = e.what();
-            auto colon = message.find(':') + 1; colon = message.find(':', colon) + 1;
-            message = message.substr(colon, message.size() - 1);
+            std::string m = e.what();
+            auto colon = m.find(':') + 1; colon = m.find(':', colon) + 1;
+            error(m.substr(colon, m.size() - 1));
         }
     }
 }
@@ -44,21 +43,19 @@ ls_def::ls_def(const std::string_view n, const std::string_view d): loc_def{n, d
 ls_def::ls_def(): loc_def{"", ""} {}
 
 void ls_def::update() {
+    if (state == def_state::erase) return;
     if (definition.empty() || !definition[0]) {
         data = {};
-        state = def_state::empty;
-        message = "Empty.";
+        empty();
     } else {
         try {
             data = arb::locset{definition};
-            state = def_state::good;
-            message = "Ok.";
+            good();
         } catch (const arb::label_parse_error& e) {
             data = {};
-            state = def_state::error;
-            message = e.what();
-            auto colon = message.find(':') + 1; colon = message.find(':', colon) + 1;
-            message = message.substr(colon, message.size() - 1);
+            std::string m = e.what();
+            auto colon = m.find(':') + 1; colon = m.find(':', colon) + 1;
+            error(m.substr(colon, m.size() - 1));
         }
     }
 }

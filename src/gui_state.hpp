@@ -16,23 +16,23 @@
 #include <arbor/swcio.hpp>
 #include <arbor/mechinfo.hpp>
 
+#include <definition.hpp>
 #include <location.hpp>
 #include <geometry.hpp>
 #include <cell_builder.hpp>
 
-struct region {
-    std::unordered_map<std::string, arb::mechanism_desc> mechanisms;
-    arb::cable_cell_parameter_set values;
-    arb::region location;
+
+struct prb_def: definition {
+    std::string locset_name = "";
+    double frequency = 1000; // [Hz]
+    std::string variable = "voltage";
 };
 
-struct probe {
-    double frequency;
-    std::string variable;
-};
-
-struct stimulus {
-    arb::i_clamp clamp;
+struct stm_def: definition {
+    std::string locset_name = "";
+    double delay = 0;      // [ms]
+    double duration = 0;   // [ms]
+    double amplitude = 0;  // [nA]
 };
 
 struct gui_state {
@@ -43,6 +43,7 @@ struct gui_state {
     std::vector<renderable> render_regions = {};
     std::vector<renderable> render_locsets = {};
 
+    std::vector<prb_def> probe_defs = {};
     std::vector<reg_def> region_defs = {};
     std::vector<ls_def>  locset_defs = {};
 
@@ -55,10 +56,14 @@ struct gui_state {
 
     void load_allen_swc(const std::string& swc_fn);
 
+
+    void add_probe();
     void add_region(std::string_view l, std::string_view d);
     void add_region();
     void add_locset(std::string_view l, std::string_view d);
     void add_locset();
+
+    void update();
 
     unsigned long render_cell(float width, float height);
 };

@@ -37,6 +37,10 @@ void gui_state::add_region() {
     render_regions.back().color = next_color();
 }
 
+void gui_state::add_probe() {
+    probe_defs.emplace_back();
+}
+
 void gui_state::add_locset(std::string_view l, std::string_view d) {
     locset_defs.emplace_back(l, d);
     render_locsets.emplace_back();
@@ -49,7 +53,7 @@ void gui_state::add_locset() {
     render_locsets.back().color = next_color();
 }
 
-unsigned long gui_state::render_cell(float width, float height) {
+void gui_state::update() {
     if (region_defs.size() != render_regions.size()) log_fatal("Invariant!");
     for (auto ix = 0ul; ix < region_defs.size(); ++ix) {
         auto& def = region_defs[ix];
@@ -58,7 +62,15 @@ unsigned long gui_state::render_cell(float width, float height) {
             def.update();
             def.set_renderable(renderer, builder, render);
         }
+        if (def.state == def_state::erase) {
+            render.state = def_state::erase;
+        }
     }
+    region_defs.erase(std::remove_if(region_defs.begin(), region_defs.end(), [](const auto& p) { return p.state == def_state::erase; }), region_defs.end());
+    render_regions.erase(std::remove_if(render_regions.begin(), render_regions.end(), [](const auto& p) { return p.state == def_state::erase; }), render_regions.end());
+    std::unordered_map<std::string, reg_def> regions;
+    for (const auto& ls: region_defs) regions[ls.name] = ls;
+
     if (locset_defs.size() != render_locsets.size()) log_fatal("Invariant!");
     for (auto ix = 0ul; ix < locset_defs.size(); ++ix) {
         auto& def = locset_defs[ix];
@@ -67,6 +79,41 @@ unsigned long gui_state::render_cell(float width, float height) {
             def.update();
             def.set_renderable(renderer, builder, render);
         }
+        if (def.state == def_state::erase) {
+            render.state = def_state::erase;
+        }
     }
+    locset_defs.erase(std::remove_if(locset_defs.begin(), locset_defs.end(), [](const auto& p) { return p.state == def_state::erase; }), locset_defs.end());
+    render_locsets.erase(std::remove_if(render_locsets.begin(), render_locsets.end(), [](const auto& p) { return p.state == def_state::erase; }), render_locsets.end());
+    std::unordered_map<std::string, ls_def> locsets;
+    for (const auto& ls: locset_defs) locsets[ls.name] = ls;
+
+    probe_defs.erase(std::remove_if(probe_defs.begin(), probe_defs.end(), [](const auto& p) { return p.state == def_state::erase; }), probe_defs.end());
+    for (auto& probe: probe_defs) {
+        if (probe.locset_name.empty()) {
+            probe.empty();
+        } else {
+            if (locsets.contains(probe.locset_name)) {
+                const auto& def = locsets[probe.locset_name];
+                switch (def.state) {
+                    case def_state::error:
+                        probe.error("Linked locset malformed.");
+                        break;
+                    case def_state::empty:
+                        probe.error("Linked locset empty.");
+                        break;
+                    case def_state::good:
+                        probe.good();
+                        break;
+                    default: log_fatal("invalid code path: unknown state {}", probe.locset_name);
+                }
+            } else {
+                probe.error("Linked locset absent.");
+            }
+        }
+    }
+}
+
+unsigned long gui_state::render_cell(float width, float height) {
     return renderer.render(zoom, phi, width, height, render_regions, render_locsets);
 }

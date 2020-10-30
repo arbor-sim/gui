@@ -3,11 +3,17 @@
 
 #include <IconsForkAwesome.h>
 
+// Some useful colours
+const glm::vec4 red    = glm::vec4(215.0f/255.0f, 25.0f/255.0f, 28.0f/255.0f, 1.0f);
+const glm::vec4 yellow = glm::vec4(255.0f/255.0f,255.0f/255.0f,191/255.0f, 1.0f);
+const glm::vec4 green  = glm::vec4(26.0f/255.0f,150.0f/255.0f,65.0f/255.0f, 1.0f);
+
 void gui_main(gui_state& state);
 void gui_menu_bar(gui_state& state);
 void gui_read_morphology(gui_state& state, bool& open);
 void gui_locations(gui_state& state);
 void gui_cell(gui_state& state);
+void gui_place(gui_state& state);
 
 int main(int, char**) {
     log_init();
@@ -17,10 +23,12 @@ int main(int, char**) {
 
     // Main loop
     while (window.running()) {
+        state.update();
         window.begin_frame();
         gui_main(state);
         gui_locations(state);
         gui_cell(state);
+        gui_place(state);
         window.end_frame();
     }
 }
@@ -264,6 +272,71 @@ void gui_locations(gui_state& state) {
             }
             ImGui::PopID();
         }
+    }
+    ImGui::End();
+}
+
+void gui_probes(gui_state& state) {
+    ImGui::PushID("probe");
+    ImGui::AlignTextToFramePadding();
+    auto open = ImGui::TreeNodeEx("Probes", ImGuiTreeNodeFlags_AllowItemOverlap);
+    ImGui::SameLine(ImGui::GetWindowWidth() - 30);
+    if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) state.add_probe();
+    if (open) {
+        static std::vector<std::string> probe_variables{"voltage", "current"};
+        auto ix = 0;
+        for (auto& probe: state.probe_defs) {
+            ImGui::PushID(ix++);
+            ImGui::Bullet();
+            ImGui::SameLine();
+            ImGui::PushID("ls-name");
+            if (ImGui::BeginCombo("Locset", probe.locset_name.c_str())) {
+                for (const auto& ls: state.locset_defs) {
+                    auto nm = ls.name;
+                    if (ImGui::Selectable(nm.c_str(), nm == probe.locset_name)) probe.locset_name = nm;
+                }
+                ImGui::EndCombo();
+            }
+
+            const char* tag;
+            switch (probe.state) {
+                case def_state::error: tag = (const char*) ICON_FK_EXCLAMATION_TRIANGLE; break;
+                case def_state::good:  tag = (const char*) ICON_FK_CHECK;                break;
+                case def_state::empty: tag = (const char*) ICON_FK_QUESTION;             break;
+                default: break;
+            }
+            ImGui::SameLine();
+            ImGui::Text("%s", tag);
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::PushTextWrapPos(ImGui::GetFontSize()*35.0f);
+                ImGui::TextUnformatted(probe.message.c_str());
+                ImGui::PopTextWrapPos();
+                ImGui::EndTooltip();
+            }
+            ImGui::PopID();
+            ImGui::Indent();
+            ImGui::InputDouble("Frequency (Hz)", &probe.frequency);
+            ImGui::PushID("variable-name");
+            if (ImGui::BeginCombo("Variable", probe.variable.c_str())) {
+                for (const auto& v: probe_variables) {
+                    if (ImGui::Selectable(v.c_str(), v == probe.variable)) probe.variable = v;
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::PopID();
+            if (ImGui::Button((const char*) ICON_FK_TRASH)) probe.state = def_state::erase;
+            ImGui::Unindent();
+            ImGui::PopID();
+        }
+        ImGui::TreePop();
+    }
+    ImGui::PopID();
+}
+
+void gui_place(gui_state& state) {
+    if (ImGui::Begin("Placings")) {
+        gui_probes(state);
     }
     ImGui::End();
 }

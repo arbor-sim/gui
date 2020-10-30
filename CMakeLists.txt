@@ -39,6 +39,7 @@ elseif (CMAKE_SYSTEM MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "BSD")
 endif()
 
 add_executable(arbor-gui main.cpp
+  src/definition.hpp
   src/cell_builder.hpp src/cell_builder.cpp
   src/gui_state.hpp src/gui_state.cpp
   src/window.hpp src/window.cpp
@@ -49,8 +50,7 @@ add_executable(arbor-gui main.cpp
   3rd-party/imgui/examples/imgui_impl_opengl3.cpp
   3rd-party/imgui/examples/imgui_impl_glfw.cpp
   3rd-party/imgui/imgui.cpp 3rd-party/imgui/imgui_draw.cpp
-  3rd-party/imgui/imgui_widgets.cpp
-  3rd-party/imgui/imgui_demo.cpp)
+  3rd-party/imgui/imgui_widgets.cpp)
 target_include_directories(arbor-gui PRIVATE 3rd-party/fmt/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/icons)
 target_include_directories(arbor-gui PRIVATE 3rd-party/spdlog/include)
