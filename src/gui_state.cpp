@@ -54,6 +54,7 @@ void gui_state::add_locset() {
 }
 
 void gui_state::update() {
+    // Scan regions
     if (region_defs.size() != render_regions.size()) log_fatal("Invariant!");
     for (auto ix = 0ul; ix < region_defs.size(); ++ix) {
         auto& def = region_defs[ix];

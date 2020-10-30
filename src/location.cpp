@@ -29,7 +29,7 @@ void reg_def::update() {
 
 void reg_def::set_renderable(geometry& renderer, cell_builder& builder, renderable& render) {
     render.active = false;
-    if (!data) return;
+    if (!data || (state != def_state::good)) return;
     log_info("Making frustrums for region {} '{}'", name, definition);
     try {
         auto points = builder.make_segments(data.value());
@@ -62,7 +62,7 @@ void ls_def::update() {
 
 void ls_def::set_renderable(geometry& renderer, cell_builder& builder, renderable& render) {
     render.active = false;
-    if (!data) return;
+    if (!data || (state != def_state::good)) return;
     log_info("Making markers for locset {} '{}'", name, definition);
     try {
         auto points = builder.make_points(data.value());

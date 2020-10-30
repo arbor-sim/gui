@@ -14,6 +14,9 @@ void gui_read_morphology(gui_state& state, bool& open);
 void gui_locations(gui_state& state);
 void gui_cell(gui_state& state);
 void gui_place(gui_state& state);
+void gui_tooltip(const std::string&);
+void gui_check_state(def_state);
+void gui_trash(def_state&);
 
 int main(int, char**) {
     log_init();
@@ -31,6 +34,36 @@ int main(int, char**) {
         gui_place(state);
         window.end_frame();
     }
+}
+
+void gui_trash(def_state& state) {
+    if (ImGui::Button((const char*) ICON_FK_TRASH)) state = def_state::erase;
+}
+
+void gui_tooltip(const std::string& message) {
+    if (ImGui::IsItemHovered()) {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize()*35.0f);
+        ImGui::TextUnformatted(message.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
+
+void gui_check_state(def_state state, const std::string& message) {
+    const char* tag;
+    switch (state) {
+        case def_state::error: tag = (const char*) ICON_FK_EXCLAMATION_TRIANGLE; break;
+        case def_state::good:  tag = (const char*) ICON_FK_CHECK;                break;
+        case def_state::empty: tag = (const char*) ICON_FK_QUESTION;             break;
+        default: break;
+    }
+    ImGui::Text("%s", tag);
+    gui_tooltip(message);
+}
+
+void gui_toggle(const char* on, const char* off, bool& flag) {
+    if (ImGui::Button(flag ? on : off)) flag = !flag;
 }
 
 void gui_main(gui_state& state) {
@@ -180,13 +213,7 @@ void gui_read_morphology(gui_state& state, bool& open_file) {
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.6f);
             ImGui::Button("Load!");
             ImGui::PopStyleVar();
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::PushTextWrapPos(ImGui::GetFontSize()*35.0f);
-                ImGui::TextUnformatted("Unknown file type/flavor combination.");
-                ImGui::PopTextWrapPos();
-                ImGui::EndTooltip();
-            }
+            gui_tooltip("Unknown file type/flavor combination.");
         }
         ImGui::SameLine();
         if (ImGui::Button("Cancel")) {
@@ -213,26 +240,12 @@ void gui_locdef(loc_def& def, renderable& render) {
     ImGui::SameLine();
     ImGui::InputText("Name", def.name.data(), def.name.size());
     ImGui::Indent();
-    auto bg = ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
-    switch (def.state) {
-        case def_state::error: bg = to_imvec(red);   break;
-        case def_state::good:  bg = to_imvec(green); break;
-        default: break;
-    }
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, bg);
     if (ImGui::InputText("Definition", def.definition.data(), def.definition.size())) def.state = def_state::changed;
-    ImGui::PopStyleColor();
-    if (ImGui::IsItemHovered()) {
-        ImGui::BeginTooltip();
-        ImGui::PushTextWrapPos(ImGui::GetFontSize()*35.0f);
-        ImGui::TextUnformatted(def.message.c_str());
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
-    }
-    if (ImGui::Button((const char*) ICON_FK_TRASH)) def.state = def_state::erase;
     ImGui::SameLine();
-    auto eye = render.active ? ICON_FK_EYE : ICON_FK_EYE_SLASH;
-    if (ImGui::Button((const char*) eye)) render.active = !render.active;
+    gui_check_state(def.state, def.message);
+    gui_trash(def.state);
+    ImGui::SameLine();
+    gui_toggle((const char*) ICON_FK_EYE, (const char*) ICON_FK_EYE_SLASH, render.active);
     ImGui::SameLine();
     ImGui::ColorEdit4("", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
     ImGui::Unindent();
@@ -289,7 +302,6 @@ void gui_probes(gui_state& state) {
             ImGui::PushID(ix++);
             ImGui::Bullet();
             ImGui::SameLine();
-            ImGui::PushID("ls-name");
             if (ImGui::BeginCombo("Locset", probe.locset_name.c_str())) {
                 for (const auto& ls: state.locset_defs) {
                     auto nm = ls.name;
@@ -297,35 +309,17 @@ void gui_probes(gui_state& state) {
                 }
                 ImGui::EndCombo();
             }
-
-            const char* tag;
-            switch (probe.state) {
-                case def_state::error: tag = (const char*) ICON_FK_EXCLAMATION_TRIANGLE; break;
-                case def_state::good:  tag = (const char*) ICON_FK_CHECK;                break;
-                case def_state::empty: tag = (const char*) ICON_FK_QUESTION;             break;
-                default: break;
-            }
             ImGui::SameLine();
-            ImGui::Text("%s", tag);
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::PushTextWrapPos(ImGui::GetFontSize()*35.0f);
-                ImGui::TextUnformatted(probe.message.c_str());
-                ImGui::PopTextWrapPos();
-                ImGui::EndTooltip();
-            }
-            ImGui::PopID();
+            gui_check_state(probe.state, probe.message);
             ImGui::Indent();
             ImGui::InputDouble("Frequency (Hz)", &probe.frequency);
-            ImGui::PushID("variable-name");
             if (ImGui::BeginCombo("Variable", probe.variable.c_str())) {
                 for (const auto& v: probe_variables) {
                     if (ImGui::Selectable(v.c_str(), v == probe.variable)) probe.variable = v;
                 }
                 ImGui::EndCombo();
             }
-            ImGui::PopID();
-            if (ImGui::Button((const char*) ICON_FK_TRASH)) probe.state = def_state::erase;
+            gui_trash(probe.state);
             ImGui::Unindent();
             ImGui::PopID();
         }
