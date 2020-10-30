@@ -72,3 +72,6 @@ install(DIRECTORY glsl
   DESTINATION ${resource_path})
 install(DIRECTORY fonts
   DESTINATION ${resource_path})
+install(FILES default.ini
+  DESTINATION ${resource_path}
+  RENAME imgui.ini)
