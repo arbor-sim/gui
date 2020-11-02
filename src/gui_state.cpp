@@ -16,103 +16,115 @@ void gui_state::load_allen_swc(const std::string& swc_fn) {
     builder = cell_builder(std::move(tree));
     renderer = geometry{};
     renderer.load_geometry(builder.tree);
-    //
-    add_region("all", "(all)");
-    add_region("soma", "(tag 1)");
-    add_region("axon", "(tag 2)");
-    add_region("dend", "(tag 3)");
-    add_region("apic", "(tag 4)");
-    add_locset("center", "(location 0 0)");
+
+    region_defs.emplace_back("all",    "(all)");
+    region_defs.emplace_back("soma",   "(tag 1)");
+    region_defs.emplace_back("axon",   "(tag 2)");
+    region_defs.emplace_back("dend",   "(tag 3)");
+    region_defs.emplace_back("apic",   "(tag 4)");
+    locset_defs.emplace_back("center", "(location 0 0)");
 }
 
-void gui_state::add_region(std::string_view l, std::string_view d) {
-    region_defs.emplace_back(l, d);
-    render_regions.emplace_back();
-    render_regions.back().color = next_color();
-}
-
-void gui_state::add_region() {
-    region_defs.emplace_back();
-    render_regions.emplace_back();
-    render_regions.back().color = next_color();
-}
-
-void gui_state::add_probe() {
-    probe_defs.emplace_back();
-}
-
-void gui_state::add_locset(std::string_view l, std::string_view d) {
-    locset_defs.emplace_back(l, d);
-    render_locsets.emplace_back();
-    render_locsets.back().color = next_color();
-}
-
-void gui_state::add_locset() {
-    locset_defs.emplace_back();
-    render_locsets.emplace_back();
-    render_locsets.back().color = next_color();
-}
-
-void gui_state::update() {
-    // Scan regions
-    if (region_defs.size() != render_regions.size()) log_fatal("Invariant!");
-    for (auto ix = 0ul; ix < region_defs.size(); ++ix) {
-        auto& def = region_defs[ix];
-        auto& render = render_regions[ix];
-        if (def.state == def_state::changed) {
-            def.update();
-            def.set_renderable(renderer, builder, render);
-        }
-        if (def.state == def_state::erase) {
-            render.state = def_state::erase;
+template<typename D>
+void update_def(D& def) {
+    if (def.state == def_state::erase) return;
+    if (def.definition.empty() || !def.definition[0]) {
+        def.data = {};
+        def.empty();
+    } else {
+        try {
+            def.data = {def.definition};
+            def.good();
+        } catch (const arb::label_parse_error& e) {
+            def.data = {};
+            std::string m = e.what();
+            auto colon = m.find(':') + 1; colon = m.find(':', colon) + 1;
+            def.error(m.substr(colon, m.size() - 1));
         }
     }
-    region_defs.erase(std::remove_if(region_defs.begin(), region_defs.end(), [](const auto& p) { return p.state == def_state::erase; }), region_defs.end());
-    render_regions.erase(std::remove_if(render_regions.begin(), render_regions.end(), [](const auto& p) { return p.state == def_state::erase; }), render_regions.end());
-    std::unordered_map<std::string, reg_def> regions;
-    for (const auto& ls: region_defs) regions[ls.name] = ls;
+}
 
-    if (locset_defs.size() != render_locsets.size()) log_fatal("Invariant!");
-    for (auto ix = 0ul; ix < locset_defs.size(); ++ix) {
-        auto& def = locset_defs[ix];
-        auto& render = render_locsets[ix];
-        if (def.state == def_state::changed) {
-            def.update();
-            def.set_renderable(renderer, builder, render);
-        }
-        if (def.state == def_state::erase) {
-            render.state = def_state::erase;
-        }
+void def_set_renderable(geometry& renderer, cell_builder& builder, renderable& render, ls_def& def) {
+    render.active = false;
+    if (!def.data || (def.state != def_state::good)) return;
+    log_info("Making markers for locset {} '{}'", def.name, def.definition);
+    try {
+        auto points = builder.make_points(def.data.value());
+        render = renderer.make_marker(points, render.color);
+    } catch (arb::morphology_error& e) {
+        def.error(e.what());
     }
-    locset_defs.erase(std::remove_if(locset_defs.begin(), locset_defs.end(), [](const auto& p) { return p.state == def_state::erase; }), locset_defs.end());
-    render_locsets.erase(std::remove_if(render_locsets.begin(), render_locsets.end(), [](const auto& p) { return p.state == def_state::erase; }), render_locsets.end());
-    std::unordered_map<std::string, ls_def> locsets;
-    for (const auto& ls: locset_defs) locsets[ls.name] = ls;
+}
 
-    probe_defs.erase(std::remove_if(probe_defs.begin(), probe_defs.end(), [](const auto& p) { return p.state == def_state::erase; }), probe_defs.end());
-    for (auto& probe: probe_defs) {
-        if (probe.locset_name.empty()) {
-            probe.empty();
+void def_set_renderable(geometry& renderer, cell_builder& builder, renderable& render, reg_def& def) {
+    render.active = false;
+    if (!def.data || (def.state != def_state::good)) return;
+    log_info("Making frustrums for region {} '{}'", def.name, def.definition);
+    try {
+        auto points = builder.make_segments(def.data.value());
+        render = renderer.make_region(points, render.color);
+    } catch (arb::morphology_error& e) {
+        def.error(e.what());
+    }
+}
+
+template<typename Item>
+std::unordered_map<std::string, Item> update_defs(std::vector<Item>& defs, std::vector<renderable>& renderables, cell_builder& builder, geometry& renderer) {
+    for (auto& def: defs) {
+        auto& lnk = def.lnk_renderable;
+        if (lnk < 0) {
+            lnk = renderables.size();
+            renderables.emplace_back();
+        }
+        if (def.lnk_renderable < 0) log_fatal("no linked renderable");
+        auto& render = renderables[def.lnk_renderable];
+        if (def.state == def_state::changed) {
+            update_def(def);
+            def_set_renderable(renderer, builder, render, def);
+        }
+        if (def.state == def_state::erase) render.state = def_state::erase;
+    }
+    defs.erase(std::remove_if(defs.begin(), defs.end(), [](const auto& p) { return p.state == def_state::erase; }), defs.end());
+    renderables.erase(std::remove_if(renderables.begin(), renderables.end(), [](const auto& p) { return p.state == def_state::erase; }), renderables.end());
+
+    std::unordered_map<std::string, Item> result;
+    for (const auto& def: defs) result[def.name] = def;
+    return result;
+}
+
+template<typename Item>
+void update_placables(std::unordered_map<std::string, ls_def>& locsets, std::vector<Item>& defs) {
+    defs.erase(std::remove_if(defs.begin(), defs.end(), [](const auto& p) { return p.state == def_state::erase; }), defs.end());
+    for (auto& def: defs) {
+        if (def.locset_name.empty()) {
+            def.empty();
         } else {
-            if (locsets.contains(probe.locset_name)) {
-                const auto& def = locsets[probe.locset_name];
-                switch (def.state) {
+            if (locsets.contains(def.locset_name)) {
+                const auto& ls = locsets[def.locset_name];
+                switch (ls.state) {
                     case def_state::error:
-                        probe.error("Linked locset malformed.");
+                        def.error("Linked locset malformed.");
                         break;
                     case def_state::empty:
-                        probe.error("Linked locset empty.");
+                        def.error("Linked locset empty.");
                         break;
                     case def_state::good:
-                        probe.good();
+                        def.good();
                         break;
-                    default: log_fatal("invalid code path: unknown state {}", probe.locset_name);
+                    default: log_fatal("invalid code path: unknown state {}", def.locset_name);
                 }
             } else {
-                probe.error("Linked locset absent.");
+                def.error("Linked locset absent.");
             }
         }
     }
+}
+
+void gui_state::update() {
+    auto regions = update_defs(region_defs, render_regions, builder, renderer);
+    auto locsets = update_defs(locset_defs, render_locsets, builder, renderer);
+    update_placables(locsets, probe_defs);
+    update_placables(locsets, iclamp_defs);
 }
 
 unsigned long gui_state::render_cell(float width, float height) {

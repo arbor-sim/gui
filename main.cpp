@@ -11,7 +11,7 @@ void gui_cell(gui_state& state);
 void gui_place(gui_state& state);
 void gui_tooltip(const std::string&);
 void gui_check_state(def_state);
-void gui_trash(def_state&);
+void gui_trash(definition&);
 
 int main(int, char**) {
     log_init();
@@ -31,8 +31,8 @@ int main(int, char**) {
     }
 }
 
-void gui_trash(def_state& state) {
-    if (ImGui::Button((const char*) ICON_FK_TRASH)) state = def_state::erase;
+void gui_trash(definition& def) {
+    if (ImGui::Button((const char*) ICON_FK_TRASH)) def.erase();
 }
 
 void gui_tooltip(const std::string& message) {
@@ -45,16 +45,16 @@ void gui_tooltip(const std::string& message) {
     }
 }
 
-void gui_check_state(def_state state, const std::string& message) {
+void gui_check_state(const definition& def) {
     const char* tag;
-    switch (state) {
+    switch (def.state) {
         case def_state::error: tag = (const char*) ICON_FK_EXCLAMATION_TRIANGLE; break;
         case def_state::good:  tag = (const char*) ICON_FK_CHECK;                break;
         case def_state::empty: tag = (const char*) ICON_FK_QUESTION;             break;
         default: break;
     }
     ImGui::Text("%s", tag);
-    gui_tooltip(message);
+    gui_tooltip(def.message);
 }
 
 void gui_toggle(const char* on, const char* off, bool& flag) {
@@ -237,8 +237,8 @@ void gui_locdef(loc_def& def, renderable& render) {
     ImGui::Indent();
     if (ImGui::InputText("Definition", def.definition.data(), def.definition.size())) def.state = def_state::changed;
     ImGui::SameLine();
-    gui_check_state(def.state, def.message);
-    gui_trash(def.state);
+    gui_check_state(def);
+    gui_trash(def);
     ImGui::SameLine();
     gui_toggle((const char*) ICON_FK_EYE, (const char*) ICON_FK_EYE_SLASH, render.active);
     ImGui::SameLine();
@@ -249,72 +249,89 @@ void gui_locdef(loc_def& def, renderable& render) {
 void gui_locations(gui_state& state) {
     if (ImGui::Begin("Locations")) {
         {
+            bool add = false;
             ImGui::PushID("region");
             ImGui::AlignTextToFramePadding();
             auto open = ImGui::TreeNodeEx("Regions", ImGuiTreeNodeFlags_AllowItemOverlap);
             ImGui::SameLine(ImGui::GetWindowWidth() - 30);
-            if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) state.add_region();
+            if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) add = true;
             if (open) {
-                for (auto idx = 0ul; idx < state.region_defs.size(); ++idx) {
-                    ImGui::PushID(idx);
-                    gui_locdef(state.region_defs[idx], state.render_regions[idx]);
+                int idx = 0;
+                for (auto& def: state.region_defs) {
+                    ImGui::PushID(idx++);
+                    gui_locdef(def, state.render_regions[def.lnk_renderable]);
                     ImGui::PopID();
                 }
                 ImGui::TreePop();
             }
             ImGui::PopID();
+            if (add) state.region_defs.emplace_back();
         }
         {
+            bool add = false;
             ImGui::PushID("locset");
             ImGui::AlignTextToFramePadding();
             auto open = ImGui::TreeNodeEx("Locsets", ImGuiTreeNodeFlags_AllowItemOverlap);
             ImGui::SameLine(ImGui::GetWindowWidth() - 30);
-            if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) state.add_locset();
+            if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) add = true;
             if (open) {
-                for (auto idx = 0ul; idx < state.locset_defs.size(); ++idx) {
-                    ImGui::PushID(idx);
-                    gui_locdef(state.locset_defs[idx], state.render_locsets[idx]);
+                int idx = 0;
+                for (auto& def: state.locset_defs) {
+                    ImGui::PushID(idx++);
+                    gui_locdef(def, state.render_locsets[def.lnk_renderable]);
                     ImGui::PopID();
                 }
                 ImGui::TreePop();
             }
             ImGui::PopID();
+            if (add) state.locset_defs.emplace_back();
         }
     }
     ImGui::End();
 }
 
-void gui_probes(gui_state& state) {
-    ImGui::PushID("probe");
+void gui_placeable(prb_def& probe) {
+    ImGui::InputDouble("Frequency (Hz)", &probe.frequency);
+    static std::vector<std::string> probe_variables{"voltage", "current"};
+    if (ImGui::BeginCombo("Variable", probe.variable.c_str())) {
+        for (const auto& v: probe_variables) {
+            if (ImGui::Selectable(v.c_str(), v == probe.variable)) probe.variable = v;
+        }
+        ImGui::EndCombo();
+    }
+}
+
+void gui_placeable(stm_def& iclamp) {
+    ImGui::InputDouble("Delay (ms)",     &iclamp.delay);
+    ImGui::InputDouble("Duration (ms)",  &iclamp.duration);
+    ImGui::InputDouble("Amplitude (nA)", &iclamp.amplitude);
+}
+
+template<typename Item>
+void gui_placeables(const std::string& label, const std::vector<ls_def>& locsets, std::vector<Item>& items) {
+    ImGui::PushID(label.c_str());
     ImGui::AlignTextToFramePadding();
-    auto open = ImGui::TreeNodeEx("Probes", ImGuiTreeNodeFlags_AllowItemOverlap);
+    auto open = ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
     ImGui::SameLine(ImGui::GetWindowWidth() - 30);
-    if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) state.add_probe();
+    if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) items.emplace_back();
     if (open) {
-        static std::vector<std::string> probe_variables{"voltage", "current"};
         auto ix = 0;
-        for (auto& probe: state.probe_defs) {
+        for (auto& item: items) {
             ImGui::PushID(ix++);
             ImGui::Bullet();
             ImGui::SameLine();
-            if (ImGui::BeginCombo("Locset", probe.locset_name.c_str())) {
-                for (const auto& ls: state.locset_defs) {
+            if (ImGui::BeginCombo("Locset", item.locset_name.c_str())) {
+                for (const auto& ls: locsets) {
                     auto nm = ls.name;
-                    if (ImGui::Selectable(nm.c_str(), nm == probe.locset_name)) probe.locset_name = nm;
+                    if (ImGui::Selectable(nm.c_str(), nm == item.locset_name)) item.locset_name = nm;
                 }
                 ImGui::EndCombo();
             }
             ImGui::SameLine();
-            gui_check_state(probe.state, probe.message);
+            gui_check_state(item);
             ImGui::Indent();
-            ImGui::InputDouble("Frequency (Hz)", &probe.frequency);
-            if (ImGui::BeginCombo("Variable", probe.variable.c_str())) {
-                for (const auto& v: probe_variables) {
-                    if (ImGui::Selectable(v.c_str(), v == probe.variable)) probe.variable = v;
-                }
-                ImGui::EndCombo();
-            }
-            gui_trash(probe.state);
+            gui_placeable(item);
+            gui_trash(item);
             ImGui::Unindent();
             ImGui::PopID();
         }
@@ -325,7 +342,8 @@ void gui_probes(gui_state& state) {
 
 void gui_place(gui_state& state) {
     if (ImGui::Begin("Placings")) {
-        gui_probes(state);
+        gui_placeables("Probes",  state.locset_defs, state.probe_defs);
+        gui_placeables("Stimuli", state.locset_defs, state.iclamp_defs);
     }
     ImGui::End();
 }

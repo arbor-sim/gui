@@ -43,7 +43,8 @@ struct gui_state {
     std::vector<renderable> render_regions = {};
     std::vector<renderable> render_locsets = {};
 
-    std::vector<prb_def> probe_defs = {};
+    std::vector<prb_def> probe_defs  = {};
+    std::vector<stm_def> iclamp_defs = {};
     std::vector<reg_def> region_defs = {};
     std::vector<ls_def>  locset_defs = {};
 
@@ -55,13 +56,6 @@ struct gui_state {
     gui_state();
 
     void load_allen_swc(const std::string& swc_fn);
-
-
-    void add_probe();
-    void add_region(std::string_view l, std::string_view d);
-    void add_region();
-    void add_locset(std::string_view l, std::string_view d);
-    void add_locset();
 
     void update();
 

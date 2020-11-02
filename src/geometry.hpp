@@ -22,16 +22,16 @@ struct point {
   glm::vec3 normal;
 };
 
+glm::vec4 next_color();
+
 struct renderable {
   size_t count = 0;
   size_t instances = 0;
   unsigned vao = 0;
   bool active = false;
-  glm::vec4 color;
+  glm::vec4 color = next_color();
   def_state state = def_state::good;
 };
-
-glm::vec4 next_color();
 
 struct geometry {
   geometry();
