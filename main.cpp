@@ -163,7 +163,7 @@ void gui_read_morphology(gui_state& state, bool& open_file) {
             if (it.is_regular_file()) { // TODO add symlink, hardlink?
                 const auto& path = it.path();
                 if ((current_filter == "all") || (path.extension() == current_filter)) {
-                    auto fn = path.filename().c_str();
+                    const auto& fn = path.filename().c_str();
                     if (!show_hidden && (fn[0] == '.')) continue;
                     if (ImGui::Selectable(fn, path == current_file)) current_file = path;
                 }
