@@ -58,8 +58,7 @@ struct gui_state {
 
     void load_allen_swc(const std::string& swc_fn);
     void load_neuron_swc(const std::string& swc_fn);
-    void load_strict_swc(const std::string& swc_fn);
-    void load_relaxed_swc(const std::string& swc_fn);
+    void load_arbor_swc(const std::string& swc_fn);
 
     void update();
 

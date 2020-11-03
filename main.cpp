@@ -126,10 +126,9 @@ void gui_read_morphology(gui_state& state, bool& open_file) {
     // TODO Fix/Add loaders
     std::unordered_map<std::string, std::unordered_map<std::string, std::function<void(gui_state&, const std::string&)>>>
         loaders{{".swc",
-                 {{"Strict",  [](gui_state& s, const std::string& fn) { s.load_strict_swc(fn); }},
-                  {"Relaxed", [](gui_state& s, const std::string& fn) { s.load_relaxed_swc(fn); }},
-                  {"Allen",   [](gui_state& s, const std::string& fn) { s.load_allen_swc(fn); }},
-                  {"Neuron",  [](gui_state& s, const std::string& fn) { s.load_neuron_swc(fn); }}}}};
+                 {{"Arbor",  [](gui_state& s, const std::string& fn) { s.load_arbor_swc(fn); }},
+                  {"Allen",  [](gui_state& s, const std::string& fn) { s.load_allen_swc(fn); }},
+                  {"Neuron", [](gui_state& s, const std::string& fn) { s.load_neuron_swc(fn); }}}}};
 
     if (ImGui::BeginPopupModal("Open")) {
         static std::string current_filter = "all";
@@ -198,22 +197,38 @@ void gui_read_morphology(gui_state& state, bool& open_file) {
         ImGui::PopItemWidth();
         ImGui::SameLine();
         ImGui::Checkbox("Hidden", &show_hidden);
+        static std::string loader_error = "";
         if (loaders.contains(extension) && loaders[extension].contains(current_flavor)) {
             if (ImGui::Button("Load")) {
-                loaders[extension][current_flavor](state, current_file);
-                open_file = false;
+                try {
+                    loaders[extension][current_flavor](state, current_file);
+                    open_file = false;
+                } catch (arborio::swc_error& e) {
+                    loader_error = e.what();
+                }
             }
         } else {
             // TODO Disable Buttons? How?
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.6f);
-            ImGui::Button("Load!");
+            ImGui::Button("Load");
             ImGui::PopStyleVar();
             gui_tooltip("Unknown file type/flavor combination.");
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
-            open_file = false;
+        {
+            bool open = !loader_error.empty();
+            if (ImGui::BeginPopupModal("Cannot Load Morphology", &open)) {
+                ImGui::Text("%s", loader_error.c_str());
+                if (ImGui::Button("Close")) {
+                    loader_error.clear();
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+            if (open) ImGui::OpenPopup("Cannot Load Morphology");
         }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) open_file = false;
         ImGui::EndPopup();
     }
     ImGui::PopID();
