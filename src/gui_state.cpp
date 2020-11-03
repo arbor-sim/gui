@@ -12,7 +12,71 @@ void gui_state::load_allen_swc(const std::string& swc_fn) {
     locset_defs.clear();
     region_defs.clear();
     std::ifstream in(swc_fn.c_str());
-    auto tree = arb::as_segment_tree(arb::parse_swc(in, arb::swc_mode::relaxed));
+    auto data = arborio::parse_swc(in, arborio::swc_mode::relaxed);
+    auto tree = arborio::load_swc_allen(data);
+    builder = cell_builder(std::move(tree));
+    renderer = geometry{};
+    renderer.load_geometry(builder.tree);
+
+    region_defs.emplace_back("all",    "(all)");
+    region_defs.emplace_back("soma",   "(tag 1)");
+    region_defs.emplace_back("axon",   "(tag 2)");
+    region_defs.emplace_back("dend",   "(tag 3)");
+    region_defs.emplace_back("apic",   "(tag 4)");
+    locset_defs.emplace_back("center", "(location 0 0)");
+}
+
+void gui_state::load_neuron_swc(const std::string& swc_fn) {
+    log_debug("Reading {}", swc_fn);
+    render_regions.clear();
+    render_locsets.clear();
+    locset_defs.clear();
+    region_defs.clear();
+    std::ifstream in(swc_fn.c_str());
+    auto data = arborio::parse_swc(in, arborio::swc_mode::relaxed);
+    auto tree = arborio::load_swc_neuron(data);
+    builder = cell_builder(std::move(tree));
+    renderer = geometry{};
+    renderer.load_geometry(builder.tree);
+
+    region_defs.emplace_back("all",    "(all)");
+    region_defs.emplace_back("soma",   "(tag 1)");
+    region_defs.emplace_back("axon",   "(tag 2)");
+    region_defs.emplace_back("dend",   "(tag 3)");
+    region_defs.emplace_back("apic",   "(tag 4)");
+    locset_defs.emplace_back("center", "(location 0 0)");
+}
+
+void gui_state::load_strict_swc(const std::string& swc_fn) {
+    log_debug("Reading {}", swc_fn);
+    render_regions.clear();
+    render_locsets.clear();
+    locset_defs.clear();
+    region_defs.clear();
+    std::ifstream in(swc_fn.c_str());
+    auto data = arborio::parse_swc(in, arborio::swc_mode::strict);
+    auto tree = arborio::as_segment_tree(data);
+    builder = cell_builder(std::move(tree));
+    renderer = geometry{};
+    renderer.load_geometry(builder.tree);
+
+    region_defs.emplace_back("all",    "(all)");
+    region_defs.emplace_back("soma",   "(tag 1)");
+    region_defs.emplace_back("axon",   "(tag 2)");
+    region_defs.emplace_back("dend",   "(tag 3)");
+    region_defs.emplace_back("apic",   "(tag 4)");
+    locset_defs.emplace_back("center", "(location 0 0)");
+}
+
+void gui_state::load_relaxed_swc(const std::string& swc_fn) {
+    log_debug("Reading {}", swc_fn);
+    render_regions.clear();
+    render_locsets.clear();
+    locset_defs.clear();
+    region_defs.clear();
+    std::ifstream in(swc_fn.c_str());
+    auto data = arborio::parse_swc(in, arborio::swc_mode::relaxed);
+    auto tree = arborio::as_segment_tree(data);
     builder = cell_builder(std::move(tree));
     renderer = geometry{};
     renderer.load_geometry(builder.tree);

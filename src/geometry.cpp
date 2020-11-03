@@ -28,16 +28,16 @@ glm::vec4 next_color() {
   return colors[nxt];
 }
 
-void gl_check_error(const std::string& where) {
 #ifndef NDEBUG
+void gl_check_error(const std::string& where) {
     auto rc = glGetError();
     if (rc != GL_NO_ERROR) {
         log_error("OpenGL error @ {}: {}", where, rc);
-    } else {
-//        log_debug("OpenGL OK @ {}", where);
     }
-#endif
 }
+#else
+void gl_check_error(const std::string&) {}
+#endif
 
 void set_uniform(unsigned program, const std::string& name, const glm::vec3& data) {
     auto loc = glGetUniformLocation(program, name.c_str());

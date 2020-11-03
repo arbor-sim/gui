@@ -46,7 +46,7 @@ void gui_tooltip(const std::string& message) {
 }
 
 void gui_check_state(const definition& def) {
-    const char* tag;
+    const char* tag = "";
     switch (def.state) {
         case def_state::error: tag = (const char*) ICON_FK_EXCLAMATION_TRIANGLE; break;
         case def_state::good:  tag = (const char*) ICON_FK_CHECK;                break;
@@ -126,10 +126,10 @@ void gui_read_morphology(gui_state& state, bool& open_file) {
     // TODO Fix/Add loaders
     std::unordered_map<std::string, std::unordered_map<std::string, std::function<void(gui_state&, const std::string&)>>>
         loaders{{".swc",
-                 {{"Strict",  [](gui_state& s, const std::string& fn) { s.load_allen_swc(fn); }},
-                  {"Relaxed", [](gui_state& s, const std::string& fn) { s.load_allen_swc(fn); }},
+                 {{"Strict",  [](gui_state& s, const std::string& fn) { s.load_strict_swc(fn); }},
+                  {"Relaxed", [](gui_state& s, const std::string& fn) { s.load_relaxed_swc(fn); }},
                   {"Allen",   [](gui_state& s, const std::string& fn) { s.load_allen_swc(fn); }},
-                  {"Neuron",  [](gui_state& s, const std::string& fn) { s.load_allen_swc(fn); }}}}};
+                  {"Neuron",  [](gui_state& s, const std::string& fn) { s.load_neuron_swc(fn); }}}}};
 
     if (ImGui::BeginPopupModal("Open")) {
         static std::string current_filter = "all";

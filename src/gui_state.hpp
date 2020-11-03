@@ -14,6 +14,7 @@
 #include <arbor/morph/locset.hpp>
 #include <arbor/mechcat.hpp>
 #include <arbor/swcio.hpp>
+#include <arborio/swcio.hpp>
 #include <arbor/mechinfo.hpp>
 
 #include <definition.hpp>
@@ -56,6 +57,9 @@ struct gui_state {
     gui_state();
 
     void load_allen_swc(const std::string& swc_fn);
+    void load_neuron_swc(const std::string& swc_fn);
+    void load_strict_swc(const std::string& swc_fn);
+    void load_relaxed_swc(const std::string& swc_fn);
 
     void update();
 
