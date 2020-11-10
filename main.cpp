@@ -454,8 +454,6 @@ void gui_painting(gui_state& state) {
 
 void gui_debug(bool& open) { ImGui::ShowMetricsWindow(&open); }
 void gui_style(bool& open) {
-    if (ImGui::Begin("Style", &open)) {
-        ImGui::ShowStyleEditor();
-    }
+    if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
     ImGui::End();
 }
