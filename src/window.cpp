@@ -77,8 +77,14 @@ Window::Window() {
     // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
     //io.Fonts->AddFontDefault();
     {
+        static ImVector<ImWchar> base_range;
+        ImFontGlyphRangesBuilder builder;
+        builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+        auto text = u8"ΔΩ·²";
+        builder.AddText((const char*) text);
+        builder.BuildRanges(&base_range);
         auto path = base / "fonts/iosevka/iosevka-medium.ttf";
-        font = io.Fonts->AddFontFromFileTTF(path.c_str(), 16.0f);
+        font = io.Fonts->AddFontFromFileTTF(path.c_str(), 16.0f, nullptr, (ImWchar*) base_range.Data);
     }
     {
         static const ImWchar icons_ranges[] = { ICON_MIN_FK, ICON_MAX_FK, 0 };

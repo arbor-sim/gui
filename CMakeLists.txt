@@ -54,7 +54,9 @@ set(im_srcs
   3rd-party/imgui/examples/imgui_impl_opengl3.cpp
   3rd-party/imgui/examples/imgui_impl_glfw.cpp
   3rd-party/imgui/imgui.cpp 3rd-party/imgui/imgui_draw.cpp
-  3rd-party/imgui/imgui_widgets.cpp)
+  3rd-party/imgui/imgui_widgets.cpp
+  3rd-party/imgui/imgui_demo.cpp
+  3rd-party/imgui/misc/cpp/imgui_stdlib.cpp)
 
 set_source_files_properties("${gui_srcs}"
   PROPERTIES COMPILE_FLAGS "-Wall -Wextra -pedantic")

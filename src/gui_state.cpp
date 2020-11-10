@@ -5,68 +5,33 @@ extern float zoom;
 
 gui_state::gui_state(): builder{} {}
 
-void gui_state::load_allen_swc(const std::string& swc_fn) {
+void load_swc(gui_state& state, const std::string& swc_fn, std::function<arb::segment_tree(const std::vector<arborio::swc_record>&)> swc_to_segment_tree) {
     log_debug("Reading {}", swc_fn);
-    render_regions.clear();
-    render_locsets.clear();
-    locset_defs.clear();
-    region_defs.clear();
+    state.render_regions.clear();
+    state.render_locsets.clear();
+    state.locset_defs.clear();
+    state.region_defs.clear();
     std::ifstream in(swc_fn.c_str());
-    auto data = arborio::parse_swc(in, arborio::swc_mode::relaxed);
-    auto tree = arborio::load_swc_allen(data);
-    builder = cell_builder(std::move(tree));
-    renderer = geometry{};
-    renderer.load_geometry(builder.tree);
+    auto data = arborio::parse_swc(in).records();
+    auto tree = swc_to_segment_tree(data);
+    state.builder = cell_builder(std::move(tree));
+    state.renderer = geometry{};
+    state.renderer.load_geometry(state.builder.tree);
 
-    region_defs.emplace_back("all",    "(all)");
-    region_defs.emplace_back("soma",   "(tag 1)");
-    region_defs.emplace_back("axon",   "(tag 2)");
-    region_defs.emplace_back("dend",   "(tag 3)");
-    region_defs.emplace_back("apic",   "(tag 4)");
-    locset_defs.emplace_back("center", "(location 0 0)");
+    state.region_defs.emplace_back("all",    "(all)");
+    state.region_defs.emplace_back("soma",   "(tag 1)");
+    state.region_defs.emplace_back("axon",   "(tag 2)");
+    state.region_defs.emplace_back("dend",   "(tag 3)");
+    state.region_defs.emplace_back("apic",   "(tag 4)");
+    state.render_regions.resize(5);
+
+    state.locset_defs.emplace_back("center", "(location 0 0)");
+    state.render_locsets.resize(1);
 }
 
-void gui_state::load_neuron_swc(const std::string& swc_fn) {
-    log_debug("Reading {}", swc_fn);
-    render_regions.clear();
-    render_locsets.clear();
-    locset_defs.clear();
-    region_defs.clear();
-    std::ifstream in(swc_fn.c_str());
-    auto data = arborio::parse_swc(in, arborio::swc_mode::relaxed);
-    auto tree = arborio::load_swc_neuron(data);
-    builder = cell_builder(std::move(tree));
-    renderer = geometry{};
-    renderer.load_geometry(builder.tree);
-
-    region_defs.emplace_back("all",    "(all)");
-    region_defs.emplace_back("soma",   "(tag 1)");
-    region_defs.emplace_back("axon",   "(tag 2)");
-    region_defs.emplace_back("dend",   "(tag 3)");
-    region_defs.emplace_back("apic",   "(tag 4)");
-    locset_defs.emplace_back("center", "(location 0 0)");
-}
-
-void gui_state::load_arbor_swc(const std::string& swc_fn) {
-    log_debug("Reading {}", swc_fn);
-    render_regions.clear();
-    render_locsets.clear();
-    locset_defs.clear();
-    region_defs.clear();
-    std::ifstream in(swc_fn.c_str());
-    auto data = arborio::parse_swc(in, arborio::swc_mode::strict);
-    auto tree = arborio::as_segment_tree(data);
-    builder = cell_builder(std::move(tree));
-    renderer = geometry{};
-    renderer.load_geometry(builder.tree);
-
-    region_defs.emplace_back("all",    "(all)");
-    region_defs.emplace_back("soma",   "(tag 1)");
-    region_defs.emplace_back("axon",   "(tag 2)");
-    region_defs.emplace_back("dend",   "(tag 3)");
-    region_defs.emplace_back("apic",   "(tag 4)");
-    locset_defs.emplace_back("center", "(location 0 0)");
-}
+void gui_state::load_allen_swc(const std::string& swc_fn)  { return load_swc(*this, swc_fn, [](auto d){ return arborio::load_swc_allen(d); }); }
+void gui_state::load_neuron_swc(const std::string& swc_fn) { return load_swc(*this, swc_fn, [](auto d){ return arborio::load_swc_neuron(d); }); }
+void gui_state::load_arbor_swc(const std::string& swc_fn)  { return load_swc(*this, swc_fn, [](auto d){ return arborio::load_swc_arbor(d); }); }
 
 template<typename D>
 void update_def(D& def) {
@@ -113,19 +78,19 @@ void def_set_renderable(geometry& renderer, cell_builder& builder, renderable& r
 
 template<typename Item>
 std::unordered_map<std::string, Item> update_defs(std::vector<Item>& defs, std::vector<renderable>& renderables, cell_builder& builder, geometry& renderer) {
+    while (renderables.size() < defs.size()) {
+        log_info("#renderables < #definitions");
+        renderables.emplace_back();
+    }
+    int idx = 0;
     for (auto& def: defs) {
-        auto& lnk = def.lnk_renderable;
-        if (lnk < 0) {
-            lnk = renderables.size();
-            renderables.emplace_back();
-        }
-        if (def.lnk_renderable < 0) log_fatal("no linked renderable");
-        auto& render = renderables[def.lnk_renderable];
+        auto& render = renderables[idx];
         if (def.state == def_state::changed) {
             update_def(def);
             def_set_renderable(renderer, builder, render, def);
         }
         if (def.state == def_state::erase) render.state = def_state::erase;
+        idx++;
     }
     defs.erase(std::remove_if(defs.begin(), defs.end(), [](const auto& p) { return p.state == def_state::erase; }), defs.end());
     renderables.erase(std::remove_if(renderables.begin(), renderables.end(), [](const auto& p) { return p.state == def_state::erase; }), renderables.end());
@@ -168,6 +133,18 @@ void gui_state::update() {
     auto locsets = update_defs(locset_defs, render_locsets, builder, renderer);
     update_placables(locsets, probe_defs);
     update_placables(locsets, iclamp_defs);
+    update_placables(locsets, detector_defs);
+
+    {
+        while (parameter_defs.size() < region_defs.size()) {
+            log_info("#parameters < #definitions");
+            parameter_defs.emplace_back();
+        }
+        for (auto idx = 0ul; idx < region_defs.size(); ++idx) {
+            parameter_defs[idx].region_name = region_defs[idx].name;
+            if (region_defs[idx].state == def_state::erase) parameter_defs[idx].state = def_state::erase;
+        }
+    }
 }
 
 unsigned long gui_state::render_cell(float width, float height) {

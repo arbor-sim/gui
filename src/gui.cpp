@@ -122,33 +122,6 @@ void gui_simulation(parameters& param) {
     ImGui::End();
 }
 
-void gui_values(arb::cable_cell_parameter_set& p, arb::cable_cell_parameter_set& defaults) {
-    {
-        auto tmp = p.axial_resistivity.value_or(defaults.axial_resistivity.value());
-        if (ImGui::InputDouble("axial resistivity", &tmp)) {
-            p.axial_resistivity = tmp;
-        }
-    }
-    {
-        auto tmp = p.temperature_K.value_or(defaults.temperature_K.value());
-        if (ImGui::InputDouble("Temperature (K)", &tmp)) {
-            p.temperature_K = tmp;
-        }
-    }
-    {
-        auto tmp = p.init_membrane_potential.value_or(defaults.init_membrane_potential.value());
-        if (ImGui::InputDouble("Membrane Potential", &tmp)) {
-            p.init_membrane_potential = tmp;
-        }
-    }
-    {
-        auto tmp = p.membrane_capacitance.value_or(defaults.membrane_capacitance.value());
-        if (ImGui::InputDouble("Membrane Capacitance", &tmp)) {
-            p.membrane_capacitance = tmp;
-        }
-    }
-}
-
 void gui_ion(arb::cable_cell_ion_data& ion, arb::cable_cell_ion_data& defaults) {
     {
         auto tmp = ion.init_int_concentration.value_or(defaults.init_int_concentration.value());

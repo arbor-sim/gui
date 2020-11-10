@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unordered_set>
 #include <string>
 #include <vector>
 #include <filesystem>
@@ -13,16 +14,15 @@
 #include <arbor/morph/region.hpp>
 #include <arbor/morph/locset.hpp>
 #include <arbor/mechcat.hpp>
-#include <arbor/swcio.hpp>
-#include <arborio/swcio.hpp>
 #include <arbor/mechinfo.hpp>
+#include <arborio/swcio.hpp>
 
 #include <definition.hpp>
 #include <location.hpp>
 #include <geometry.hpp>
 #include <cell_builder.hpp>
 
-
+// definitions for placings
 struct prb_def: definition {
     std::string locset_name = "";
     double frequency = 1000; // [Hz]
@@ -36,22 +36,50 @@ struct stm_def: definition {
     double amplitude = 0;  // [nA]
 };
 
+struct sdt_def: definition {
+    std::string locset_name = "";
+    double threshold = 0;  // [mV]
+};
+
+// definitions for paintings
+struct par_def: definition {
+    std::string region_name = "";
+    std::optional<double> TK, Cm, Vm, RL;
+};
+
+struct par_default {
+    double TK, Cm, Vm, RL;
+};
+
+// file chooser
+struct file_chooser_state {
+    std::filesystem::path cwd = std::filesystem::current_path();
+    std::optional<std::string> filter = {};
+    bool show_hidden;
+    bool use_filter;
+    std::filesystem::path file;
+};
+
 struct gui_state {
+    // rendering
     geometry renderer;
-
-    // Main loop
-
     std::vector<renderable> render_regions = {};
     std::vector<renderable> render_locsets = {};
 
-    std::vector<prb_def> probe_defs  = {};
-    std::vector<stm_def> iclamp_defs = {};
-    std::vector<reg_def> region_defs = {};
-    std::vector<ls_def>  locset_defs = {};
+    // placeables
+    std::vector<ls_def>  locset_defs    = {};
+    std::vector<prb_def> probe_defs     = {};
+    std::vector<sdt_def> detector_defs  = {};
+    std::vector<stm_def> iclamp_defs    = {};
+
+    // paintings
+    std::vector<reg_def> region_defs    = {};
+    par_default parameter_defaults;
+    std::vector<par_def> parameter_defs = {};
 
     cell_builder builder;
 
-    std::filesystem::path cwd = std::filesystem::current_path();
+    file_chooser_state file_chooser;
 
     gui_state(const gui_state&) = delete;
     gui_state();

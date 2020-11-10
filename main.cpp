@@ -1,6 +1,5 @@
 #include <gui_state.hpp>
 #include <window.hpp>
-
 #include <IconsForkAwesome.h>
 
 void gui_main(gui_state& state);
@@ -11,7 +10,10 @@ void gui_cell(gui_state& state);
 void gui_place(gui_state& state);
 void gui_tooltip(const std::string&);
 void gui_check_state(def_state);
+void gui_painting(gui_state& state);
 void gui_trash(definition&);
+void gui_debug(bool&);
+void gui_style(bool&);
 
 int main(int, char**) {
     log_init();
@@ -27,6 +29,7 @@ int main(int, char**) {
         gui_locations(state);
         gui_cell(state);
         gui_place(state);
+        gui_painting(state);
         window.end_frame();
     }
 }
@@ -109,82 +112,107 @@ void gui_main(gui_state& state) {
 void gui_menu_bar(gui_state& state) {
     ImGui::BeginMenuBar();
     static auto open_morph = false;
+    static auto open_debug = false;
+    static auto open_style = false;
     if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem(fmt::format("{} Open morphology", (const char*) ICON_FK_DOWNLOAD).c_str())) {
-            open_morph = true;
-        }
+        open_morph = ImGui::MenuItem(fmt::format("{} Open morphology", (const char*) ICON_FK_DOWNLOAD).c_str());
         ImGui::EndMenu();
     }
-
-    if (open_morph) gui_read_morphology(state, open_morph);
+    if (ImGui::BeginMenu("Help")) {
+        open_debug = ImGui::MenuItem(fmt::format("{} Metrics", (const char*) ICON_FK_BUG).c_str());
+        open_style = ImGui::MenuItem(fmt::format("{} Style",   (const char*) ICON_FK_PAINT_BRUSH).c_str());
+        ImGui::EndMenu();
+    }
     ImGui::EndMenuBar();
+    if (open_morph) gui_read_morphology(state, open_morph);
+    if (open_debug) gui_debug(open_debug);
+    if (open_style) gui_style(open_style);
+}
+
+void gui_dir_view(file_chooser_state& state) {
+    // Draw the current path + show hidden
+    {
+        auto acc = std::filesystem::path{};
+        if (ImGui::Button((const char *) ICON_FK_FOLDER_OPEN)) state.cwd = "/";
+        for (const auto& part: state.cwd) {
+            acc = acc / part;
+            if ("/" == part) continue;
+            ImGui::SameLine(0.0f, 0.0f);
+            if (ImGui::Button(fmt::format("/ {}", part.c_str()).c_str())) state.cwd = acc;
+        }
+        ImGui::SameLine(ImGui::GetWindowWidth() - 30.0f);
+        if(ImGui::Button((const char*) ICON_FK_SNAPCHAT_GHOST)) state.show_hidden = !state.show_hidden;
+    }
+    // Draw the current dir
+    {
+        ImGui::BeginChild("Files", {-0.35f*ImGui::GetTextLineHeightWithSpacing(), -3.0f*ImGui::GetTextLineHeightWithSpacing()}, true);
+        for (const auto& it: std::filesystem::directory_iterator(state.cwd)) {
+            if (it.is_directory()) {
+                const auto& path = it.path();
+                std::string fn = path.filename();
+                if (fn.empty() || (!state.show_hidden && (fn.front() == '.'))) continue;
+                auto lbl = fmt::format("{} {}", (const char *) ICON_FK_FOLDER, fn);
+                ImGui::Selectable(lbl.c_str(), false);
+                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+                    state.cwd = path;
+                    state.file.clear();
+                }
+            }
+        }
+        for (const auto& it: std::filesystem::directory_iterator(state.cwd)) {
+            if (it.is_regular_file()) {
+                const auto& path = it.path();
+                const auto& ext = path.extension();
+                if (state.filter && state.filter.value() != ext) continue;
+                std::string fn = path.filename();
+                if (fn.empty() || (!state.show_hidden && (fn.front() == '.'))) continue;
+                if (ImGui::Selectable(fn.c_str(), path == state.file)) state.file = path;
+            }
+        }
+        ImGui::EndChild();
+    }
+}
+
+struct loader_state {
+    std::string message;
+    const char* icon;
+    std::optional<std::function<void(gui_state&, const std::string&)>> load;
+};
+
+std::unordered_map<std::string, std::unordered_map<std::string, std::function<void(gui_state&, const std::string&)>>>
+loaders{{".swc",
+         {{"Arbor",  [](gui_state& s, const std::string& fn) { s.load_arbor_swc(fn); }},
+          {"Allen",  [](gui_state& s, const std::string& fn) { s.load_allen_swc(fn); }},
+          {"Neuron", [](gui_state& s, const std::string& fn) { s.load_neuron_swc(fn); }}}}};
+
+loader_state get_loader(const std::string& extension,
+                        const std::string& flavor) {
+    if (extension.empty())                    return {"Please select a file.",   (const char*) ICON_FK_EXCLAMATION_TRIANGLE, {}};
+    if (!loaders.contains(extension))         return {"Unknown file type.",      (const char*) ICON_FK_EXCLAMATION_TRIANGLE, {}};
+    if (flavor.empty())                       return {"Please select a flavor.", (const char*) ICON_FK_EXCLAMATION_TRIANGLE, {}};
+    if (!loaders[extension].contains(flavor)) return {"Unknown flavor type.",    (const char*) ICON_FK_EXCLAMATION_TRIANGLE, {}};
+    return {"Ok.", (const char*) ICON_FK_CHECK, {loaders[extension][flavor]}};
 }
 
 void gui_read_morphology(gui_state& state, bool& open_file) {
     ImGui::PushID("open_file");
     ImGui::OpenPopup("Open");
-    // TODO Fix/Add loaders
-    std::unordered_map<std::string, std::unordered_map<std::string, std::function<void(gui_state&, const std::string&)>>>
-        loaders{{".swc",
-                 {{"Arbor",  [](gui_state& s, const std::string& fn) { s.load_arbor_swc(fn); }},
-                  {"Allen",  [](gui_state& s, const std::string& fn) { s.load_allen_swc(fn); }},
-                  {"Neuron", [](gui_state& s, const std::string& fn) { s.load_neuron_swc(fn); }}}}};
-
     if (ImGui::BeginPopupModal("Open")) {
-        static std::string current_filter = "all";
-        static std::filesystem::path current_file = "";
-        static bool show_hidden = false;
+        gui_dir_view(state.file_chooser);
+        ImGui::PushItemWidth(120.0f); // this is pixels
         {
-            auto acc = std::filesystem::path{};
-            if (ImGui::Button((const char *) ICON_FK_FOLDER_OPEN)) state.cwd = "/";
-            for (const auto& part: state.cwd) {
-                acc = acc / part;
-                if ("/" == part) continue;
-                ImGui::SameLine(0.0f, 0.0f);
-                if (ImGui::Button(fmt::format("/ {}", part.c_str()).c_str())) state.cwd = acc;
-            }
-        }
-        ImGui::BeginChild("Files", {-0.35f*ImGui::GetTextLineHeightWithSpacing(), -3.0f*ImGui::GetTextLineHeightWithSpacing()}, true);
-        for (const auto& it: std::filesystem::directory_iterator(state.cwd)) {
-            if (it.is_directory()) {
-                static bool selected = false;
-                const auto& path = it.path();
-                auto fn = path.filename().c_str();
-                if (!show_hidden && (fn[0] == '.')) continue;
-                auto lbl = fmt::format("{} {}", (const char *) ICON_FK_FOLDER, fn);
-                ImGui::Selectable(lbl.c_str(), selected);
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-                    state.cwd = path;
-                    selected = false;
-                }
-            }
-        }
-        for (const auto& it: std::filesystem::directory_iterator(state.cwd)) {
-            if (it.is_regular_file()) { // TODO add symlink, hardlink?
-                const auto& path = it.path();
-                if ((current_filter == "all") || (path.extension() == current_filter)) {
-                    const auto& fn = path.filename().c_str();
-                    if (!show_hidden && (fn[0] == '.')) continue;
-                    if (ImGui::Selectable(fn, path == current_file)) current_file = path;
-                }
-            }
-        }
-        ImGui::EndChild();
-        ImGui::PushItemWidth(80.0f); // this is pixels
-        {
-            if (ImGui::BeginCombo("Filter", current_filter.c_str())) {
-                if (ImGui::Selectable("all", "all" == current_filter)) current_filter = "all";
+            auto lbl = state.file_chooser.filter.value_or("all");
+            if (ImGui::BeginCombo("Filter", lbl.c_str())) {
+                if (ImGui::Selectable("all", "all" == lbl)) state.file_chooser.filter = {};
                 for (const auto& [k, v]: loaders) {
-                    if (ImGui::Selectable(k.c_str(), k == current_filter)) current_filter = k;
+                    if (ImGui::Selectable(k.c_str(), k == lbl)) state.file_chooser.filter = {k};
                 }
                 ImGui::EndCombo();
             }
         }
-
         ImGui::SameLine();
-        auto extension = current_file.extension();
+        auto extension = state.file_chooser.file.extension();
         static std::string current_flavor = "";
-        if (!loaders.contains(extension) || !loaders[extension].contains(current_flavor)) current_flavor = "";
         if (ImGui::BeginCombo("Flavor", current_flavor.c_str())) {
             if (loaders.contains(extension)) {
                 auto flavors = loaders[extension];
@@ -195,40 +223,43 @@ void gui_read_morphology(gui_state& state, bool& open_file) {
             ImGui::EndCombo();
         }
         ImGui::PopItemWidth();
-        ImGui::SameLine();
-        ImGui::Checkbox("Hidden", &show_hidden);
-        static std::string loader_error = "";
-        if (loaders.contains(extension) && loaders[extension].contains(current_flavor)) {
-            if (ImGui::Button("Load")) {
-                try {
-                    loaders[extension][current_flavor](state, current_file);
-                    open_file = false;
-                } catch (arborio::swc_error& e) {
-                    loader_error = e.what();
-                }
-            }
-        } else {
-            // TODO Disable Buttons? How?
-            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.6f);
-            ImGui::Button("Load");
-            ImGui::PopStyleVar();
-            gui_tooltip("Unknown file type/flavor combination.");
-        }
         {
-            bool open = !loader_error.empty();
-            if (ImGui::BeginPopupModal("Cannot Load Morphology", &open)) {
-                ImGui::Text("%s", loader_error.c_str());
-                if (ImGui::Button("Close")) {
-                    loader_error.clear();
-                    ImGui::CloseCurrentPopup();
+            auto loader = get_loader(extension, current_flavor);
+            auto alpha = loader.load ? 1.0f : 0.6f;
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
+            auto do_load = ImGui::Button("Load");
+            ImGui::PopStyleVar();
+            ImGui::SameLine();
+            ImGui::Text("%s", loader.icon);
+            gui_tooltip(loader.message);
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) open_file = false;
+            {
+                static std::string loader_error = "";
+                if (do_load && loader.load) {
+                    try {
+                        loader.load.value()(state, state.file_chooser.file);
+                        open_file = false;
+                    } catch (arborio::swc_error& e) {
+                        loader_error = e.what();
+                    }
                 }
-                ImGui::EndPopup();
+                if (ImGui::BeginPopupModal("Cannot Load Morphology")) {
+                    ImGui::PushTextWrapPos(ImGui::GetFontSize()*50.0f);
+                    ImGui::TextUnformatted(loader_error.c_str());
+                    ImGui::PopTextWrapPos();
+                    if (ImGui::Button("Close")) {
+                        loader_error.clear();
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
+                }
+                if (!loader_error.empty()) {
+                    ImGui::SetNextWindowSize(ImVec2(0, ImGui::GetFontSize()*50.0f));
+                    ImGui::OpenPopup("Cannot Load Morphology");
+                }
             }
-            if (open) ImGui::OpenPopup("Cannot Load Morphology");
         }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) open_file = false;
         ImGui::EndPopup();
     }
     ImGui::PopID();
@@ -248,9 +279,9 @@ void gui_cell(gui_state& state) {
 void gui_locdef(loc_def& def, renderable& render) {
     ImGui::Bullet();
     ImGui::SameLine();
-    ImGui::InputText("Name", def.name.data(), def.name.size());
-    ImGui::Indent();
-    if (ImGui::InputText("Definition", def.definition.data(), def.definition.size())) def.state = def_state::changed;
+    ImGui::InputText("Name", &def.name);
+    ImGui::Indent(24.0f);
+    if (ImGui::InputText("Definition", &def.definition)) def.state = def_state::changed;
     ImGui::SameLine();
     gui_check_state(def);
     gui_trash(def);
@@ -261,52 +292,41 @@ void gui_locdef(loc_def& def, renderable& render) {
     ImGui::Unindent();
 }
 
+template<typename Item>
+void gui_locdefs(const std::string& name, std::vector<Item>& items, std::vector<renderable>& render) {
+    bool add = false;
+    ImGui::PushID(name.c_str());
+    ImGui::AlignTextToFramePadding();
+    auto open = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
+    ImGui::SameLine(ImGui::GetWindowWidth() - 30);
+    if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) add = true;
+    if (open) {
+        ImGui::PushItemWidth(120.0f); // this is pixels
+        int idx = 0;
+        for (auto& def: items) {
+            ImGui::PushID(idx);
+            gui_locdef(def, render[idx]);
+            ImGui::PopID();
+            idx++;
+        }
+        ImGui::PopItemWidth();
+        ImGui::TreePop();
+    }
+    ImGui::PopID();
+    if (add) items.emplace_back();
+}
+
 void gui_locations(gui_state& state) {
     if (ImGui::Begin("Locations")) {
-        {
-            bool add = false;
-            ImGui::PushID("region");
-            ImGui::AlignTextToFramePadding();
-            auto open = ImGui::TreeNodeEx("Regions", ImGuiTreeNodeFlags_AllowItemOverlap);
-            ImGui::SameLine(ImGui::GetWindowWidth() - 30);
-            if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) add = true;
-            if (open) {
-                int idx = 0;
-                for (auto& def: state.region_defs) {
-                    ImGui::PushID(idx++);
-                    gui_locdef(def, state.render_regions[def.lnk_renderable]);
-                    ImGui::PopID();
-                }
-                ImGui::TreePop();
-            }
-            ImGui::PopID();
-            if (add) state.region_defs.emplace_back();
-        }
-        {
-            bool add = false;
-            ImGui::PushID("locset");
-            ImGui::AlignTextToFramePadding();
-            auto open = ImGui::TreeNodeEx("Locsets", ImGuiTreeNodeFlags_AllowItemOverlap);
-            ImGui::SameLine(ImGui::GetWindowWidth() - 30);
-            if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) add = true;
-            if (open) {
-                int idx = 0;
-                for (auto& def: state.locset_defs) {
-                    ImGui::PushID(idx++);
-                    gui_locdef(def, state.render_locsets[def.lnk_renderable]);
-                    ImGui::PopID();
-                }
-                ImGui::TreePop();
-            }
-            ImGui::PopID();
-            if (add) state.locset_defs.emplace_back();
-        }
+        gui_locdefs("Regions", state.region_defs, state.render_regions);
+        ImGui::Separator();
+        gui_locdefs("Locsets", state.locset_defs, state.render_locsets);
     }
     ImGui::End();
 }
 
 void gui_placeable(prb_def& probe) {
-    ImGui::InputDouble("Frequency (Hz)", &probe.frequency);
+    ImGui::InputDouble("Frequency", &probe.frequency, 0.0, 0.0, "%.0f Hz", ImGuiInputTextFlags_CharsScientific);
     static std::vector<std::string> probe_variables{"voltage", "current"};
     if (ImGui::BeginCombo("Variable", probe.variable.c_str())) {
         for (const auto& v: probe_variables) {
@@ -317,10 +337,15 @@ void gui_placeable(prb_def& probe) {
 }
 
 void gui_placeable(stm_def& iclamp) {
-    ImGui::InputDouble("Delay (ms)",     &iclamp.delay);
-    ImGui::InputDouble("Duration (ms)",  &iclamp.duration);
-    ImGui::InputDouble("Amplitude (nA)", &iclamp.amplitude);
+    ImGui::InputDouble("Delay",     &iclamp.delay,     0.0, 0.0, "%.0f ms", ImGuiInputTextFlags_CharsScientific);
+    ImGui::InputDouble("Duration",  &iclamp.duration,  0.0, 0.0, "%.0f ms", ImGuiInputTextFlags_CharsScientific);
+    ImGui::InputDouble("Amplitude", &iclamp.amplitude, 0.0, 0.0, "%.0f nA", ImGuiInputTextFlags_CharsScientific);
 }
+
+void gui_placeable(sdt_def& detector) {
+    ImGui::InputDouble("Threshold", &detector.threshold, 0.0, 0.0, "%.0f mV", ImGuiInputTextFlags_CharsScientific);
+}
+
 
 template<typename Item>
 void gui_placeables(const std::string& label, const std::vector<ls_def>& locsets, std::vector<Item>& items) {
@@ -330,9 +355,10 @@ void gui_placeables(const std::string& label, const std::vector<ls_def>& locsets
     ImGui::SameLine(ImGui::GetWindowWidth() - 30);
     if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) items.emplace_back();
     if (open) {
-        auto ix = 0;
+        ImGui::PushItemWidth(120.0f); // this is pixels
+        auto idx = 0;
         for (auto& item: items) {
-            ImGui::PushID(ix++);
+            ImGui::PushID(idx);
             ImGui::Bullet();
             ImGui::SameLine();
             if (ImGui::BeginCombo("Locset", item.locset_name.c_str())) {
@@ -344,12 +370,14 @@ void gui_placeables(const std::string& label, const std::vector<ls_def>& locsets
             }
             ImGui::SameLine();
             gui_check_state(item);
-            ImGui::Indent();
+            ImGui::Indent(24.0f);
             gui_placeable(item);
             gui_trash(item);
             ImGui::Unindent();
             ImGui::PopID();
+            idx++;
         }
+        ImGui::PopItemWidth();
         ImGui::TreePop();
     }
     ImGui::PopID();
@@ -358,7 +386,76 @@ void gui_placeables(const std::string& label, const std::vector<ls_def>& locsets
 void gui_place(gui_state& state) {
     if (ImGui::Begin("Placings")) {
         gui_placeables("Probes",  state.locset_defs, state.probe_defs);
+        ImGui::Separator();
         gui_placeables("Stimuli", state.locset_defs, state.iclamp_defs);
+        ImGui::Separator();
+        gui_placeables("Detectors", state.locset_defs, state.detector_defs);
+    }
+    ImGui::End();
+}
+
+void gui_defaulted_double(const std::string& label,
+                          const char* format,
+                          std::optional<double>& value,
+                          const double fallback) {
+    auto tmp = value.value_or(fallback);
+    if (ImGui::InputDouble(label.c_str(), &tmp, 0, 0, format)) value = {tmp};
+    ImGui::SameLine(ImGui::GetWindowWidth() - 30.0f);
+    if (ImGui::Button((const char*) ICON_FK_REFRESH)) value = {};
+}
+
+void gui_painting(gui_state& state) {
+    if (ImGui::Begin("Paintings")) {
+        ImGui::PushItemWidth(120.0f); // this is pixels
+        {
+            if (ImGui::TreeNodeEx("Parameters", ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                if (ImGui::TreeNodeEx("Defaults", ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                    static std::string preset = "Neuron";
+                    std::unordered_map<std::string, arb::cable_cell_parameter_set> presets{{"Neuron", arb::neuron_parameter_defaults}};
+                    ImGui::InputDouble("Temperature",          &state.parameter_defaults.TK, 0, 0, "%.0f K");
+                    ImGui::InputDouble("Membrane Potential",   &state.parameter_defaults.Vm, 0, 0, "%.0f mV");
+                    ImGui::InputDouble("Axial Resistivity",    &state.parameter_defaults.RL, 0, 0, "%.0f Ω·cm");
+                    ImGui::InputDouble("Membrane Capacitance", &state.parameter_defaults.Cm, 0, 0, "%.0f F/m²");
+                    if (ImGui::BeginCombo("Load Preset", preset.c_str())) {
+                        for (const auto& [k, v]: presets) {
+                            if (ImGui::Selectable(k.c_str(), k == preset)) preset = k;
+                        }
+                        ImGui::EndCombo();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button((const char*) ICON_FK_UPLOAD)) {
+                        auto df = presets[preset];
+                        state.parameter_defaults.TK = df.temperature_K.value();
+                        state.parameter_defaults.Vm = df.init_membrane_potential.value();
+                        state.parameter_defaults.RL = df.axial_resistivity.value();
+                        state.parameter_defaults.Cm = df.membrane_capacitance.value();
+                    }
+                    ImGui::TreePop();
+                }
+                if (ImGui::TreeNodeEx("Regions", ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                    for (auto& p: state.parameter_defs) {
+                        if (ImGui::TreeNodeEx(p.region_name.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                            gui_defaulted_double("Temperature",          "%.0f K",     p.TK, state.parameter_defaults.TK);
+                            gui_defaulted_double("Membrane Potential",   "%.0f mV",    p.Vm, state.parameter_defaults.Vm);
+                            gui_defaulted_double("Axial Resistivity",    "%.0f Ω·cm ", p.RL, state.parameter_defaults.RL);
+                            gui_defaulted_double("Membrane Capacitance", "%.0f F/m²",  p.Cm, state.parameter_defaults.Cm);
+                            ImGui::TreePop();
+                        }
+                    }
+                    ImGui::TreePop();
+                }
+                ImGui::TreePop();
+            }
+        }
+        ImGui::PopItemWidth();
+    }
+    ImGui::End();
+}
+
+void gui_debug(bool& open) { ImGui::ShowMetricsWindow(&open); }
+void gui_style(bool& open) {
+    if (ImGui::Begin("Style", &open)) {
+        ImGui::ShowStyleEditor();
     }
     ImGui::End();
 }
