@@ -416,6 +416,17 @@ void gui_painting(gui_state& state) {
                     ImGui::InputDouble("Membrane Potential",   &state.parameter_defaults.Vm, 0, 0, "%.0f mV");
                     ImGui::InputDouble("Axial Resistivity",    &state.parameter_defaults.RL, 0, 0, "%.0f Ω·cm");
                     ImGui::InputDouble("Membrane Capacitance", &state.parameter_defaults.Cm, 0, 0, "%.0f F/m²");
+                    if (ImGui::TreeNodeEx("Ions", ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                        for (auto& [k, v]: state.parameter_defaults.ions) {
+                            if (ImGui::TreeNodeEx(k.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                                ImGui::InputDouble("Internal Concentration", &v.Xi, 0, 0, "%.0f F/m²");
+                                ImGui::InputDouble("External Concentration", &v.Xo, 0, 0, "%.0f F/m²");
+                                ImGui::InputDouble("Reversal Potential",     &v.Er, 0, 0, "%.0f F/m²");
+                                ImGui::TreePop();
+                            }
+                        }
+                        ImGui::TreePop();
+                    }
                     if (ImGui::BeginCombo("Load Preset", preset.c_str())) {
                         for (const auto& [k, v]: presets) {
                             if (ImGui::Selectable(k.c_str(), k == preset)) preset = k;
@@ -429,6 +440,11 @@ void gui_painting(gui_state& state) {
                         state.parameter_defaults.Vm = df.init_membrane_potential.value();
                         state.parameter_defaults.RL = df.axial_resistivity.value();
                         state.parameter_defaults.Cm = df.membrane_capacitance.value();
+                        for (const auto& [k, v]: df.ion_data) {
+                            state.parameter_defaults.ions[k].Xi = v.init_int_concentration.value();
+                            state.parameter_defaults.ions[k].Xo = v.init_ext_concentration.value();
+                            state.parameter_defaults.ions[k].Er = v.init_reversal_potential.value();
+                        }
                     }
                     ImGui::TreePop();
                 }
@@ -439,6 +455,17 @@ void gui_painting(gui_state& state) {
                             gui_defaulted_double("Membrane Potential",   "%.0f mV",    p.Vm, state.parameter_defaults.Vm);
                             gui_defaulted_double("Axial Resistivity",    "%.0f Ω·cm ", p.RL, state.parameter_defaults.RL);
                             gui_defaulted_double("Membrane Capacitance", "%.0f F/m²",  p.Cm, state.parameter_defaults.Cm);
+                            if (ImGui::TreeNodeEx("Ions", ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                                for (auto& [k, v]: p.ions) {
+                                    if (ImGui::TreeNodeEx(k.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap)) {
+                                        gui_defaulted_double("Internal Concentration", "%.0f F/m²", v.Xi, state.parameter_defaults.ions[k].Xi);
+                                        gui_defaulted_double("External Concentration", "%.0f F/m²", v.Xo, state.parameter_defaults.ions[k].Xo);
+                                        gui_defaulted_double("Reversal Potential",     "%.0f F/m²", v.Er, state.parameter_defaults.ions[k].Er);
+                                        ImGui::TreePop();
+                                    }
+                                }
+                                ImGui::TreePop();
+                            }
                             ImGui::TreePop();
                         }
                     }

@@ -144,6 +144,18 @@ void gui_state::update() {
             parameter_defs[idx].region_name = region_defs[idx].name;
             if (region_defs[idx].state == def_state::erase) parameter_defs[idx].state = def_state::erase;
         }
+        for (auto& region: parameter_defs) {
+            for (const auto& [k, v]: parameter_defaults.ions) {
+                if (!region.ions.contains(k)) region.ions[k] = {};
+            }
+            std::vector<std::string> erase;
+            for (const auto& [k, v]: region.ions) {
+                if (!parameter_defaults.ions.contains(k)) erase.push_back(k);
+            }
+            for (const auto& k: erase) {
+                region.ions.erase(k);
+            }
+        }
     }
 }
 
