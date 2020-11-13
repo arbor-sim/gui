@@ -14,9 +14,9 @@ on:
 jobs:
   # This workflow contains a single job called "build"
   build:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.config.name }}
     # The type of runner that the job will run on
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         config:
@@ -38,4 +38,4 @@ jobs:
         
       # Configure via CMake
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
