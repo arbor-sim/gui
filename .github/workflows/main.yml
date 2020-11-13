@@ -38,4 +38,4 @@ jobs:
         
       # Configure via CMake
       - name: Configure
-        shell: cmake -S . -B build -DCMAKE_CXX_COMPILER=matrix.cxx
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
