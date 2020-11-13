@@ -2,9 +2,9 @@
 
 * Acknowledgements
 
-
-
 This project uses various open source projects
+  - GLM for OpenGL maths: https://github.com/g-truc/glm
+  - GLFW for setting up windows: https://github.com/glfw/glfw
   - Dear ImGUI library https://github.com/ocornut/imgui
   - Iosevka font https://github.com/be5invis/Iosevka
   - ForkAwesome icon set https://github.com/ForkAwesome/Fork-Awesome
