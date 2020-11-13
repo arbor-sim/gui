@@ -43,4 +43,4 @@ jobs:
         run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
               # Configure via CMake
       - name: Build
-        run: cmake -S . -B build --build
+        run: cmake --build build
