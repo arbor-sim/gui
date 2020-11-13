@@ -32,8 +32,7 @@ jobs:
       - name: "Clone w/ submodules"
         uses: actions/checkout@v2
         with:
-          submodules: true
-          recursive:  true
+          submodules: "recursive"
       - name: Setup OpenGL
         uses: openrndr/setup-opengl@v1
       - name: Install misssing packages
