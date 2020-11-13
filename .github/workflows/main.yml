@@ -1,21 +1,14 @@
-# This is a basic workflow to help you get started with Actions
-
 name: CI
 
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the master branch
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build_ubuntu_gcc:
     name: "Build on Ubuntu"
-    # The type of runner that the job will run on
     runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
@@ -53,6 +46,5 @@ jobs:
         run: sudo apt install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
       - name: Configure
         run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
-              # Configure via CMake
       - name: Build
         run: cmake --build build
