@@ -33,6 +33,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           submodules: true
+          recursive:  true
       - name: Setup OpenGL
         uses: openrndr/setup-opengl@v1
       - name: Install misssing packages
@@ -41,3 +42,6 @@ jobs:
       # Configure via CMake
       - name: Configure
         run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
+              # Configure via CMake
+      - name: Build
+        run: cmake -S . -B build --build
