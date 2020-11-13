@@ -14,13 +14,18 @@ on:
 jobs:
   # This workflow contains a single job called "build"
   build:
+    name: ${{ matrix.name }}
     # The type of runner that the job will run on
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-16.04, ubuntu-18.04, macos-latest]
-        compilers: [GCC, clang]
-
+        config:
+        - { 
+            name: "Ubuntu GCC",
+            os:   "ubuntu-latest",
+            cc:   "gcc",
+            cxx:  "g++"
+          }
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -33,8 +38,4 @@ jobs:
         
       # Configure via CMake
       - name: Configure
-        shell: cmake -P {0}
-        run: |
-          set(ENV{CC} ${{ matrix.compiler }})
-          set(ENV{CXX} ${{ matrix.compiler }})
-          
+        shell: cmake -S . -B build -DCMAKE_CXX_COMPILER=matrix.cxx
