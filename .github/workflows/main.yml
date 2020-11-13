@@ -35,6 +35,8 @@ jobs:
           submodules: true
       - name: Setup OpenGL
         uses: openrndr/setup-opengl@v1
+      - name: Install misssing packages
+        run: sudo apt install libxrandr-dev
         
       # Configure via CMake
       - name: Configure
