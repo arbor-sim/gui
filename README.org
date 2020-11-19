@@ -5,19 +5,19 @@
 Please install a OpenGL package confirming to your choice and platform.
 
 Then, clone this repository like this
-```
+#+begin_example bash
 git clone --recursive https://github.com/thorstenhater/arbor-gui.git
-```
+#+end_example
 this will bring in all the requirements apart from OpenGL.
 
 Next, configure and build the project
-```
+#+begin_example bash
 cd arbor-gui
 mkdir build
 cd build
 cmake ..
 make install
-```
+#+end_example
 
 * Acknowledgements
 
