@@ -1,8 +1,28 @@
 #+TITLE: Readme
 
+* Installation
+
+Please install a OpenGL package confirming to your choice and platform.
+
+Then, clone this repository like this
+```
+git clone --recursive https://github.com/thorstenhater/arbor-gui.git
+```
+this will bring in all the requirements apart from OpenGL.
+
+Next, configure and build the project
+```
+cd arbor-gui
+mkdir build
+cd build
+cmake ..
+make install
+```
+
 * Acknowledgements
 
 This project uses various open source projects
+  - Arbor: https://github.com/arbor-sim/arbor
   - GLM for OpenGL maths: https://github.com/g-truc/glm
   - GLFW for setting up windows: https://github.com/glfw/glfw
   - Dear ImGUI library https://github.com/ocornut/imgui
