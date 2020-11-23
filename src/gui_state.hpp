@@ -42,13 +42,28 @@ struct sdt_def: definition {
 };
 
 // definitions for paintings
+struct ion_def {
+    std::optional<double> Xi;
+    std::optional<double> Xo;
+    std::optional<double> Er;
+};
+
+
 struct par_def: definition {
     std::string region_name = "";
     std::optional<double> TK, Cm, Vm, RL;
+    std::unordered_map<std::string, ion_def> ions;
+};
+
+struct ion_default {
+    double Xi;
+    double Xo;
+    double Er;
 };
 
 struct par_default {
     double TK, Cm, Vm, RL;
+    std::unordered_map<std::string, ion_default> ions;
 };
 
 // file chooser
