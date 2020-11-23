@@ -14,3 +14,12 @@
 [submodule "3rd-party/icons"]
 	path = 3rd-party/icons
 	url = https://github.com/juliettef/IconFontCppHeaders.git
+[submodule "3rd-party/glfw"]
+	path = 3rd-party/glfw
+	url = https://github.com/glfw/glfw.git
+[submodule "3rd-party/arbor"]
+	path = 3rd-party/arbor
+	url = https://github.com/arbor-sim/arbor.git
+[submodule "3rd-party/glm"]
+	path = 3rd-party/glm
+	url = https://github.com/g-truc/glm.git

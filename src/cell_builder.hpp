@@ -9,7 +9,6 @@
 #include <arbor/morph/region.hpp>
 #include <arbor/morph/locset.hpp>
 #include <arbor/mechcat.hpp>
-#include <arbor/swcio.hpp>
 #include <arbor/mechinfo.hpp>
 
 #include <glm/glm.hpp>

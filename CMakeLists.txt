@@ -6,11 +6,6 @@ project(the-arbor-gui
 
 set(CMAKE_CXX_STANDARD 20)
 
-find_package(arbor REQUIRED)
-find_package(glfw3 3.3 REQUIRED)
-
-add_definitions()
-
 set(resource_path "${CMAKE_INSTALL_PREFIX}/etc/arbor-gui")
 add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
 add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W="ON")
@@ -23,7 +18,7 @@ if (APPLE)
   mark_as_advanced(cocoa_library iokit_library)
   find_library(corevideo_library CoreVideo)
   find_library(opengl_library OpenGL)
-    list(APPEND NANOGUI_LIBS GL)
+  list(APPEND ARBORGUI_LIBS GL)
   # Disable OpenGL deprecation warnings
   add_definitions(-DGL_SILENCE_DEPRECATION)
   list(APPEND ARBORGUI_LIBS ${opengl_library} ${corevideo_library})
@@ -61,18 +56,25 @@ set(im_srcs
 set_source_files_properties("${gui_srcs}"
   PROPERTIES COMPILE_FLAGS "-Wall -Wextra -pedantic")
 
+add_subdirectory("3rd-party/arbor")
+add_subdirectory("3rd-party/glfw")
+
 add_executable(arbor-gui ${gui_srcs} ${im_srcs})
 target_include_directories(arbor-gui PRIVATE 3rd-party/fmt/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/icons)
 target_include_directories(arbor-gui PRIVATE 3rd-party/spdlog/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/json/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui)
+target_include_directories(arbor-gui PRIVATE 3rd-party/glm)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
 target_include_directories(arbor-gui PRIVATE src)
 target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS})
-target_link_libraries(arbor-gui PRIVATE arbor::arbor arbor::arborio)
+target_link_libraries(arbor-gui PRIVATE arbor arborio)
 target_link_libraries(arbor-gui PRIVATE glfw)
+
+target_compile_options(arbor-gui PRIVATE "-I/usr/local/opt/llvm/include -I/usr/local/opt/llvm/include/c++/v1/")
+target_link_options(arbor-gui PRIVATE "-L/usr/local/opt/llvm/lib -Wl,-rpath,/usr/local/opt/llvm/lib")
 
 install(TARGETS arbor-gui
   RUNTIME DESTINATION bin)
