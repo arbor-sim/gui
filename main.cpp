@@ -2,6 +2,9 @@
 #include <window.hpp>
 #include <IconsForkAwesome.h>
 
+#include <chrono>
+#include <thread>
+
 void gui_main(gui_state& state);
 void gui_menu_bar(gui_state& state);
 void gui_read_morphology(gui_state& state, bool& open);
@@ -15,14 +18,21 @@ void gui_trash(definition&);
 void gui_debug(bool&);
 void gui_style(bool&);
 
+// target time for a frame, locked to 60Hz
+using timer = std::chrono::high_resolution_clock;
+constexpr auto frame_time = std::chrono::seconds(1)/60.0;
+
 int main(int, char**) {
     log_init();
+
+    log_debug("Rendering locked to {} us/frame", std::chrono::duration_cast<std::chrono::microseconds>(frame_time).count());
 
     Window window{};
     gui_state state{};
 
     // Main loop
-    while (window.running()) {
+    for (;window.running();) {
+        auto t0 = timer::now();
         state.update();
         window.begin_frame();
         gui_main(state);
@@ -31,6 +41,9 @@ int main(int, char**) {
         gui_place(state);
         gui_painting(state);
         window.end_frame();
+        auto t1 = timer::now();
+        auto dt = frame_time - (t1 - t0);
+        if (dt > std::chrono::milliseconds(1)) std::this_thread::sleep_for(dt);
     }
 }
 

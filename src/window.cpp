@@ -5,7 +5,7 @@
 #include <IconsForkAwesome.h>
 
 static void glfw_error_callback(int error, const char* description) {
-    log_error("Glfw error %d:\n{}", error, description);
+    log_error("Glfw error {}:\n{}", error, description);
 }
 
 float phi  = 0.0f;
