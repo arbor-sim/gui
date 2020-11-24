@@ -25,7 +25,7 @@ constexpr auto frame_time = std::chrono::seconds(1)/60.0;
 int main(int, char**) {
     log_init();
 
-    log_debug("Rendering locked to {} us/frame", std::chrono::duration_cast<std::chrono::microseconds>(frame_time).count());
+    log_info("Rendering locked to {} us/frame", std::chrono::duration_cast<std::chrono::microseconds>(frame_time).count());
 
     Window window{};
     gui_state state{};
@@ -43,6 +43,9 @@ int main(int, char**) {
         window.end_frame();
         auto t1 = timer::now();
         auto dt = frame_time - (t1 - t0);
+        log_debug("Time left for frame {}/{} us",
+                  std::chrono::duration_cast<std::chrono::microseconds>(dt).count(),
+                  std::chrono::duration_cast<std::chrono::microseconds>(frame_time).count());
         if (dt > std::chrono::milliseconds(1)) std::this_thread::sleep_for(dt);
     }
 }
@@ -128,7 +131,7 @@ void gui_menu_bar(gui_state& state) {
     static auto open_debug = false;
     static auto open_style = false;
     if (ImGui::BeginMenu("File")) {
-        open_morph = ImGui::MenuItem(fmt::format("{} Open morphology", (const char*) ICON_FK_DOWNLOAD).c_str());
+        open_morph = ImGui::MenuItem(fmt::format("{} Open morphology", (const char*) ICON_FK_UPLOAD).c_str());
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Help")) {
@@ -417,76 +420,172 @@ void gui_defaulted_double(const std::string& label,
     if (ImGui::Button((const char*) ICON_FK_REFRESH)) value = {};
 }
 
-void gui_painting(gui_state& state) {
-    if (ImGui::Begin("Paintings")) {
-        ImGui::PushItemWidth(120.0f); // this is pixels
-        {
-            if (ImGui::TreeNodeEx("Parameters", ImGuiTreeNodeFlags_AllowItemOverlap)) {
-                if (ImGui::TreeNodeEx("Defaults", ImGuiTreeNodeFlags_AllowItemOverlap)) {
-                    static std::string preset = "Neuron";
-                    std::unordered_map<std::string, arb::cable_cell_parameter_set> presets{{"Neuron", arb::neuron_parameter_defaults}};
-                    ImGui::InputDouble("Temperature",          &state.parameter_defaults.TK, 0, 0, "%.0f K");
-                    ImGui::InputDouble("Membrane Potential",   &state.parameter_defaults.Vm, 0, 0, "%.0f mV");
-                    ImGui::InputDouble("Axial Resistivity",    &state.parameter_defaults.RL, 0, 0, "%.0f Ω·cm");
-                    ImGui::InputDouble("Membrane Capacitance", &state.parameter_defaults.Cm, 0, 0, "%.0f F/m²");
-                    if (ImGui::TreeNodeEx("Ions", ImGuiTreeNodeFlags_AllowItemOverlap)) {
-                        for (auto& [k, v]: state.parameter_defaults.ions) {
-                            if (ImGui::TreeNodeEx(k.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap)) {
-                                ImGui::InputDouble("Internal Concentration", &v.Xi, 0, 0, "%.0f F/m²");
-                                ImGui::InputDouble("External Concentration", &v.Xo, 0, 0, "%.0f F/m²");
-                                ImGui::InputDouble("Reversal Potential",     &v.Er, 0, 0, "%.0f F/m²");
-                                ImGui::TreePop();
-                            }
-                        }
-                        ImGui::TreePop();
-                    }
-                    if (ImGui::BeginCombo("Load Preset", preset.c_str())) {
-                        for (const auto& [k, v]: presets) {
-                            if (ImGui::Selectable(k.c_str(), k == preset)) preset = k;
-                        }
-                        ImGui::EndCombo();
-                    }
-                    ImGui::SameLine();
-                    if (ImGui::Button((const char*) ICON_FK_UPLOAD)) {
-                        auto df = presets[preset];
-                        state.parameter_defaults.TK = df.temperature_K.value();
-                        state.parameter_defaults.Vm = df.init_membrane_potential.value();
-                        state.parameter_defaults.RL = df.axial_resistivity.value();
-                        state.parameter_defaults.Cm = df.membrane_capacitance.value();
-                        for (const auto& [k, v]: df.ion_data) {
-                            state.parameter_defaults.ions[k].Xi = v.init_int_concentration.value();
-                            state.parameter_defaults.ions[k].Xo = v.init_ext_concentration.value();
-                            state.parameter_defaults.ions[k].Er = v.init_reversal_potential.value();
-                        }
-                    }
+void gui_painting_preset(gui_state& state) {
+    static std::string preset = "Neuron";
+    static std::unordered_map<std::string, arb::cable_cell_parameter_set> presets{{"Neuron", arb::neuron_parameter_defaults}};
+    ImGui::Text("Load Preset");
+    if (ImGui::BeginCombo("", preset.c_str())) {
+        for (const auto& [k, v]: presets) {
+            if (ImGui::Selectable(k.c_str(), k == preset)) preset = k;
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button((const char*) ICON_FK_UPLOAD)) {
+        auto df = presets[preset];
+        state.parameter_defaults.TK = df.temperature_K.value();
+        state.parameter_defaults.Vm = df.init_membrane_potential.value();
+        state.parameter_defaults.RL = df.axial_resistivity.value();
+        state.parameter_defaults.Cm = df.membrane_capacitance.value();
+        state.ion_defaults.clear();
+        state.ion_defs.clear();
+        auto blank = std::vector<ion_def>(state.region_defs.size(), ion_def{});
+        for (const auto& [k, v]: df.ion_data) {
+            state.ion_defaults.push_back({k,
+                    v.init_int_concentration.value(),
+                    v.init_ext_concentration.value(),
+                    v.init_reversal_potential.value(),
+                    "const"});
+            state.ion_defs.push_back(blank);
+        }
+    }
+}
+
+void gui_painting_parameter(gui_state& state) {
+    if (ImGui::TreeNodeEx("Parameters")) {
+        if (ImGui::TreeNodeEx("Defaults")) {
+            ImGui::InputDouble("Temperature",          &state.parameter_defaults.TK, 0, 0, "%.0f K");
+            ImGui::InputDouble("Membrane Potential",   &state.parameter_defaults.Vm, 0, 0, "%.0f mV");
+            ImGui::InputDouble("Axial Resistivity",    &state.parameter_defaults.RL, 0, 0, "%.0f Ω·cm");
+            ImGui::InputDouble("Membrane Capacitance", &state.parameter_defaults.Cm, 0, 0, "%.0f F/m²");
+            ImGui::TreePop();
+        }
+        auto region = state.region_defs.begin();
+        for (auto& p: state.parameter_defs) {
+            if (ImGui::TreeNodeEx(region->name.c_str())) {
+                gui_defaulted_double("Temperature",          "%.0f K",     p.TK, state.parameter_defaults.TK);
+                gui_defaulted_double("Membrane Potential",   "%.0f mV",    p.Vm, state.parameter_defaults.Vm);
+                gui_defaulted_double("Axial Resistivity",    "%.0f Ω·cm ", p.RL, state.parameter_defaults.RL);
+                gui_defaulted_double("Membrane Capacitance", "%.0f F/m²",  p.Cm, state.parameter_defaults.Cm);
+                ImGui::TreePop();
+            }
+            ++region;
+        }
+        ImGui::TreePop();
+    }
+}
+
+void gui_painting_ion(gui_state& state) {
+    if (ImGui::TreeNodeEx("Ions")) {
+        auto defaults = state.ion_defaults.begin();
+        for (auto& ion: state.ion_defs) {
+            auto name = defaults->name;
+            if (ImGui::TreeNodeEx(name.c_str())) {
+                if (ImGui::TreeNodeEx("Defaults")) {
+                    ImGui::InputDouble("Internal Concentration", &defaults->Xi, 0, 0, "%.0f F/m²");
+                    ImGui::InputDouble("External Concentration", &defaults->Xo, 0, 0, "%.0f F/m²");
+                    ImGui::InputDouble("Reversal Potential",     &defaults->Er, 0, 0, "%.0f F/m²");
                     ImGui::TreePop();
                 }
-                if (ImGui::TreeNodeEx("Regions", ImGuiTreeNodeFlags_AllowItemOverlap)) {
-                    for (auto& p: state.parameter_defs) {
-                        if (ImGui::TreeNodeEx(p.region_name.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap)) {
-                            gui_defaulted_double("Temperature",          "%.0f K",     p.TK, state.parameter_defaults.TK);
-                            gui_defaulted_double("Membrane Potential",   "%.0f mV",    p.Vm, state.parameter_defaults.Vm);
-                            gui_defaulted_double("Axial Resistivity",    "%.0f Ω·cm ", p.RL, state.parameter_defaults.RL);
-                            gui_defaulted_double("Membrane Capacitance", "%.0f F/m²",  p.Cm, state.parameter_defaults.Cm);
-                            if (ImGui::TreeNodeEx("Ions", ImGuiTreeNodeFlags_AllowItemOverlap)) {
-                                for (auto& [k, v]: p.ions) {
-                                    if (ImGui::TreeNodeEx(k.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap)) {
-                                        gui_defaulted_double("Internal Concentration", "%.0f F/m²", v.Xi, state.parameter_defaults.ions[k].Xi);
-                                        gui_defaulted_double("External Concentration", "%.0f F/m²", v.Xo, state.parameter_defaults.ions[k].Xo);
-                                        gui_defaulted_double("Reversal Potential",     "%.0f F/m²", v.Er, state.parameter_defaults.ions[k].Er);
-                                        ImGui::TreePop();
-                                    }
-                                }
-                                ImGui::TreePop();
-                            }
-                            ImGui::TreePop();
-                        }
+                auto region = state.region_defs.begin();
+                for (auto& def: ion) {
+                    if (ImGui::TreeNodeEx(region->name.c_str())) {
+                        gui_defaulted_double("Internal Concentration", "%.0f F/m²", def.Xi, defaults->Xi);
+                        gui_defaulted_double("External Concentration", "%.0f F/m²", def.Xo, defaults->Xo);
+                        gui_defaulted_double("Reversal Potential",     "%.0f F/m²", def.Er, defaults->Er);
+                        ImGui::TreePop();
                     }
-                    ImGui::TreePop();
+                    ++region;
                 }
                 ImGui::TreePop();
             }
+            ++defaults;
         }
+        ImGui::TreePop();
+    }
+}
+
+const static std::unordered_map<std::string, arb::mechanism_catalogue>
+catalogues = {{"default", arb::global_default_catalogue()},
+              {"allen",   arb::global_allen_catalogue()}};
+
+void gui_mechanism(mech_def& mech) {
+    ImGui::Bullet();
+    ImGui::SameLine();
+    if (ImGui::BeginCombo("Mechanism", mech.name.c_str())) {
+        for (const auto& [cat_name, cat]: catalogues) {
+            ImGui::Selectable(cat_name.c_str(), false);
+            ImGui::Indent();
+            for (const auto& mech_name: cat.mechanism_names()) {
+                if (ImGui::Selectable(mech_name.c_str(), mech_name == mech.name)) {
+                    mech.name = mech_name;
+                    auto info = cat[mech_name];
+                    mech.global_vars.clear();
+                    for (const auto& [k,v]: info.globals) mech.global_vars[k] = v.default_value;
+                    mech.parameters.clear();
+                    for (const auto& [k,v]: info.parameters) mech.parameters[k] = v.default_value;
+                }
+            }
+            ImGui::Unindent();
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SameLine();
+    gui_trash(mech);
+    ImGui::Indent();
+    if (!mech.global_vars.empty()) {
+        ImGui::BulletText("Global Values");
+        ImGui::Indent();
+        for (auto& [k, v]: mech.global_vars) {
+            ImGui::InputDouble(k.c_str(), &v, 0.0, 0.0, "%.3f", ImGuiInputTextFlags_CharsScientific);
+        }
+        ImGui::Unindent();
+    }
+    if (!mech.parameters.empty()) {
+        ImGui::BulletText("Parameters");
+        ImGui::Indent();
+        for (auto& [k, v]: mech.parameters) {
+            ImGui::InputDouble(k.c_str(), &v, 0.0, 0.0, "%.3f", ImGuiInputTextFlags_CharsScientific);
+        }
+        ImGui::Unindent();
+    }
+    ImGui::Unindent();
+}
+
+void gui_painting_mechanism(gui_state& state) {
+    if (ImGui::TreeNodeEx("Mechanisms")) {
+        auto region = state.region_defs.begin();
+        for (auto& mechanisms: state.mechanism_defs) {
+            ImGui::AlignTextToFramePadding();
+            auto open = ImGui::TreeNodeEx(region->name.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
+            ImGui::SameLine(ImGui::GetWindowWidth() - 30);
+            if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) mechanisms.emplace_back();
+            if (open) {
+                auto idx = 0;
+                for (auto& mechanism: mechanisms) {
+                    ImGui::PushID(idx);
+                    gui_mechanism(mechanism);
+                    ImGui::PopID();
+                    ++idx;
+                }
+                ImGui::TreePop();
+            }
+            ++region;
+        }
+        ImGui::TreePop();
+    }
+}
+
+void gui_painting(gui_state& state) {
+    if (ImGui::Begin("Paintings")) {
+        ImGui::PushItemWidth(120.0f); // this is pixels
+        gui_painting_preset(state);
+        ImGui::Separator();
+        gui_painting_parameter(state);
+        ImGui::Separator();
+        gui_painting_ion(state);
+        ImGui::Separator();
+        gui_painting_mechanism(state);
         ImGui::PopItemWidth();
     }
     ImGui::End();

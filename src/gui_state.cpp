@@ -77,32 +77,8 @@ void def_set_renderable(geometry& renderer, cell_builder& builder, renderable& r
 }
 
 template<typename Item>
-std::unordered_map<std::string, Item> update_defs(std::vector<Item>& defs, std::vector<renderable>& renderables, cell_builder& builder, geometry& renderer) {
-    while (renderables.size() < defs.size()) {
-        log_info("#renderables < #definitions");
-        renderables.emplace_back();
-    }
-    int idx = 0;
-    for (auto& def: defs) {
-        auto& render = renderables[idx];
-        if (def.state == def_state::changed) {
-            update_def(def);
-            def_set_renderable(renderer, builder, render, def);
-        }
-        if (def.state == def_state::erase) render.state = def_state::erase;
-        idx++;
-    }
-    defs.erase(std::remove_if(defs.begin(), defs.end(), [](const auto& p) { return p.state == def_state::erase; }), defs.end());
-    renderables.erase(std::remove_if(renderables.begin(), renderables.end(), [](const auto& p) { return p.state == def_state::erase; }), renderables.end());
-
-    std::unordered_map<std::string, Item> result;
-    for (const auto& def: defs) result[def.name] = def;
-    return result;
-}
-
-template<typename Item>
 void update_placables(std::unordered_map<std::string, ls_def>& locsets, std::vector<Item>& defs) {
-    defs.erase(std::remove_if(defs.begin(), defs.end(), [](const auto& p) { return p.state == def_state::erase; }), defs.end());
+    std::erase_if(defs, [](const auto& p) { return p.state == def_state::erase; });
     for (auto& def: defs) {
         if (def.locset_name.empty()) {
             def.empty();
@@ -129,33 +105,59 @@ void update_placables(std::unordered_map<std::string, ls_def>& locsets, std::vec
 }
 
 void gui_state::update() {
-    auto regions = update_defs(region_defs, render_regions, builder, renderer);
-    auto locsets = update_defs(locset_defs, render_locsets, builder, renderer);
-    update_placables(locsets, probe_defs);
-    update_placables(locsets, iclamp_defs);
-    update_placables(locsets, detector_defs);
-
     {
-        while (parameter_defs.size() < region_defs.size()) {
-            log_info("#parameters < #definitions");
-            parameter_defs.emplace_back();
-        }
-        for (auto idx = 0ul; idx < region_defs.size(); ++idx) {
-            parameter_defs[idx].region_name = region_defs[idx].name;
-            if (region_defs[idx].state == def_state::erase) parameter_defs[idx].state = def_state::erase;
-        }
-        for (auto& region: parameter_defs) {
-            for (const auto& [k, v]: parameter_defaults.ions) {
-                if (!region.ions.contains(k)) region.ions[k] = {};
+        if (render_locsets.size() < locset_defs.size()) render_locsets.resize(locset_defs.size());
+        auto idx = 0;
+        for (auto& def: locset_defs) {
+            auto& render = render_locsets[idx];
+            if (def.state == def_state::changed) {
+                update_def(def);
+                def_set_renderable(renderer, builder, render, def);
             }
-            std::vector<std::string> erase;
-            for (const auto& [k, v]: region.ions) {
-                if (!parameter_defaults.ions.contains(k)) erase.push_back(k);
+            if (def.state == def_state::erase) {
+                render_locsets[idx].state = def_state::erase;
             }
-            for (const auto& k: erase) {
-                region.ions.erase(k);
-            }
+            idx++;
         }
+        std::erase_if(locset_defs,    [](const auto& p) { return p.state == def_state::erase; });
+        std::erase_if(render_locsets, [](const auto& p) { return p.state == def_state::erase; });
+        // collect what is left
+        std::unordered_map<std::string, ls_def> locsets;
+        for (const auto& def: locset_defs) locsets[def.name] = def;
+        // finally update individual lists of placeables
+        update_placables(locsets, probe_defs);
+        update_placables(locsets, iclamp_defs);
+        update_placables(locsets, detector_defs);
+    }
+    // Update paintables
+    {
+        if (render_regions.size() < region_defs.size()) render_regions.resize(region_defs.size());
+        if (parameter_defs.size() < region_defs.size()) parameter_defs.resize(region_defs.size());
+        if (mechanism_defs.size() < region_defs.size()) mechanism_defs.resize(region_defs.size());
+        for (auto& ion: ion_defs) {
+            if (ion.size() < region_defs.size()) ion.resize(region_defs.size());
+        }
+        auto idx = 0;
+        for (auto& def: region_defs) {
+            auto& render = render_regions[idx];
+            if (def.state == def_state::changed) {
+                update_def(def);
+                def_set_renderable(renderer, builder, render, def);
+            }
+            if (def.state == def_state::erase) {
+                render_regions[idx].state = def_state::erase;
+                parameter_defs[idx].state = def_state::erase;
+                for (auto& ion: ion_defs) ion[idx].state = def_state::erase;
+                for (auto& mech: mechanism_defs) mech[idx].state = def_state::erase;
+                render_regions[idx].state = def_state::erase;
+            }
+            idx++;
+        }
+        std::erase_if(region_defs,    [](const auto& p) { return p.state == def_state::erase; });
+        std::erase_if(render_regions, [](const auto& p) { return p.state == def_state::erase; });
+        std::erase_if(parameter_defs, [](const auto& p) { return p.state == def_state::erase; });
+        for (auto& ion: ion_defs) std::erase_if(ion, [](const auto& p) { return p.state == def_state::erase; });
+        for (auto& mech: mechanism_defs) std::erase_if(mech, [](const auto& p) { return p.state == def_state::erase; });
     }
 }
 
