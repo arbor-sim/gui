@@ -22,17 +22,25 @@ void gui_style(bool&);
 using timer = std::chrono::high_resolution_clock;
 constexpr auto frame_time = std::chrono::seconds(1)/60.0;
 
+double to_us(auto dt) { return std::chrono::duration_cast<std::chrono::microseconds>(dt).count(); }
+
 int main(int, char**) {
     log_init();
 
-    log_info("Rendering locked to {} us/frame", std::chrono::duration_cast<std::chrono::microseconds>(frame_time).count());
+    log_info("Rendering locked to {} us/frame", to_us(frame_time));
 
     Window window{};
     gui_state state{};
-
     // Main loop
+    auto loop = 0.0;
+    auto time = 0.0;
     for (;window.running();) {
-        auto t0 = timer::now();
+        if (!window.visible()) {
+            log_debug("Nothing to see here");
+            glfwWaitEvents();
+            continue;
+        }
+        auto t0  timer::now();
         state.update();
         window.begin_frame();
         gui_main(state);
@@ -42,11 +50,13 @@ int main(int, char**) {
         gui_painting(state);
         window.end_frame();
         auto t1 = timer::now();
-        auto dt = frame_time - (t1 - t0);
-        log_debug("Time left for frame {}/{} us",
-                  std::chrono::duration_cast<std::chrono::microseconds>(dt).count(),
-                  std::chrono::duration_cast<std::chrono::microseconds>(frame_time).count());
-        if (dt > std::chrono::milliseconds(1)) std::this_thread::sleep_for(dt);
+        auto dt = t1 - t0;
+        if (dt < frame_time) std::this_thread::sleep_for(frame_time - dt);
+        auto t2 = timer::now();
+        ++loop;
+        time += to_us(t1 - t0)*1e-6;
+        auto slept = t2 - t1;
+        log_debug("Frame budget {} us; frame took {}; to sleep {} us; actually slept {} us; fps {}", to_us(frame_time), to_us(dt), to_us(frame_time - dt), to_us(slept), loop/time);
     }
 }
 
@@ -125,13 +135,27 @@ void gui_main(gui_state& state) {
     ImGui::End();
 }
 
+
+void gui_save_decoration(gui_state& state, bool& open) {
+
+}
+
+void gui_read_decoration(gui_state& state, bool& open) {
+
+}
+
 void gui_menu_bar(gui_state& state) {
     ImGui::BeginMenuBar();
-    static auto open_morph = false;
+    static auto open_morph_read = false;
+    static auto open_decor_read = false;
+    static auto open_decor_save = false;
     static auto open_debug = false;
     static auto open_style = false;
     if (ImGui::BeginMenu("File")) {
-        open_morph = ImGui::MenuItem(fmt::format("{} Open morphology", (const char*) ICON_FK_UPLOAD).c_str());
+        open_morph_read = ImGui::MenuItem(fmt::format("{} Load morphology", (const char*) ICON_FK_UPLOAD).c_str());
+        ImGui::Separator();
+        open_decor_read = ImGui::MenuItem(fmt::format("{} Load decoration", (const char*) ICON_FK_UPLOAD).c_str());
+        open_decor_save = ImGui::MenuItem(fmt::format("{} Save decoration", (const char*) ICON_FK_DOWNLOAD).c_str());
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Help")) {
@@ -140,7 +164,9 @@ void gui_menu_bar(gui_state& state) {
         ImGui::EndMenu();
     }
     ImGui::EndMenuBar();
-    if (open_morph) gui_read_morphology(state, open_morph);
+    if (open_morph_read) gui_read_morphology(state, open_morph_read);
+    if (open_decor_read) gui_read_decoration(state, open_decor_read);
+    if (open_decor_save) gui_save_decoration(state, open_decor_save);
     if (open_debug) gui_debug(open_debug);
     if (open_style) gui_style(open_style);
 }
@@ -199,7 +225,9 @@ std::unordered_map<std::string, std::unordered_map<std::string, std::function<vo
 loaders{{".swc",
          {{"Arbor",  [](gui_state& s, const std::string& fn) { s.load_arbor_swc(fn); }},
           {"Allen",  [](gui_state& s, const std::string& fn) { s.load_allen_swc(fn); }},
-          {"Neuron", [](gui_state& s, const std::string& fn) { s.load_neuron_swc(fn); }}}}};
+          {"Neuron", [](gui_state& s, const std::string& fn) { s.load_neuron_swc(fn); }}}},
+        {".nml",
+         {{"Default",  [](gui_state& s, const std::string& fn) { s.load_neuroml(fn); }}}}};
 
 loader_state get_loader(const std::string& extension,
                         const std::string& flavor) {
@@ -226,18 +254,22 @@ void gui_read_morphology(gui_state& state, bool& open_file) {
                 ImGui::EndCombo();
             }
         }
-        ImGui::SameLine();
         auto extension = state.file_chooser.file.extension();
         static std::string current_flavor = "";
-        if (ImGui::BeginCombo("Flavor", current_flavor.c_str())) {
-            if (loaders.contains(extension)) {
-                auto flavors = loaders[extension];
+        if (loaders.contains(extension)) {
+            auto flavors = loaders[extension];
+            if (!flavors.contains(current_flavor)) current_flavor = flavors.begin()->first;
+            ImGui::SameLine();
+            if (ImGui::BeginCombo("Flavor", current_flavor.c_str())) {
                 for (const auto& [k, v]: flavors) {
                     if (ImGui::Selectable(k.c_str(), k == current_flavor)) current_flavor = k;
                 }
+                ImGui::EndCombo();
             }
-            ImGui::EndCombo();
+        } else {
+            current_flavor = "";
         }
+
         ImGui::PopItemWidth();
         {
             auto loader = get_loader(extension, current_flavor);
@@ -305,7 +337,7 @@ void gui_locdef(loc_def& def, renderable& render) {
     gui_toggle((const char*) ICON_FK_EYE, (const char*) ICON_FK_EYE_SLASH, render.active);
     ImGui::SameLine();
     ImGui::ColorEdit4("", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
-    ImGui::Unindent();
+    ImGui::Unindent(24.0f);
 }
 
 template<typename Item>
@@ -389,7 +421,7 @@ void gui_placeables(const std::string& label, const std::vector<ls_def>& locsets
             ImGui::Indent(24.0f);
             gui_placeable(item);
             gui_trash(item);
-            ImGui::Unindent();
+            ImGui::Unindent(24.0f);
             ImGui::PopID();
             idx++;
         }
@@ -441,11 +473,10 @@ void gui_painting_preset(gui_state& state) {
         state.ion_defs.clear();
         auto blank = std::vector<ion_def>(state.region_defs.size(), ion_def{});
         for (const auto& [k, v]: df.ion_data) {
-            state.ion_defaults.push_back({k,
-                    v.init_int_concentration.value(),
-                    v.init_ext_concentration.value(),
-                    v.init_reversal_potential.value(),
-                    "const"});
+            state.ion_defaults.push_back({.name=k,
+                    .Xi=v.init_int_concentration.value(),
+                    .Xo=v.init_ext_concentration.value(),
+                    .Er=v.init_reversal_potential.value()});
             state.ion_defs.push_back(blank);
         }
     }
@@ -477,6 +508,7 @@ void gui_painting_parameter(gui_state& state) {
 
 void gui_painting_ion(gui_state& state) {
     if (ImGui::TreeNodeEx("Ions")) {
+        static std::vector<std::string> methods{"Const", "Nernst"};
         auto defaults = state.ion_defaults.begin();
         for (auto& ion: state.ion_defs) {
             auto name = defaults->name;
@@ -485,6 +517,12 @@ void gui_painting_ion(gui_state& state) {
                     ImGui::InputDouble("Internal Concentration", &defaults->Xi, 0, 0, "%.0f F/m²");
                     ImGui::InputDouble("External Concentration", &defaults->Xo, 0, 0, "%.0f F/m²");
                     ImGui::InputDouble("Reversal Potential",     &defaults->Er, 0, 0, "%.0f F/m²");
+                    if (ImGui::BeginCombo("Method", defaults->method.c_str())) {
+                        for (auto& meth: methods) {
+                            if (ImGui::Selectable(meth.c_str(), meth == defaults->method)) defaults->method = meth;
+                        }
+                        ImGui::EndCombo();
+                    }
                     ImGui::TreePop();
                 }
                 auto region = state.region_defs.begin();

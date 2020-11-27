@@ -20,6 +20,8 @@ static void scroll_callback(GLFWwindow*, double xoffset, double yoffset) {
     if (zoom > 45.0f) zoom = 45.0f;
 }
 
+bool Window::visible() { return glfwGetWindowAttrib(handle, GLFW_FOCUSED); }
+
 Window::Window() {
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()) log_fatal("Failed to initialise GLFW");

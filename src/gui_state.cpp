@@ -1,37 +1,96 @@
 #include "gui_state.hpp"
 
+#include <arbornml/arbornml.hpp>
+#include <arbornml/nmlexcept.hpp>
+
+#include <sstream>
+
 extern float phi;
 extern float zoom;
 
 gui_state::gui_state(): builder{} {}
 
-void load_swc(gui_state& state, const std::string& swc_fn, std::function<arb::segment_tree(const std::vector<arborio::swc_record>&)> swc_to_segment_tree) {
-    log_debug("Reading {}", swc_fn);
-    state.render_regions.clear();
-    state.render_locsets.clear();
-    state.locset_defs.clear();
-    state.region_defs.clear();
-    std::ifstream in(swc_fn.c_str());
-    auto data = arborio::parse_swc(in).records();
-    auto tree = swc_to_segment_tree(data);
-    state.builder = cell_builder(std::move(tree));
-    state.renderer = geometry{};
-    state.renderer.load_geometry(state.builder.tree);
+arb::segment_tree morphology_to_segment_tree(const arb::morphology& morph) {
+    arb::segment_tree tree{};
+    std::vector<arb::msize_t> todo{arb::mnpos};
+    for (; !todo.empty();) {
+        auto branch = todo.back(); todo.pop_back();
+        for (const auto& child: morph.branch_children(branch)) {
+            todo.push_back(child);
+            for (const auto& [id, prox, dist, tag]: morph.branch_segments(child)) {
+                tree.append(branch, prox, dist, tag);
+            }
+        }
+    }
+    return tree;
+}
 
-    state.region_defs.emplace_back("all",    "(all)");
+void load_swc(gui_state& state, const std::string& fn, std::function<arb::morphology(const std::vector<arborio::swc_record>&)> swc_to_morph) {
+    log_debug("Reading {}", fn);
+    std::ifstream in(fn.c_str());
+    auto swc   = arborio::parse_swc(in).records();
+    auto morph = swc_to_morph(swc);
+    auto tree  = morphology_to_segment_tree(morph);
+    state.builder = cell_builder{tree};
+    state.renderer = geometry{tree};
+
     state.region_defs.emplace_back("soma",   "(tag 1)");
     state.region_defs.emplace_back("axon",   "(tag 2)");
     state.region_defs.emplace_back("dend",   "(tag 3)");
     state.region_defs.emplace_back("apic",   "(tag 4)");
-    state.render_regions.resize(5);
 
     state.locset_defs.emplace_back("center", "(location 0 0)");
-    state.render_locsets.resize(1);
 }
 
-void gui_state::load_allen_swc(const std::string& swc_fn)  { return load_swc(*this, swc_fn, [](auto d){ return arborio::load_swc_allen(d); }); }
-void gui_state::load_neuron_swc(const std::string& swc_fn) { return load_swc(*this, swc_fn, [](auto d){ return arborio::load_swc_neuron(d); }); }
-void gui_state::load_arbor_swc(const std::string& swc_fn)  { return load_swc(*this, swc_fn, [](auto d){ return arborio::load_swc_arbor(d); }); }
+std::string to_string(const arb::region& r) {
+    std::stringstream ss;
+    ss << r;
+    return ss.str();
+}
+
+std::string to_string(const arb::locset& r) {
+    std::stringstream ss;
+    ss << r;
+    return ss.str();
+}
+
+void load_neuroml(gui_state& state, const std::string& fn) {
+    // Read in morph
+    std::ifstream fd(fn.c_str());
+    std::string xml(std::istreambuf_iterator<char>(fd), {});
+    arbnml::neuroml nml(xml);
+    // Extract segment tree
+    auto cell_ids   = nml.cell_ids();
+    auto id         = cell_ids.front();
+    auto morph_data = nml.cell_morphology(id).value();
+    auto morph      = morph_data.morphology;
+    auto tree       = morphology_to_segment_tree(morph);
+
+    // Clean up
+    state.render_regions.clear();
+    state.render_locsets.clear();
+    state.locset_defs.clear();
+    state.region_defs.clear();
+
+    // Re-build ourself
+    state.builder = cell_builder{tree};
+    state.renderer = geometry{tree};
+
+    // Copy over locations
+    for (const auto& [k, v]: morph_data.groups.regions()) {
+        log_debug("NML region {}\n {}", k, to_string(v));
+        state.region_defs.push_back({k, to_string(v)});
+    }
+    for (const auto& [k, v]: morph_data.groups.locsets()) {
+        log_debug("NML locset {}\n {}", k, to_string(v));
+        state.locset_defs.push_back({k, to_string(v)});
+    }
+}
+
+void gui_state::load_allen_swc(const std::string& fn)  { load_swc(*this, fn, [](auto d){ return arborio::load_swc_allen(d); }); }
+void gui_state::load_neuron_swc(const std::string& fn) { load_swc(*this, fn, [](auto d){ return arborio::load_swc_neuron(d); }); }
+void gui_state::load_arbor_swc(const std::string& fn)  { load_swc(*this, fn, [](auto d){ return arborio::load_swc_arbor(d); }); }
+void gui_state::load_neuroml(const std::string& fn)    { ::load_neuroml(*this, fn); }
 
 template<typename D>
 void update_def(D& def) {
@@ -133,7 +192,9 @@ void gui_state::update() {
     {
         if (render_regions.size() < region_defs.size()) render_regions.resize(region_defs.size());
         if (parameter_defs.size() < region_defs.size()) parameter_defs.resize(region_defs.size());
-        if (mechanism_defs.size() < region_defs.size()) mechanism_defs.resize(region_defs.size());
+        for (auto& mechanism: mechanism_defs) {
+            if (mechanism.size() < mechanism_defs.size()) mechanism.resize(mechanism_defs.size());
+        }
         for (auto& ion: ion_defs) {
             if (ion.size() < region_defs.size()) ion.resize(region_defs.size());
         }

@@ -20,6 +20,7 @@ struct Window {
     ~Window();
 
     bool running();
+    bool visible();
     void begin_frame();
     void end_frame();
 

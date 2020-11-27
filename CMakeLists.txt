@@ -58,6 +58,8 @@ set_source_files_properties("${gui_srcs}"
 add_subdirectory("3rd-party/arbor")
 add_subdirectory("3rd-party/glfw")
 
+set(ARB_WITH_NEUROML ON)
+
 add_executable(arbor-gui ${gui_srcs} ${im_srcs})
 target_include_directories(arbor-gui PRIVATE 3rd-party/fmt/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/icons)
@@ -69,7 +71,7 @@ target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
 target_include_directories(arbor-gui PRIVATE src)
 target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS})
-target_link_libraries(arbor-gui PRIVATE arbor arborio)
+target_link_libraries(arbor-gui PRIVATE arbor arborio arbornml)
 target_link_libraries(arbor-gui PRIVATE glfw)
 
 target_compile_options(arbor-gui PRIVATE "-I/usr/local/opt/llvm/include -I/usr/local/opt/llvm/include/c++/v1/")

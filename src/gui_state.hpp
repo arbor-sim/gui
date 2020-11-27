@@ -64,7 +64,7 @@ struct ion_default {
     double Xi = 0;
     double Xo = 0;
     double Er = 0;
-    std::string method = "const";
+    std::string method = "Const";
 };
 
 struct par_default {
@@ -107,9 +107,10 @@ struct gui_state {
     gui_state(const gui_state&) = delete;
     gui_state();
 
-    void load_allen_swc(const std::string& swc_fn);
-    void load_neuron_swc(const std::string& swc_fn);
-    void load_arbor_swc(const std::string& swc_fn);
+    void load_allen_swc(const std::string& fn);
+    void load_neuron_swc(const std::string& fn);
+    void load_arbor_swc(const std::string& fn);
+    void load_neuroml(const std::string& fn);
 
     void update();
 
