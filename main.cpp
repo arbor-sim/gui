@@ -40,7 +40,7 @@ int main(int, char**) {
             glfwWaitEvents();
             continue;
         }
-        auto t0  timer::now();
+        auto t0 = timer::now();
         state.update();
         window.begin_frame();
         gui_main(state);
