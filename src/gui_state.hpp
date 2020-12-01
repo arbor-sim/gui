@@ -113,6 +113,6 @@ struct gui_state {
     void load_neuroml(const std::string& fn);
 
     void update();
-
-    unsigned long render_cell(float width, float height);
+    void reset();
+    void gui();
 };

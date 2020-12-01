@@ -8,12 +8,13 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
-#include <misc/cpp/imgui_stdlib.h>
 
 #include <utils.hpp>
 
 extern float phi;
 extern float zoom;
+extern float delta_x;
+extern float delta_y;
 
 struct Window {
     Window();

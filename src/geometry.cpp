@@ -235,6 +235,7 @@ unsigned long
 geometry::render(float zoom,
                  float phi,
                  float width, float height,
+                 float x, float y,
                  const std::vector<renderable>& regions,
                  const std::vector<renderable>& markers) {
     // re-build fbo, if needed
@@ -248,9 +249,10 @@ geometry::render(float zoom,
     // Set up transformations
     // * view
     float distance   = 2.5f;
-    auto camera      = distance*glm::vec3{std::sin(phi), 0.0f, std::cos(phi)};
+    log_debug("Look at target = ({}, {})", x, y);
+    auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
     glm::vec3 up     = {0.0f, 1.0f, 0.0f};
-    glm::vec3 target = {0.0f, 0.0f, 0.0f};
+    glm::vec3 target = {x, y, 0.0f};
     glm::mat4 view = glm::lookAt(camera, target, up);
     // * projection
     glm::mat4 proj = glm::perspective(glm::radians(zoom), width/height, 0.1f, 100.0f);
@@ -260,11 +262,11 @@ geometry::render(float zoom,
 
     {
         glm::mat4 model = glm::mat4(1.0f);
+        model = glm::rotate(model, phi, glm::vec3(0.0f, 1.0f, 0.0f));
         ::render(region_program, model, view, proj, camera, light, light_color, regions);
     }
     {
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, phi, glm::vec3(0.0f, 1.0f, 0.0f));
         glDisable(GL_DEPTH_TEST);
         ::render(marker_program, model, view, proj, camera, light, light_color, markers);
         glEnable(GL_DEPTH_TEST);

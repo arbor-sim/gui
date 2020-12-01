@@ -10,14 +10,36 @@ static void glfw_error_callback(int error, const char* description) {
 
 float phi  = 0.0f;
 float zoom = 45.0f;
+float delta_x = 0.0f;
+float delta_y = 0.0f;
 
 static void scroll_callback(GLFWwindow*, double xoffset, double yoffset) {
-    phi += 0.1 * (float) xoffset;
-    if (phi > 2.0f*PI) phi -= 2*PI;
-    if (phi <    0.0f) phi += 2*PI;
     zoom -= (float) yoffset;
     if (zoom < 1.0f)  zoom =  1.0f;
     if (zoom > 45.0f) zoom = 45.0f;
+}
+
+static void mouse_callback(GLFWwindow* window, double x, double y) {
+    static double last_x;
+    static double last_y;
+
+    auto lb_down = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    auto alt_key = (glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS) ||
+        (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS);
+
+    auto dx = last_x - x; last_x = x;
+    auto dy = last_y - y; last_y = y;
+
+    if (lb_down && alt_key) {
+        delta_x += ((dx > 0.0) - (dx < 0.0))*0.005f;
+        delta_y += ((dy > 0.0) - (dy < 0.0))*0.005f;
+    }
+
+    if (lb_down && !alt_key) {
+        phi +=  ((dx > 0.0) - (dx < 0.0))*0.1f;
+        if (phi > 2.0f*PI) phi -= 2*PI;
+        if (phi <    0.0f) phi += 2*PI;
+    }
 }
 
 bool Window::visible() { return glfwGetWindowAttrib(handle, GLFW_FOCUSED); }
@@ -48,6 +70,7 @@ Window::Window() {
     glfwMakeContextCurrent(handle);
     glfwSwapInterval(1); // Enable vsync
     glfwSetScrollCallback(handle, scroll_callback);
+    glfwSetCursorPosCallback(handle, mouse_callback);
     if (gl3wInit()) log_fatal("Failed to initialize OpenGL loader");
 
     IMGUI_CHECKVERSION();
