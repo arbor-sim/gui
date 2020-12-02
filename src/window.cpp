@@ -8,8 +8,8 @@ static void glfw_error_callback(int error, const char* description) {
     log_error("Glfw error {}:\n{}", error, description);
 }
 
-float phi  = 0.0f;
-float zoom = 45.0f;
+float phi     = 0.0f;
+float zoom    = 45.0f;
 float delta_x = 0.0f;
 float delta_y = 0.0f;
 
@@ -31,8 +31,8 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
     auto dy = last_y - y; last_y = y;
 
     if (lb_down && alt_key) {
-        delta_x += ((dx > 0.0) - (dx < 0.0))*0.005f;
-        delta_y += ((dy > 0.0) - (dy < 0.0))*0.005f;
+        delta_x += (dx > 0.0) - (dx < 0.0);
+        delta_y -= (dy > 0.0) - (dy < 0.0);
     }
 
     if (lb_down && !alt_key) {

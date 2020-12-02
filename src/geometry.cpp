@@ -252,8 +252,8 @@ geometry::render(float zoom,
     log_debug("Look at target = ({}, {})", x, y);
     auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
     glm::vec3 up     = {0.0f, 1.0f, 0.0f};
-    glm::vec3 target = {x, y, 0.0f};
-    glm::mat4 view = glm::lookAt(camera, target, up);
+    glm::vec3 offset = {x/width, y/height, 0.0f};
+    glm::mat4 view = glm::lookAt(camera, target/rescale + offset, up);
     // * projection
     glm::mat4 proj = glm::perspective(glm::radians(zoom), width/height, 0.1f, 100.0f);
 
@@ -267,6 +267,8 @@ geometry::render(float zoom,
     }
     {
         glm::mat4 model = glm::mat4(1.0f);
+        model = glm::rotate(model, -phi, glm::vec3(0.0f, 1.0f, 0.0f));
+        view  = glm::rotate(view,   phi, glm::vec3(0.0f, 1.0f, 0.0f));
         glDisable(GL_DEPTH_TEST);
         ::render(marker_program, model, view, proj, camera, light, light_color, markers);
         glEnable(GL_DEPTH_TEST);

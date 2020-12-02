@@ -47,6 +47,8 @@ struct geometry {
 
   void load_geometry(const arb::segment_tree& tree);
 
+  glm::vec3 target = {0.0f, 0.0f, 0.0f};
+
   private:
     void maybe_make_fbo(int w, int h);
     std::vector<point> triangles = {};

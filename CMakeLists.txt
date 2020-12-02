@@ -74,7 +74,7 @@ target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS})
 target_link_libraries(arbor-gui PRIVATE arbor arborio arbornml)
 target_link_libraries(arbor-gui PRIVATE glfw)
 
-target_compile_options(arbor-gui PRIVATE "-I/usr/local/opt/llvm/include -I/usr/local/opt/llvm/include/c++/v1/")
+target_compile_options(arbor-gui PRIVATE "-I/usr/local/opt/llvm/include -I/usr/local/opt/llvm/include/c++/v1/ -stdlib=libc++")
 target_link_options(arbor-gui PRIVATE "-L/usr/local/opt/llvm/lib -Wl,-rpath,/usr/local/opt/llvm/lib")
 
 install(TARGETS arbor-gui

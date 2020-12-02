@@ -52,18 +52,7 @@ void load_swc(gui_state& state, const std::string& fn, std::function<arb::morpho
     state.locset_defs.emplace_back("center", "(location 0 0)");
 }
 
-std::string to_string(const arb::region& r) {
-    std::stringstream ss;
-    ss << r;
-    return ss.str();
-}
-
-std::string to_string(const arb::locset& r) {
-    std::stringstream ss;
-    ss << r;
-    return ss.str();
-}
-
+template<typename T> std::string to_string(const T& r) { std::stringstream ss; ss << r; return ss.str(); }
 
 void gui_state::reset() {
     render_regions.clear();
@@ -375,28 +364,33 @@ void gui_dir_view(file_chooser_state& state) {
     // Draw the current dir
     {
         ImGui::BeginChild("Files", {-0.35f*ImGui::GetTextLineHeightWithSpacing(), -3.0f*ImGui::GetTextLineHeightWithSpacing()}, true);
+
+        std::vector<std::tuple<std::string, std::filesystem::path>> dirnames;
+        std::vector<std::tuple<std::string, std::filesystem::path>> filenames;
+
         for (const auto& it: std::filesystem::directory_iterator(state.cwd)) {
-            if (it.is_directory()) {
-                const auto& path = it.path();
-                std::string fn = path.filename();
-                if (fn.empty() || (!state.show_hidden && (fn.front() == '.'))) continue;
-                auto lbl = fmt::format("{} {}", (const char *) ICON_FK_FOLDER, fn);
+            const auto& path = it.path();
+            const auto& ext = path.extension();
+            std::string fn = path.filename();
+            if (fn.empty() || (!state.show_hidden && (fn.front() == '.'))) continue;
+            if (it.is_directory())    dirnames.push_back({fn, path});
+            if (state.filter && state.filter.value() != ext) continue;
+            if (it.is_regular_file()) filenames.push_back({fn, path});
+        }
+
+        std::sort(filenames.begin(), filenames.end());
+        std::sort(dirnames.begin(), dirnames.end());
+
+        for (const auto& [dn, path]: dirnames) {
+                auto lbl = fmt::format("{} {}", (const char *) ICON_FK_FOLDER, dn);
                 ImGui::Selectable(lbl.c_str(), false);
                 if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
                     state.cwd = path;
                     state.file.clear();
                 }
             }
-        }
-        for (const auto& it: std::filesystem::directory_iterator(state.cwd)) {
-            if (it.is_regular_file()) {
-                const auto& path = it.path();
-                const auto& ext = path.extension();
-                if (state.filter && state.filter.value() != ext) continue;
-                std::string fn = path.filename();
-                if (fn.empty() || (!state.show_hidden && (fn.front() == '.'))) continue;
-                if (ImGui::Selectable(fn.c_str(), path == state.file)) state.file = path;
-            }
+        for (const auto& [fn, path]: filenames) {
+            if (ImGui::Selectable(fn.c_str(), path == state.file)) state.file = path;
         }
         ImGui::EndChild();
     }
@@ -506,6 +500,35 @@ void gui_cell(gui_state& state) {
         auto size = ImGui::GetWindowSize();
         auto image = state.renderer.render(zoom, phi, size.x, size.y, delta_x, delta_y, state.render_regions, state.render_locsets);
         ImGui::Image((ImTextureID) image, size, ImVec2(0, 1), ImVec2(1, 0));
+
+        if (ImGui::BeginPopupContextWindow()) {
+            if (ImGui::MenuItem("Reset camera")) {
+                delta_x = 0.0f;
+                delta_y = 0.0f;
+                state.renderer.target = {0.0f, 0.0f, 0.0f};
+            }
+            if (ImGui::BeginMenu("Snap to locset")) {
+                for (const auto& ls: state.locset_defs) {
+                    if (ls.state != def_state::good) continue;
+                    auto name = ls.name.c_str();
+                    if (ImGui::BeginMenu(name)) {
+                        auto points = state.builder.make_points(ls.data.value());
+                        for (const auto& point: points) {
+                            const auto lbl = fmt::format("{:.3f} {:.3f} {:.3f}", point.x, point.y, point.z);
+                            if (ImGui::MenuItem(lbl.c_str())) {
+                                delta_x = 0.0f;
+                                delta_y = 0.0f;
+                                state.renderer.target = point;
+                            }
+                        }
+                        ImGui::EndMenu();
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            ImGui::EndPopup();
+        }
+
         ImGui::EndChild();
     }
     ImGui::End();
