@@ -253,7 +253,7 @@ geometry::render(float zoom,
     auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
     glm::vec3 up     = {0.0f, 1.0f, 0.0f};
     glm::vec3 offset = {x/width, y/height, 0.0f};
-    glm::mat4 view = glm::lookAt(camera, target/rescale + offset, up);
+    glm::mat4 view = glm::lookAt(camera, (target - root)/rescale + offset, up);
     // * projection
     glm::mat4 proj = glm::perspective(glm::radians(zoom), width/height, 0.1f, 100.0f);
 
@@ -315,6 +315,7 @@ void geometry::load_geometry(const arb::segment_tree& tree) {
     }
     auto tmp = tree.segments()[0].prox;
     root = {(float) tmp.x, (float) tmp.y, (float) tmp.z}; // is always the root
+    target = root;
     size_t index = 0;
     for (const auto& [id, prox, dist, tag]: tree.segments()) {
         // Shift to root and find vector along the segment

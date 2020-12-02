@@ -31,8 +31,8 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
     auto dy = last_y - y; last_y = y;
 
     if (lb_down && alt_key) {
-        delta_x += (dx > 0.0) - (dx < 0.0);
-        delta_y -= (dy > 0.0) - (dy < 0.0);
+        delta_x += 2.0f*((dx > 0.0) - (dx < 0.0));
+        delta_y -= 2.0f*((dy > 0.0) - (dy < 0.0));
     }
 
     if (lb_down && !alt_key) {

@@ -514,7 +514,7 @@ void gui_cell(gui_state& state) {
                     if (ImGui::BeginMenu(name)) {
                         auto points = state.builder.make_points(ls.data.value());
                         for (const auto& point: points) {
-                            const auto lbl = fmt::format("{:.3f} {:.3f} {:.3f}", point.x, point.y, point.z);
+                            const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
                             if (ImGui::MenuItem(lbl.c_str())) {
                                 delta_x = 0.0f;
                                 delta_y = 0.0f;
