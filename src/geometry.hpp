@@ -38,8 +38,8 @@ struct geometry {
   geometry(const arb::segment_tree&);
 
   unsigned long render(float zoom, float phi,
-                       float width, float height,
-                       float x, float y,
+                       const glm::vec2& size,
+                       const glm::vec2& offset,
                        const std::vector<renderable>&, const std::vector<renderable>&);
 
   renderable make_marker(const std::vector<glm::vec3>& points, glm::vec4 color);

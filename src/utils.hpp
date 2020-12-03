@@ -18,5 +18,7 @@ template <typename... T> void log_fatal(T... t) { spdlog::error(t...); abort(); 
 
 ImVec4 to_imvec(const glm::vec4& v);
 
+glm::vec2 to_glmvec(const ImVec2& v);
+
 // And constants
 constexpr float PI = 3.141f;

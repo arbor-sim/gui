@@ -234,12 +234,12 @@ void geometry::maybe_make_fbo(int w, int h) {
 unsigned long
 geometry::render(float zoom,
                  float phi,
-                 float width, float height,
-                 float x, float y,
+                 const glm::vec2& size,
+                 const glm::vec2& offset,
                  const std::vector<renderable>& regions,
                  const std::vector<renderable>& markers) {
     // re-build fbo, if needed
-    maybe_make_fbo(width, height);
+    maybe_make_fbo(size.x, size.y);
 
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
@@ -249,13 +249,12 @@ geometry::render(float zoom,
     // Set up transformations
     // * view
     float distance   = 2.5f;
-    log_debug("Look at target = ({}, {})", x, y);
     auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
     glm::vec3 up     = {0.0f, 1.0f, 0.0f};
-    glm::vec3 offset = {x/width, y/height, 0.0f};
-    glm::mat4 view = glm::lookAt(camera, (target - root)/rescale + offset, up);
+    glm::vec3 shift = {offset.x/size.x, offset.y/size.y, 0.0f};
+    glm::mat4 view = glm::lookAt(camera, (target - root)/rescale + shift, up);
     // * projection
-    glm::mat4 proj = glm::perspective(glm::radians(zoom), width/height, 0.1f, 100.0f);
+    glm::mat4 proj = glm::perspective(glm::radians(zoom), size.x/size.y, 0.1f, 100.0f);
 
     auto light = camera;
     auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};

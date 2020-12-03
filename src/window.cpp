@@ -8,15 +8,13 @@ static void glfw_error_callback(int error, const char* description) {
     log_error("Glfw error {}:\n{}", error, description);
 }
 
-float phi     = 0.0f;
-float zoom    = 45.0f;
-float delta_x = 0.0f;
-float delta_y = 0.0f;
+float delta_phi  = 0.0f;
+float delta_zoom = 0.0f;
+float delta_x    = 0.0f;
+float delta_y    = 0.0f;
 
 static void scroll_callback(GLFWwindow*, double xoffset, double yoffset) {
-    zoom -= (float) yoffset;
-    if (zoom < 1.0f)  zoom =  1.0f;
-    if (zoom > 45.0f) zoom = 45.0f;
+    delta_zoom -= (float) yoffset;
 }
 
 static void mouse_callback(GLFWwindow* window, double x, double y) {
@@ -27,18 +25,17 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
     auto alt_key = (glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS) ||
         (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS);
 
+    auto eps = 0.1;
     auto dx = last_x - x; last_x = x;
     auto dy = last_y - y; last_y = y;
 
     if (lb_down && alt_key) {
-        delta_x += 2.0f*((dx > 0.0) - (dx < 0.0));
-        delta_y -= 2.0f*((dy > 0.0) - (dy < 0.0));
+        delta_x = 2.0f*((dx > eps) - (dx < eps));
+        delta_y = 2.0f*((dy > eps) - (dy < eps));
     }
 
     if (lb_down && !alt_key) {
-        phi +=  ((dx > 0.0) - (dx < 0.0))*0.1f;
-        if (phi > 2.0f*PI) phi -= 2*PI;
-        if (phi <    0.0f) phi += 2*PI;
+        delta_phi =  ((dx > eps) - (dx < eps))*0.1f;
     }
 }
 

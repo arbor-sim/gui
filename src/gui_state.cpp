@@ -10,8 +10,8 @@
 
 #include <sstream>
 
-extern float phi;
-extern float zoom;
+extern float delta_phi;
+extern float delta_zoom;
 extern float delta_x;
 extern float delta_y;
 
@@ -495,16 +495,30 @@ void gui_read_morphology(gui_state& state, bool& open_file) {
 }
 
 void gui_cell(gui_state& state) {
+    static float zoom = 45.0f;
+    static float phi = 0.0f;
+    static glm::vec2 offset = {0.0, 0.0f};
+
     if (ImGui::Begin("Cell")) {
         ImGui::BeginChild("Cell Render");
         auto size = ImGui::GetWindowSize();
-        auto image = state.renderer.render(zoom, phi, size.x, size.y, delta_x, delta_y, state.render_regions, state.render_locsets);
+        auto image = state.renderer.render(zoom, phi, to_glmvec(size), offset, state.render_regions, state.render_locsets);
         ImGui::Image((ImTextureID) image, size, ImVec2(0, 1), ImVec2(1, 0));
+        if (ImGui::IsItemHovered()) {
+            offset -= glm::vec2{delta_x, delta_y};
+
+            zoom += delta_zoom;
+            if (zoom < 1.0f)  zoom =  1.0f;
+            if (zoom > 45.0f) zoom = 45.0f;
+
+            phi += delta_phi;
+            if (phi > 2.0f*PI) phi -= 2*PI;
+            if (phi < 0.0f)    phi += 2*PI;
+        }
 
         if (ImGui::BeginPopupContextWindow()) {
             if (ImGui::MenuItem("Reset camera")) {
-                delta_x = 0.0f;
-                delta_y = 0.0f;
+                offset = {0.0, 0.0};
                 state.renderer.target = {0.0f, 0.0f, 0.0f};
             }
             if (ImGui::BeginMenu("Snap to locset")) {
@@ -516,8 +530,7 @@ void gui_cell(gui_state& state) {
                         for (const auto& point: points) {
                             const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
                             if (ImGui::MenuItem(lbl.c_str())) {
-                                delta_x = 0.0f;
-                                delta_y = 0.0f;
+                                offset = {0.0, 0.0};
                                 state.renderer.target = point;
                             }
                         }
@@ -528,10 +541,14 @@ void gui_cell(gui_state& state) {
             }
             ImGui::EndPopup();
         }
-
         ImGui::EndChild();
     }
     ImGui::End();
+
+    delta_x    = 0.0f;
+    delta_y    = 0.0f;
+    delta_phi  = 0.0f;
+    delta_zoom = 0.0f;
 }
 
 void gui_locdef(loc_def& def, renderable& render) {
