@@ -1,6 +1,7 @@
 #include "gui_state.hpp"
 
 #include <IconsForkAwesome.h>
+#include <nlohmann/json.hpp>
 
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -195,12 +196,9 @@ void gui_state::update() {
     {
         if (render_regions.size() < region_defs.size()) render_regions.resize(region_defs.size());
         if (parameter_defs.size() < region_defs.size()) parameter_defs.resize(region_defs.size());
-        for (auto& mechanism: mechanism_defs) {
-            if (mechanism.size() < mechanism_defs.size()) mechanism.resize(mechanism_defs.size());
-        }
-        for (auto& ion: ion_defs) {
-            if (ion.size() < region_defs.size()) ion.resize(region_defs.size());
-        }
+        if (mechanism_defs.size() < region_defs.size()) mechanism_defs.resize(region_defs.size());
+        if (ion_defs.size() < ion_defaults.size()) ion_defs.resize(ion_defaults.size());
+        for (auto& ion: ion_defs) if (ion.size() < region_defs.size()) ion.resize(region_defs.size());
         auto idx = 0;
         for (auto& def: region_defs) {
             auto& render = render_regions[idx];
@@ -211,8 +209,8 @@ void gui_state::update() {
             if (def.state == def_state::erase) {
                 render_regions[idx].state = def_state::erase;
                 parameter_defs[idx].state = def_state::erase;
-                for (auto& ion: ion_defs) ion[idx].state = def_state::erase;
-                for (auto& mech: mechanism_defs) mech[idx].state = def_state::erase;
+                for (auto& ion: ion_defs) ion.erase(ion.begin() + idx);
+                mechanism_defs.erase(mechanism_defs.begin() + idx);
                 render_regions[idx].state = def_state::erase;
             }
             idx++;
@@ -220,8 +218,6 @@ void gui_state::update() {
         std::erase_if(region_defs,    [](const auto& p) { return p.state == def_state::erase; });
         std::erase_if(render_regions, [](const auto& p) { return p.state == def_state::erase; });
         std::erase_if(parameter_defs, [](const auto& p) { return p.state == def_state::erase; });
-        for (auto& ion: ion_defs) std::erase_if(ion, [](const auto& p) { return p.state == def_state::erase; });
-        for (auto& mech: mechanism_defs) std::erase_if(mech, [](const auto& p) { return p.state == def_state::erase; });
     }
 }
 
@@ -313,11 +309,13 @@ void gui_main(gui_state& state) {
 
 
 void gui_save_decoration(gui_state& state, bool& open) {
-
+    state.serialize("test");
+    open = false;
 }
 
 void gui_read_decoration(gui_state& state, bool& open) {
-
+    state.deserialize("test");
+    open = false;
 }
 
 void gui_menu_bar(gui_state& state) {
@@ -732,7 +730,7 @@ void gui_painting_ion(std::vector<ion_default>& ion_defaults,
                       std::vector<std::vector<ion_def>>& ion_defs,
                       const std::vector<reg_def>& region_defs) { // These could be name strings only
     if (ImGui::TreeNodeEx("Ions")) {
-        static std::vector<std::string> methods{"Const", "Nernst"};
+        static std::vector<std::string> methods{"constant", "Nernst"};
         auto defaults = ion_defaults.begin();
         for (auto& ion: ion_defs) {
             auto name = defaults->name;
@@ -815,27 +813,31 @@ void gui_mechanism(mech_def& mech) {
 }
 
 void gui_painting_mechanism(gui_state& state) {
-    if (ImGui::TreeNodeEx("Mechanisms")) {
+    ImGui::PushID("mechanims");
+    if (ImGui::TreeNodeEx("Mechanisms", ImGuiTreeNodeFlags_AllowItemOverlap)) {
         auto region = state.region_defs.begin();
+        auto ridx = 0;
         for (auto& mechanisms: state.mechanism_defs) {
+            ImGui::PushID(ridx++);
             ImGui::AlignTextToFramePadding();
             auto open = ImGui::TreeNodeEx(region->name.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
-            ImGui::SameLine(ImGui::GetWindowWidth() - 30);
+            ImGui::SameLine(ImGui::GetWindowWidth() - 30.0f);
             if (ImGui::Button((const char*) ICON_FK_PLUS_SQUARE)) mechanisms.emplace_back();
             if (open) {
                 auto idx = 0;
                 for (auto& mechanism: mechanisms) {
-                    ImGui::PushID(idx);
+                    ImGui::PushID(idx++);
                     gui_mechanism(mechanism);
                     ImGui::PopID();
-                    ++idx;
                 }
                 ImGui::TreePop();
             }
+            ImGui::PopID();
             ++region;
         }
         ImGui::TreePop();
     }
+    ImGui::PopID();
 }
 
 void gui_painting(gui_state& state) {
@@ -865,4 +867,198 @@ void gui_state::gui() {
     gui_cell(*this);
     gui_place(*this);
     gui_painting(*this);
+}
+
+using nlohmann::json;
+
+void rd_optional(const json& j, const std::string& k, std::optional<double>& v) {
+    if (j.contains(k)) {
+        double t; j.at(k).get_to(t); v = t;
+    } else {
+        v = {};
+    }
+}
+
+void wr_optional(json& j, const std::string& k, const std::optional<double>& v) {
+    if (v) j[k] = v.value();
+}
+
+void to_json(json& result, const par_default& d) {
+    result = {{"temperature",          d.TK - 273.15},
+              {"membrane-capacitance", d.Cm},
+              {"axial-resistivity",    d.RL},
+              {"membrane-potential",   d.Vm}};
+}
+
+void from_json(const json& j, par_default& d) {
+    j.at("temperature").get_to(d.TK); d.TK += 273.15;
+    j.at("membrane-capacitance").get_to(d.Cm);
+    j.at("axial-resistivity").get_to(d.RL);
+    j.at("membrane-potential").get_to(d.Vm);
+}
+
+void to_json(json& result, const par_def& d) {
+    wr_optional(result, "temperature",          d.TK ? std::make_optional(d.TK.value() - 273.15) : d.TK);
+    wr_optional(result, "membrane-capacitance", d.Cm);
+    wr_optional(result, "axial-resistivity",    d.RL);
+    wr_optional(result, "membrane-potential",   d.Vm);
+}
+
+void from_json(const json& j, par_def& d) {
+    rd_optional(j, "temperature",          d.TK); if (d.TK) d.TK.value() += 273.15;
+    rd_optional(j, "membrane-capacitance", d.Cm);
+    rd_optional(j, "membrane-potential",   d.Vm);
+    rd_optional(j, "axial-resistivity",    d.RL);
+}
+
+void to_json(json& result, const ion_default& d) {
+    result = {{"name",                   d.name},
+              {"internal-concentration", d.Xi},
+              {"external-concentration", d.Xo},
+              {"reversal-potential",     d.Er},
+              {"method",                 d.method}};
+}
+
+void from_json(const json& j, ion_default& d) {
+    j.at("name").get_to(d.name);
+    j.at("internal-concentration").get_to(d.Xi);
+    j.at("external-concentration").get_to(d.Xo);
+    j.at("reversal-potential").get_to(d.Er);
+    j.at("method").get_to(d.method);
+}
+
+void to_json(json& result, const ion_def& d) {
+    wr_optional(result, "internal-concentration", d.Xi);
+    wr_optional(result, "external-concentration", d.Xo);
+    wr_optional(result, "reversal-potential",     d.Er);
+}
+
+void from_json(const json& j, ion_def& d) {
+    rd_optional(j, "internal-concentration", d.Xi);
+    rd_optional(j, "membrane-capacitance",   d.Xo);
+    rd_optional(j, "membrane-potential",     d.Er);
+}
+
+void to_json(json& result, const mech_def& d) {
+    result["name"]       = d.name;
+    result["parameters"] = d.parameters;
+}
+
+void from_json(const json& j, mech_def& d) {
+    j.at("name").get_to(d.name);
+    j.at("parameters").get_to(d.parameters);
+}
+
+void gui_state::serialize(const std::string& dn) {
+    std::filesystem::path dir{dn};
+    std::filesystem::create_directory(dir);
+
+    {
+        std::ofstream os(dir / "defaults.json");
+        json defaults = parameter_defaults;
+        defaults["ions"] = ion_defaults;
+        os << defaults << '\n';
+    }
+
+    {
+        std::ofstream os(dir / "cell.json");
+        json cell;
+        {
+            json local;
+            auto idx = 0;
+            for (const auto& region: region_defs) {
+                json settings = parameter_defs[idx];
+                auto defaults = ion_defaults.begin();
+                for (const auto& ion: ion_defs) {
+                    if (json tmp = ion[idx]; !tmp.is_null()) {
+                        tmp["name"] = defaults++->name;
+                        settings["ions"].push_back(tmp);
+                    }
+                }
+                if (!settings.is_null()) {
+                    settings["region"] = region.name;
+                    local.push_back(settings);
+                }
+                idx++;
+            }
+            if (!local.is_null()) {
+                cell["local"] = local;
+            }
+        }
+        {
+            json mechanisms;
+            auto definitions = mechanism_defs.begin();
+            for (const auto& region: region_defs) {
+                for (const auto& definition: *definitions) {
+                    if (!definition.name.empty()) {
+                        json mech = definition;
+                        mech["region"] = region.name;
+                        mechanisms.push_back(mech);
+                    }
+                }
+                ++definitions;
+            }
+            cell["mechanisms"] = mechanisms;
+        }
+        os << cell << '\n';
+    }
+}
+
+void gui_state::deserialize(const std::string& dn) {
+    std::filesystem::path dir{dn};
+
+    {
+        std::ifstream is(dir / "defaults.json");
+        json defaults;
+        is >> defaults;
+        parameter_defaults = defaults;
+        ion_defaults = defaults.at("ions").get<std::vector<ion_default>>();
+    }
+
+    {
+        std::ifstream is(dir / "cell.json");
+        json cell;
+        is >> cell;
+        if (cell.contains("local")) {
+            log_debug("Loading parameters");
+            for (const auto& mechanism: cell["local"]) {
+                auto region = mechanism["region"];
+                auto idx = 0ul;
+                for (const auto& r: region_defs) {
+                    if (r.name == region) break;
+                    idx++;
+                }
+                if (idx >= region_defs.size()) {
+                    log_debug("Extending regions by: {}", region);
+                    region_defs.emplace_back();
+                    mechanism_defs.emplace_back();
+                    region_defs[idx].name = region;
+                }
+                log_debug("Loading mechanism: '{}'", mechanism.dump());
+                mech_def mech = mechanism;
+                mechanism_defs[idx].push_back(mech);
+            }
+
+        }
+        if (cell.contains("mechanisms")) {
+            log_debug("Loading mechasnims");
+            for (const auto& mechanism: cell["mechanisms"]) {
+                auto region = mechanism["region"];
+                auto idx = 0ul;
+                for (const auto& r: region_defs) {
+                    if (r.name == region) break;
+                    idx++;
+                }
+                if (idx >= region_defs.size()) {
+                    log_debug("Extending regions by: {}", region);
+                    region_defs.emplace_back();
+                    mechanism_defs.emplace_back();
+                    region_defs[idx].name = region;
+                }
+                log_debug("Loading mechanism: '{}'", mechanism.dump());
+                mech_def mech = mechanism;
+                mechanism_defs[idx].push_back(mech);
+            }
+        }
+    }
 }

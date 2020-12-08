@@ -43,7 +43,6 @@ struct sdt_def: definition {
 
 // definitions for paintings
 struct ion_def: definition {
-    std::string name;
     std::optional<double> Xi;
     std::optional<double> Xo;
     std::optional<double> Er;
@@ -64,7 +63,7 @@ struct ion_default {
     double Xi = 0;
     double Xo = 0;
     double Er = 0;
-    std::string method = "Const";
+    std::string method = "constant";
 };
 
 struct par_default {
@@ -111,6 +110,9 @@ struct gui_state {
     void load_neuron_swc(const std::string& fn);
     void load_arbor_swc(const std::string& fn);
     void load_neuroml(const std::string& fn);
+
+    void serialize(const std::string& fn);
+    void deserialize(const std::string& fn);
 
     void update();
     void reset();
