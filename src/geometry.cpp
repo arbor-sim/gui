@@ -76,6 +76,7 @@ void render(unsigned program,
     // Render
     for (const auto& r: render) {
         if (r.active) {
+            log_debug("Rendering {} instances", r.instances);
             set_uniform(program, "object_color", r.color);
             glBindVertexArray(r.vao);
             glDrawArraysInstanced(GL_TRIANGLES, 0, r.count, r.instances);
@@ -283,6 +284,7 @@ renderable geometry::make_marker(const std::vector<glm::vec3>& points, glm::vec4
                          (marker.y - root.y)/rescale,
                          (marker.z - root.z)/rescale);
     }
+    log_debug("Size of offset {}", off.size());
     auto dx = 1.0f/40.0f;
     auto dy = dx/2.0f;
     std::vector<point> tris{{{0.0f,      0.0f,      0.0f}, {0.0f, 0.0f, 0.0f}},
@@ -312,10 +314,12 @@ void geometry::load_geometry(const arb::segment_tree& tree) {
         log_info("Empty!");
         return;
     }
+    log_info("Tree has {} segments", tree.segments().size());
     auto tmp = tree.segments()[0].prox;
     root = {(float) tmp.x, (float) tmp.y, (float) tmp.z}; // is always the root
     target = root;
     size_t index = 0;
+
     for (const auto& [id, prox, dist, tag]: tree.segments()) {
         // Shift to root and find vector along the segment
         const auto c_prox = glm::vec3{(prox.x - root.x), (prox.y - root.y), (prox.z - root.z)};
@@ -353,7 +357,7 @@ void geometry::load_geometry(const arb::segment_tree& tree) {
     }
 
     // Re-scale into [-1, 1]^3 box
-    log_debug("Cylinders generated: {} ({} points)", triangles.size()/n_faces/2, triangles.size());
+    log_debug("Cylinders generated: {} ({} points)", triangles.size()/n_faces/6, triangles.size());
     for (auto& tri: triangles) {
         rescale = std::max(rescale, std::abs(tri.position.x));
         rescale = std::max(rescale, std::abs(tri.position.y));

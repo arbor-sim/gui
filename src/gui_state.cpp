@@ -20,14 +20,16 @@ gui_state::gui_state(): builder{} {}
 
 arb::segment_tree morphology_to_segment_tree(const arb::morphology& morph) {
     arb::segment_tree tree{};
-    std::vector<arb::msize_t> todo{arb::mnpos};
-    for (; !todo.empty();) {
-        auto branch = todo.back(); todo.pop_back();
+    std::deque<std::pair<arb::msize_t, arb::msize_t>> todo{{arb::mnpos, arb::mnpos}};
+    while (!todo.empty()) {
+        const auto& [branch, branch_parent] = todo.back();
+        todo.pop_back();
         for (const auto& child: morph.branch_children(branch)) {
-            todo.push_back(child);
+            auto parent = branch_parent;
             for (const auto& [id, prox, dist, tag]: morph.branch_segments(child)) {
-                tree.append(branch, prox, dist, tag);
+                parent = tree.append(parent, prox, dist, tag);
             }
+            todo.push_front({child, parent});
         }
     }
     return tree;
