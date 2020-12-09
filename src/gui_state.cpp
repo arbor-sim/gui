@@ -18,34 +18,16 @@ extern float delta_y;
 
 gui_state::gui_state(): builder{} {}
 
-arb::segment_tree morphology_to_segment_tree(const arb::morphology& morph) {
-    arb::segment_tree tree{};
-    std::deque<std::pair<arb::msize_t, arb::msize_t>> todo{{arb::mnpos, arb::mnpos}};
-    while (!todo.empty()) {
-        const auto& [branch, branch_parent] = todo.back();
-        todo.pop_back();
-        for (const auto& child: morph.branch_children(branch)) {
-            auto parent = branch_parent;
-            for (const auto& [id, prox, dist, tag]: morph.branch_segments(child)) {
-                parent = tree.append(parent, prox, dist, tag);
-            }
-            todo.push_front({child, parent});
-        }
-    }
-    return tree;
-}
-
 void load_swc(gui_state& state, const std::string& fn, std::function<arb::morphology(const std::vector<arborio::swc_record>&)> swc_to_morph) {
     log_debug("Reading {}", fn);
     std::ifstream in(fn.c_str());
     auto swc   = arborio::parse_swc(in).records();
     auto morph = swc_to_morph(swc);
-    auto tree  = morphology_to_segment_tree(morph);
 
     // Clean-up & Re-build ourself
     state.reset();
-    state.builder  = cell_builder{tree};
-    state.renderer = geometry{tree};
+    state.builder  = cell_builder{morph};
+    state.renderer = geometry{morph};
 
     state.region_defs.emplace_back("soma", "(tag 1)");
     state.region_defs.emplace_back("axon", "(tag 2)");
@@ -66,9 +48,9 @@ void gui_state::reset() {
     mechanism_defs.clear();
 }
 
-void gui_state::load_allen_swc(const std::string& fn)  { load_swc(*this, fn, [](auto d){ return arborio::load_swc_allen(d); }); }
-void gui_state::load_neuron_swc(const std::string& fn) { load_swc(*this, fn, [](auto d){ return arborio::load_swc_neuron(d); }); }
-void gui_state::load_arbor_swc(const std::string& fn)  { load_swc(*this, fn, [](auto d){ return arborio::load_swc_arbor(d); }); }
+void gui_state::load_allen_swc(const std::string& fn)  { load_swc(*this, fn, [](const auto& d){ return arborio::load_swc_allen(d); }); }
+void gui_state::load_neuron_swc(const std::string& fn) { load_swc(*this, fn, [](const auto& d){ return arborio::load_swc_neuron(d); }); }
+void gui_state::load_arbor_swc(const std::string& fn)  { load_swc(*this, fn, [](const auto& d){ return arborio::load_swc_arbor(d); }); }
 
 void gui_state::load_neuroml(const std::string& fn)    {
     // Read in morph
@@ -80,12 +62,11 @@ void gui_state::load_neuroml(const std::string& fn)    {
     auto id         = cell_ids.front();
     auto morph_data = nml.cell_morphology(id).value();
     auto morph      = morph_data.morphology;
-    auto tree       = morphology_to_segment_tree(morph);
 
     // Clean-up & Re-build ourself
     reset();
-    builder  = cell_builder{tree};
-    renderer = geometry{tree};
+    builder  = cell_builder{morph};
+    renderer = geometry{morph};
 
     // Copy over locations
     for (const auto& [k, v]: morph_data.groups.regions()) {
@@ -947,8 +928,12 @@ void to_json(json& result, const mech_def& d) {
 }
 
 void from_json(const json& j, mech_def& d) {
-    j.at("name").get_to(d.name);
-    j.at("parameters").get_to(d.parameters);
+    try {
+        j.at("name").get_to(d.name);
+        j.at("parameters").get_to(d.parameters);
+    } catch(const json::exception& e) {
+        log_warn("Failed to de-serialize mechanism {}\n{}", j.dump(), e.what());
+    }
 }
 
 void gui_state::serialize(const std::string& dn) {

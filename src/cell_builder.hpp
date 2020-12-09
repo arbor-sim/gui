@@ -14,14 +14,13 @@
 #include <glm/glm.hpp>
 
 struct cell_builder {
-    arb::segment_tree tree;
     arb::morphology   morph;
     arb::place_pwlin  pwlin;
     arb::label_dict   labels;
     arb::mprovider    provider;
 
     cell_builder();
-    cell_builder(const arb::segment_tree& t);
+    cell_builder(const arb::morphology& t);
 
     std::vector<arb::msegment> make_segments(const arb::region&);
     std::vector<glm::vec3> make_points(const arb::locset&);

@@ -189,10 +189,10 @@ geometry::geometry():
     region_program{make_program("region")},
     marker_program{make_program("marker")} {}
 
-geometry::geometry(const arb::segment_tree& tree):
+geometry::geometry(const arb::morphology& morph):
     region_program{make_program("region")},
     marker_program{make_program("marker")} {
-    load_geometry(tree);
+    load_geometry(morph);
 }
 
 void geometry::maybe_make_fbo(int w, int h) {
@@ -308,19 +308,25 @@ renderable geometry::make_region(const std::vector<arb::msegment>& segments, glm
     return {tris.size(), 1, vao, true, color};
 }
 
-void geometry::load_geometry(const arb::segment_tree& tree) {
+void geometry::load_geometry(const arb::morphology& morph) {
+    std::vector<arb::msegment> segments;
+    for (auto branch = 0ul; branch < morph.num_branches(); ++branch) {
+        for (const auto& segment: morph.branch_segments(branch)) {
+            segments.push_back(segment);
+        }
+    }
     log_info("Making geometry");
-    if (tree.segments().size() == 0) {
+    if (segments.empty()) {
         log_info("Empty!");
         return;
     }
-    log_info("Tree has {} segments", tree.segments().size());
-    auto tmp = tree.segments()[0].prox;
-    root = {(float) tmp.x, (float) tmp.y, (float) tmp.z}; // is always the root
+    log_info("Got {} segments", segments.size());
+    auto tmp = segments[0].prox; // is always the root
+    root = {(float) tmp.x, (float) tmp.y, (float) tmp.z};
     target = root;
     size_t index = 0;
 
-    for (const auto& [id, prox, dist, tag]: tree.segments()) {
+    for (const auto& [id, prox, dist, tag]: segments) {
         // Shift to root and find vector along the segment
         const auto c_prox = glm::vec3{(prox.x - root.x), (prox.y - root.y), (prox.z - root.z)};
         const auto c_dist = glm::vec3{(dist.x - root.x), (dist.y - root.y), (dist.z - root.z)};

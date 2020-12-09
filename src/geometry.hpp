@@ -8,8 +8,7 @@
 #include <string>
 #include <fstream>
 
-#include <arbor/morph/primitives.hpp>
-#include <arbor/morph/segment_tree.hpp>
+#include <arbor/morph/morphology.hpp>
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -35,7 +34,7 @@ struct renderable {
 
 struct geometry {
   geometry();
-  geometry(const arb::segment_tree&);
+  geometry(const arb::morphology&);
 
   unsigned long render(float zoom, float phi,
                        const glm::vec2& size,
@@ -45,7 +44,7 @@ struct geometry {
   renderable make_marker(const std::vector<glm::vec3>& points, glm::vec4 color);
   renderable make_region(const std::vector<arb::msegment>& segments, glm::vec4 color);
 
-  void load_geometry(const arb::segment_tree& tree);
+  void load_geometry(const arb::morphology&);
 
   glm::vec3 target = {0.0f, 0.0f, 0.0f};
 
@@ -54,8 +53,8 @@ struct geometry {
     std::vector<point> triangles = {};
     std::unordered_map<size_t, size_t> id_to_index = {};
 
-    unsigned fbo     = 0;
-    unsigned tex     = 0;
+    unsigned fbo = 0;
+    unsigned tex = 0;
     unsigned region_program = 0;
     unsigned marker_program = 0;
 

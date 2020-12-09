@@ -3,8 +3,8 @@
 #include <sstream>
 #include "utils.hpp"
 
-cell_builder::cell_builder(): tree{}, morph{}, pwlin{morph}, labels{}, provider{morph, labels} {};
-cell_builder::cell_builder(const arb::segment_tree& t): tree{t}, morph{tree}, pwlin{morph}, labels{}, provider{morph, labels} {};
+cell_builder::cell_builder(): morph{}, pwlin{morph}, labels{}, provider{morph, labels} {};
+cell_builder::cell_builder(const arb::morphology& t): morph{t}, pwlin{morph}, labels{}, provider{morph, labels} {};
 
 std::vector<arb::msegment> cell_builder::make_segments(const arb::region& region) {
     auto concrete = thingify(region, provider);
