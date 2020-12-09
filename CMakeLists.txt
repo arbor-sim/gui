@@ -58,7 +58,7 @@ set_source_files_properties("${gui_srcs}"
 add_subdirectory("3rd-party/arbor")
 add_subdirectory("3rd-party/glfw")
 
-set(ARB_WITH_NEUROML ON)
+set(ARB_WITH_NEUROML ON CACHE BOOL "enable neuroml" FORCE)
 
 add_executable(arbor-gui ${gui_srcs} ${im_srcs})
 target_include_directories(arbor-gui PRIVATE 3rd-party/fmt/include)
