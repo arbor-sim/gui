@@ -282,6 +282,13 @@ void gui_main(gui_state& state) {
 
     // DockSpace
     ImGuiIO& io = ImGui::GetIO();
+
+    // Swap Space and Enter key bindings
+    // ImGuiKey_Space is used to "activate" menu items,
+    // ImGuiKey_Enter is more intuitive.
+    io.KeyMap[ImGuiKey_Space] = GLFW_KEY_ENTER;
+    io.KeyMap[ImGuiKey_Enter] = GLFW_KEY_SPACE;
+
     if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
         ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
         ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
@@ -363,13 +370,13 @@ void gui_dir_view(file_chooser_state& state) {
         std::sort(dirnames.begin(), dirnames.end());
 
         for (const auto& [dn, path]: dirnames) {
-                auto lbl = fmt::format("{} {}", (const char *) ICON_FK_FOLDER, dn);
-                ImGui::Selectable(lbl.c_str(), false);
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-                    state.cwd = path;
-                    state.file.clear();
-                }
+            auto lbl = fmt::format("{} {}", (const char *) ICON_FK_FOLDER, dn);
+            ImGui::Selectable(lbl.c_str(), false);
+            if (ImGui::IsItemHovered() && (ImGui::IsMouseDoubleClicked(0) || ImGui::IsKeyPressed(GLFW_KEY_ENTER))) {
+                state.cwd = path;
+                state.file.clear();
             }
+        }
         for (const auto& [fn, path]: filenames) {
             if (ImGui::Selectable(fn.c_str(), path == state.file)) state.file = path;
         }
