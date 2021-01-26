@@ -39,6 +39,29 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
     }
 }
 
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if ((key == GLFW_KEY_DOWN) && (action == GLFW_PRESS)) {
+        delta_y = 15;
+    }
+    if ((key == GLFW_KEY_UP) && (action == GLFW_PRESS)) {
+        delta_y = -15;
+    }
+    if ((key == GLFW_KEY_LEFT) && (action == GLFW_PRESS)) {
+        delta_x = 15;
+    }
+    if ((key == GLFW_KEY_RIGHT) && (action == GLFW_PRESS)) {
+        delta_x = -15;
+    }
+    if ((key == GLFW_KEY_MINUS) && (action == GLFW_PRESS)) {
+        delta_zoom += 2;
+    }
+    if ((key == GLFW_KEY_EQUAL) && (action == GLFW_PRESS)) {
+        delta_zoom -= 2;
+    }
+}
+
+
 bool Window::visible() { return glfwGetWindowAttrib(handle, GLFW_FOCUSED); }
 
 Window::Window() {
@@ -68,15 +91,17 @@ Window::Window() {
     glfwSwapInterval(1); // Enable vsync
     glfwSetScrollCallback(handle, scroll_callback);
     glfwSetCursorPosCallback(handle, mouse_callback);
+    glfwSetKeyCallback(handle, key_callback);
     if (gl3wInit()) log_fatal("Failed to initialize OpenGL loader");
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
+
+    // Enable keyboard navigation
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     if (!(io.ConfigFlags & ImGuiConfigFlags_DockingEnable)) log_error("ImGui docking disabled");
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
     ImGui::StyleColorsDark();
     //ImGui::StyleColorsClassic();
