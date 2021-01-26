@@ -6,6 +6,8 @@ project(the-arbor-gui
 
 set(CMAKE_CXX_STANDARD 20)
 
+#set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*")
+
 set(resource_path "${CMAKE_INSTALL_PREFIX}/etc/arbor-gui")
 add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
 add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W="ON")

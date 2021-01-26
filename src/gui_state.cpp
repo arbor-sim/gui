@@ -1006,10 +1006,23 @@ void gui_state::deserialize(const std::string& dn) {
         std::ifstream is(dir / "cell.json");
         json cell;
         is >> cell;
+
+        std::unordered_set<std::string> region_names;
+        if (cell.contains("local")) {
+            for (const auto& parameter: cell["local"]) {
+                region_names.insert(std::string{parameter["region"]});
+            }
+        }
+        if (cell.contains("mechanisms")) {
+        for (const auto& mechanism: cell["mechanisms"]) {
+            region_names.insert(std::string{mechanism["region"]});
+        }
+
+
         if (cell.contains("local")) {
             log_debug("Loading parameters");
-            for (const auto& mechanism: cell["local"]) {
-                auto region = mechanism["region"];
+            for (const auto& parameter: cell["local"]) {
+                auto region = parameter["region"];
                 auto idx = 0ul;
                 for (const auto& r: region_defs) {
                     if (r.name == region) break;
@@ -1018,12 +1031,12 @@ void gui_state::deserialize(const std::string& dn) {
                 if (idx >= region_defs.size()) {
                     log_debug("Extending regions by: {}", region);
                     region_defs.emplace_back();
-                    mechanism_defs.emplace_back();
+                    parameter_defs.emplace_back();
                     region_defs[idx].name = region;
                 }
-                log_debug("Loading mechanism: '{}'", mechanism.dump());
-                mech_def mech = mechanism;
-                mechanism_defs[idx].push_back(mech);
+                log_debug("Loading mechanism: '{}'", parameter.dump());
+                // ;
+                // mechanism_defs[idx].push_back(mech);
             }
 
         }
@@ -1040,6 +1053,7 @@ void gui_state::deserialize(const std::string& dn) {
                     log_debug("Extending regions by: {}", region);
                     region_defs.emplace_back();
                     mechanism_defs.emplace_back();
+                    parameter_defs.emplace_back();
                     region_defs[idx].name = region;
                 }
                 log_debug("Loading mechanism: '{}'", mechanism.dump());

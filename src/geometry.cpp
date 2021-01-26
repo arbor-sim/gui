@@ -73,6 +73,8 @@ void render(unsigned program,
     set_uniform(program, "camera", camera);
     set_uniform(program, "light", light);
     set_uniform(program, "light_color", light_color);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     // Render
     for (const auto& r: render) {
         if (r.active) {
@@ -213,7 +215,7 @@ void geometry::maybe_make_fbo(int w, int h) {
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
     gl_check_error("mk tex");
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
