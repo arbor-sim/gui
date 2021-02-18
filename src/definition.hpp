@@ -3,7 +3,7 @@
 #include <utils.hpp>
 #include <string>
 
-enum class def_state { changed, erase, good, error, empty };
+enum class def_state { empty, error, good, erase, changed };
 
 struct definition {
     void erase()  { state = def_state::erase;   message = "Deleting."; }

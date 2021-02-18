@@ -8,10 +8,9 @@ static void glfw_error_callback(int error, const char* description) {
     log_error("Glfw error {}:\n{}", error, description);
 }
 
-float delta_phi  = 0.0f;
-float delta_zoom = 0.0f;
-float delta_x    = 0.0f;
-float delta_y    = 0.0f;
+float delta_phi     = 0.0f;
+float delta_zoom    = 0.0f;
+glm::vec2 delta_pos = {0.0f, 0.0f};
 
 static void scroll_callback(GLFWwindow*, double xoffset, double yoffset) {
     delta_zoom -= (float) yoffset;
@@ -30,35 +29,23 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
     auto dy = last_y - y; last_y = y;
 
     if (lb_down && alt_key) {
-        delta_x = 2.0f*((dx > eps) - (dx < eps));
-        delta_y = 2.0f*((dy > eps) - (dy < eps));
+        delta_pos.x = 2.0f*((dx > eps) - (dx < eps));
+        delta_pos.y = 2.0f*((dy > eps) - (dy < eps));
     }
 
     if (lb_down && !alt_key) {
-        delta_phi =  ((dx > eps) - (dx < eps))*0.1f;
+        delta_phi = ((dx > eps) - (dx < eps))*0.1f;
     }
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    if ((key == GLFW_KEY_DOWN) && (action == GLFW_PRESS)) {
-        delta_y = 15;
-    }
-    if ((key == GLFW_KEY_UP) && (action == GLFW_PRESS)) {
-        delta_y = -15;
-    }
-    if ((key == GLFW_KEY_LEFT) && (action == GLFW_PRESS)) {
-        delta_x = 15;
-    }
-    if ((key == GLFW_KEY_RIGHT) && (action == GLFW_PRESS)) {
-        delta_x = -15;
-    }
-    if ((key == GLFW_KEY_MINUS) && (action == GLFW_PRESS)) {
-        delta_zoom += 2;
-    }
-    if ((key == GLFW_KEY_EQUAL) && (action == GLFW_PRESS)) {
-        delta_zoom -= 2;
-    }
+    if ((key == GLFW_KEY_DOWN) &&  (action == GLFW_PRESS)) delta_pos.y =  15.0f;
+    if ((key == GLFW_KEY_UP)   &&  (action == GLFW_PRESS)) delta_pos.y = -15.0f;
+    if ((key == GLFW_KEY_LEFT) &&  (action == GLFW_PRESS)) delta_pos.x =  15.0f;
+    if ((key == GLFW_KEY_RIGHT) && (action == GLFW_PRESS)) delta_pos.x = -15.0f;
+    if ((key == GLFW_KEY_MINUS) && (action == GLFW_PRESS)) delta_zoom  =  2.0f;
+    if ((key == GLFW_KEY_EQUAL) && (action == GLFW_PRESS)) delta_zoom  = -2.0f;
 }
 
 

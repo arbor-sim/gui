@@ -78,6 +78,8 @@ struct file_chooser_state {
     std::filesystem::path file;
 };
 
+struct event {};
+
 struct gui_state {
     // Interface to Arbor morphology
     cell_builder builder;
@@ -94,14 +96,17 @@ struct gui_state {
     std::vector<stm_def> iclamp_defs   = {};
 
     // paintings
-    std::vector<reg_def> region_defs                  = {};
-    par_default parameter_defaults                    = {};
-    std::vector<ion_default> ion_defaults             = {};
-    std::vector<par_def> parameter_defs               = {};
-    std::vector<std::vector<ion_def>> ion_defs        = {};
-    std::vector<std::vector<mech_def>> mechanism_defs = {};
+    std::vector<reg_def>               region_defs    = {}; // The region as a s-exp
+    par_default                        par_defaults   = {}; // Default parameters
+    std::vector<ion_default>           ion_defaults   = {}; // Default ion settings per ion
+    std::vector<par_def>               par_defs       = {}; // Parameters per region
+    std::vector<std::vector<ion_def>>  ion_defs       = {}; // Ion settings per region per ion
+    std::vector<std::vector<mech_def>> mechanism_defs = {}; // Mechanism setting per region per ion
 
     file_chooser_state file_chooser;
+
+    std::vector<event> events;
+
 
     gui_state(const gui_state&) = delete;
     gui_state();
