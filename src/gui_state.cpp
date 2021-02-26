@@ -1,5 +1,6 @@
 #include "gui_state.hpp"
 
+#include "utils.hpp"
 #include "icons.hpp"
 
 #include <imgui.h>
@@ -14,33 +15,23 @@ extern float delta_phi;
 extern float delta_zoom;
 extern glm::vec2 delta_pos;
 
-gui_state::gui_state(): builder{} {}
+gui_state::gui_state(): builder{} {
+  reset();
+}
 
 void load_swc(gui_state &state,
-              const std::string &fn,
+              const std::filesystem::path &fn,
               std::function<arb::morphology(const std::vector<arborio::swc_record> &)> swc_to_morph) {
-  log_debug("Reading {}", fn);
-  std::ifstream in(fn.c_str());
-  auto swc = arborio::parse_swc(in).records();
-  auto morph = swc_to_morph(swc);
-
-  // Clean-up & Re-build ourself
+  log_debug("Reading {}", fn.c_str());
+  auto morph = swc_to_morph(arborio::parse_swc(slurp(fn)).records());
   state.reset();
   state.builder = cell_builder{morph};
   state.renderer = geometry{morph};
-
-  state.region_defs.emplace_back("soma", "(tag 1)");
-  state.region_defs.emplace_back("axon", "(tag 2)");
-  state.region_defs.emplace_back("dend", "(tag 3)");
-  state.region_defs.emplace_back("apic", "(tag 4)");
-
-  state.locset_defs.emplace_back("center", "(location 0 0)");
-}
-
-template <typename T> std::string to_string(const T &r) {
-  std::stringstream ss;
-  ss << r;
-  return ss.str();
+  state.add_region({"soma",   "(tag 1)"});
+  state.add_region({"axon",   "(tag 2)"});
+  state.add_region({"dend",   "(tag 3)"});
+  state.add_region({"apic",   "(tag 4)"});
+  state.add_locset({"center", "(location 0 0)"});
 }
 
 void gui_state::reset() {
@@ -48,50 +39,37 @@ void gui_state::reset() {
   render_locsets.clear();
   locset_defs.clear();
   region_defs.clear();
+  ions.clear();
   ion_defs.clear();
-  mechanism_defs.clear();
+  locsets.clear();
+  regions.clear();
+
+  static std::vector<std::pair<std::string, int>> species{{"na", 1}, {"k", 1}, {"ca", 2}};
+  for (const auto &[k, v]: species) add_ion({k, v});
 }
 
-void gui_state::load_allen_swc(const std::string &fn) {
-  load_swc(*this, fn, [](const auto &d) { return arborio::load_swc_allen(d); });
-}
-void gui_state::load_neuron_swc(const std::string &fn) {
-  load_swc(*this, fn, [](const auto &d) { return arborio::load_swc_neuron(d); });
-}
-void gui_state::load_arbor_swc(const std::string &fn) {
-  load_swc(*this, fn, [](const auto &d) { return arborio::load_swc_arbor(d); });
-}
+void gui_state::load_allen_swc(const std::string &fn)  { load_swc(*this, fn, [](const auto &d) { return arborio::load_swc_allen(d);  }); }
+void gui_state::load_neuron_swc(const std::string &fn) { load_swc(*this, fn, [](const auto &d) { return arborio::load_swc_neuron(d); }); }
+void gui_state::load_arbor_swc(const std::string &fn)  { load_swc(*this, fn, [](const auto &d) { return arborio::load_swc_arbor(d);  }); }
 
 void gui_state::load_neuroml(const std::string &fn) {
   // Read in morph
-  std::ifstream fd(fn.c_str());
-  std::string xml(std::istreambuf_iterator<char>(fd), {});
+  auto xml = slurp(fn);
   arbnml::neuroml nml(xml);
   // Extract segment tree
-  auto cell_ids = nml.cell_ids();
-  auto id = cell_ids.front();
+  auto id         = nml.cell_ids().front();
   auto morph_data = nml.cell_morphology(id).value();
-  auto morph = morph_data.morphology;
-
+  auto morph      = morph_data.morphology;
   // Clean-up & Re-build ourself
   reset();
-  builder = cell_builder{morph};
+  builder  = cell_builder{morph};
   renderer = geometry{morph};
-
   // Copy over locations
-  for (const auto &[k, v]: morph_data.groups.regions()) {
-    log_debug("NML region {}\n {}", k, to_string(v));
-    region_defs.push_back({k, to_string(v)});
-  }
-  for (const auto &[k, v]: morph_data.groups.locsets()) {
-    log_debug("NML locset {}\n {}", k, to_string(v));
-    locset_defs.push_back({k, to_string(v)});
-  }
+  for (const auto &[k, v]: morph_data.groups.regions()) add_region({k, to_string(v)});
+  for (const auto &[k, v]: morph_data.groups.locsets()) add_locset({k, to_string(v)});
 }
 
 template <typename D> void update_def(D &def) {
-  if (def.state == def_state::erase)
-    return;
   if (def.definition.empty() || !def.definition[0]) {
     def.data = {};
     def.empty();
@@ -139,110 +117,110 @@ void def_set_renderable(geometry &renderer,
   }
 }
 
-template <typename Item>
-void update_placables(std::unordered_map<std::string, ls_def> &locsets,
-                      std::vector<Item> &defs) {
-  std::erase_if(defs,
-                [](const auto &p) { return p.state == def_state::erase; });
-  for (auto &def: defs) {
-    if (def.locset_name.empty()) {
-      def.empty();
-    } else {
-      if (locsets.contains(def.locset_name)) {
-        const auto &ls = locsets[def.locset_name];
-        switch (ls.state) {
-        case def_state::error:
-          def.error("Linked locset malformed.");
-          break;
-        case def_state::empty:
-          def.error("Linked locset empty.");
-          break;
-        case def_state::good:
-          def.good();
-          break;
-        default:
-          log_fatal("invalid code path: unknown state {}", def.locset_name);
-        }
-      } else {
-        def.error("Linked locset absent.");
-      }
-    }
-  }
-}
-
 void gui_state::update() {
-  {
-    if (render_locsets.size() < locset_defs.size())
-      render_locsets.resize(locset_defs.size());
-    auto idx = 0;
-    for (auto &def: locset_defs) {
-      auto &render = render_locsets[idx];
-      if (def.state == def_state::changed) {
-        update_def(def);
-        def_set_renderable(renderer, builder, render, def);
-      }
-      if (def.state == def_state::erase) {
-        render_locsets[idx].state = def_state::erase;
-      }
-      idx++;
+  struct event_visitor {
+    gui_state* state;
+
+    event_visitor(gui_state* state_): state{state_} {}
+
+    void operator()(const evt::create<ls_def>& c) {
+      auto id = get_next_id();
+      log_debug("Add locset {}", id.value);
+      state->locsets.push_back(id);
+      state->locset_defs[id]    = c.item;
+      state->render_locsets[id] = {};
+      state->events.push_back(evt::update<ls_def>{id});
     }
-    std::erase_if(locset_defs,
-                  [](const auto &p) { return p.state == def_state::erase; });
-    std::erase_if(render_locsets,
-                  [](const auto &p) { return p.state == def_state::erase; });
-    // collect what is left
-    std::unordered_map<std::string, ls_def> locsets;
-    for (const auto &def: locset_defs)
-      locsets[def.name] = def;
-    // finally update individual lists of placeables
-    update_placables(locsets, probe_defs);
-    update_placables(locsets, iclamp_defs);
-    update_placables(locsets, detector_defs);
-  }
-  // Update paintables
-  {
-    if (render_regions.size() < region_defs.size()) render_regions.resize(region_defs.size());
-    if (par_defs.size() < region_defs.size())       par_defs.resize(region_defs.size());
-    if (mechanism_defs.size() < region_defs.size()) mechanism_defs.resize(region_defs.size());
-    if (ion_defs.size() < ion_defaults.size())      ion_defs.resize(ion_defaults.size());
-    for (auto &ion: ion_defs)
-      if (ion.size() < region_defs.size()) ion.resize(region_defs.size());
-    auto idx = 0;
-    for (auto &def: region_defs) {
-      auto &render = render_regions[idx];
-      if (def.state == def_state::changed) {
-        update_def(def);
-        def_set_renderable(renderer, builder, render, def);
-      }
-      if (def.state == def_state::erase) {
-        render_regions[idx].state = def_state::erase;
-        par_defs[idx].state = def_state::erase;
-        for (auto &ion: ion_defs)
-          ion.erase(ion.begin() + idx);
-        mechanism_defs.erase(mechanism_defs.begin() + idx);
-        render_regions[idx].state = def_state::erase;
-      }
-      idx++;
+    void operator()(const evt::update<ls_def>& c) {
+      auto id = c.id;
+      auto& def = state->locset_defs[id];
+      auto& red = state->render_locsets[id];
+      update_def(def);
+      def_set_renderable(state->renderer, state->builder, red, def);
     }
-    std::erase_if(region_defs,
-                  [](const auto &p) { return p.state == def_state::erase; });
-    std::erase_if(render_regions,
-                  [](const auto &p) { return p.state == def_state::erase; });
-    std::erase_if(par_defs,
-                  [](const auto &p) { return p.state == def_state::erase; });
+    void operator()(const evt::remove<ls_def>& c) {
+      auto id = c.id;
+      log_debug("Erasing locset {}", id.value);
+      state->render_locsets.erase(id);
+      state->locset_defs.erase(id);
+      std::erase_if(state->locsets, [&] (const auto& it){ return id == it; });
+    }
+    void operator()(const evt::create<reg_def>& c) {
+      auto id = get_next_id();
+      log_debug("Add region {}", id.value);
+      state->regions.push_back(id);
+      state->region_defs[id]    = c.item;
+      state->render_regions[id] = {};
+      state->events.push_back(evt::update<reg_def>{id});
+    }
+    void operator()(const evt::update<reg_def>& c) {
+      auto id = c.id;
+      auto& def = state->region_defs[id];
+      auto& red = state->render_regions[id];
+      update_def(def);
+      def_set_renderable(state->renderer, state->builder, red, def);
+    }
+    void operator()(const evt::remove<reg_def>& c) {
+      auto id = c.id;
+      log_debug("Erasing region {}", id.value);
+      state->render_regions.erase(id);
+      state->region_defs.erase(id);
+      std::erase_if(state->regions, [&] (const auto& it){ return id == it; });
+    }
+    void operator()(const evt::create<ion_def>& c) {
+      auto id = get_next_id();
+      log_debug("Add ion {}", id.value);
+      state->ions.push_back(id);
+      state->ion_defs[id] = c.item;
+      state->ion_defaults[id] = {};
+      if (state->presets.ion_data.contains(c.item.name)) {
+        auto d = state->presets.ion_data[c.item.name];
+        state->ion_defaults[id].Xi = d.init_int_concentration.value();
+        state->ion_defaults[id].Xo = d.init_ext_concentration.value();
+        state->ion_defaults[id].Er = d.init_reversal_potential.value();
+      }
+    }
+    void operator()(const evt::update<ion_def>& c) {
+      auto id = c.id;
+      log_debug("Update ion {}", id.value);
+    }
+    void operator()(const evt::remove<ion_def>& c) {
+      auto id = c.id;
+      log_debug("Remove ion {}", id.value);
+      state->ion_defs.erase(id);
+      state->ion_defaults.erase(id);
+      std::erase_if(state->ions, [&] (const auto& it){ return id == it; });
+    }
+    void operator()(const evt::create<mech_def>& c) {
+      auto id = get_next_id();
+      log_debug("Add mechanism {}", id.value);
+      state->mechanisms.push_back(id);
+      state->mechanism_defs[id] = c.item;
+    }
+    void operator()(const evt::update<mech_def>& c) {
+      auto id = c.id;
+      log_debug("Update mech {}", id.value);
+    }
+    void operator()(const evt::remove<mech_def>& c) {
+      auto id = c.id;
+      log_debug("Remove mechanism {}", id.value);
+      state->mechanism_defs.erase(id);
+      std::erase_if(state->mechanisms, [&] (const auto& it){ return id == it; });
+    }
+  };
+
+  while (!events.empty()) {
+    auto evt = events.back();
+    events.pop_back();
+    std::visit(event_visitor{this}, evt);
   }
 }
 
-void gui_main(gui_state &state);
 void gui_menu_bar(gui_state &state);
 void gui_read_morphology(gui_state &state, bool &open);
-void gui_locations(gui_state &state);
-void gui_cell(gui_state &state);
 void gui_place(gui_state &state);
 void gui_tooltip(const std::string &);
 void gui_check_state(def_state);
-void gui_painting(gui_state &state);
-void gui_trash(definition &);
 void gui_debug(bool &);
 void gui_style(bool &);
 
@@ -263,15 +241,14 @@ struct with_style {
 };
 
 struct with_id {
-  template<typename V> with_id(V val) { ImGui::PushID(val); }
+  with_id(size_t val)      { ImGui::PushID(val); }
+  with_id(const char* ptr) { ImGui::PushID(ptr); }
   ~with_id() { ImGui::PopID(); }
 };
 
 void gui_right_margin() { ImGui::SameLine(ImGui::GetWindowWidth() - 40.0f); }
 
-void gui_select(const std::string& item, std::string& current) {
-  if (ImGui::Selectable(item.c_str(), item == current)) current = item;
-}
+void gui_select(const std::string& item, std::string& current) { if (ImGui::Selectable(item.c_str(), item == current)) current = item; }
 
 template<typename Container>
 void gui_choose(const std::string& lbl, std::string& current, Container items) {
@@ -285,8 +262,6 @@ bool gui_input_double(const std::string& lbl, double& v, const char* fmt) {
   return ImGui::InputDouble(lbl.c_str(), &v, 0.0, 0.0, fmt, ImGuiInputTextFlags_CharsScientific);
 }
 
-void gui_trash(definition &def) { if (ImGui::Button(icon_delete)) def.erase(); }
-
 void gui_tooltip(const std::string &message) {
   if (ImGui::IsItemHovered()) {
     ImGui::BeginTooltip();
@@ -298,8 +273,10 @@ void gui_tooltip(const std::string &message) {
 }
 
 void gui_check_state(const definition &def) {
-  const char* tags[] = { icon_question, icon_error, icon_ok };
-  ImGui::Text("%s", tags[(int) def.state]);
+  auto tag = std::unordered_map<def_state, const char*>{{def_state::empty,   icon_question},
+                                                        {def_state::error,   icon_error},
+                                                        {def_state::good,    icon_ok}}[def.state];
+  ImGui::Text("%s", tag);
   gui_tooltip(def.message);
 }
 
@@ -322,10 +299,8 @@ void gui_main(gui_state &state) {
     ImGui::SetNextWindowViewport(viewport->ID);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
-                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-    window_flags |=
-        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse             |  ImGuiWindowFlags_NoResize
+                 |  ImGuiWindowFlags_NoMove     |  ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
   } else {
     dockspace_flags &= ~ImGuiDockNodeFlags_PassthruCentralNode;
   }
@@ -333,8 +308,7 @@ void gui_main(gui_state &state) {
   // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render
   // our background and handle the pass-thru hole, so we ask Begin() to not
   // render a background.
-  if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
-    window_flags |= ImGuiWindowFlags_NoBackground;
+  if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) window_flags |= ImGuiWindowFlags_NoBackground;
 
   // Important: note that we proceed even if Begin() returns false (aka window
   // is collapsed). This is because we want to keep our DockSpace() active. If a
@@ -493,7 +467,7 @@ loader_state get_loader(const std::string &extension,
 }
 
 void gui_read_morphology(gui_state &state, bool &open_file) {
-  with_id id{"open_file"};
+  with_id id{"reading morphology"};
   ImGui::OpenPopup("Open");
   if (ImGui::BeginPopupModal("Open")) {
     gui_dir_view(state.file_chooser);
@@ -564,34 +538,28 @@ void gui_read_morphology(gui_state &state, bool &open_file) {
 }
 
 void gui_cell(gui_state &state) {
-  static float zoom = 45.0f;
-  static float phi = 0.0f;
-  static glm::vec2 offset = {0.0, 0.0f};
-
   if (ImGui::Begin("Cell")) {
     ImGui::BeginChild("Cell Render");
     auto size = ImGui::GetWindowSize();
-    auto image = state.renderer.render(zoom,
-                                       phi,
+    auto image = state.renderer.render(state.view,
                                        to_glmvec(size),
-                                       offset,
                                        state.render_regions,
                                        state.render_locsets);
     ImGui::Image((ImTextureID) image, size, ImVec2(0, 1), ImVec2(1, 0));
 
     if (ImGui::IsItemHovered()) {
-      offset -= delta_pos;
-      zoom    = std::clamp(zoom + delta_zoom, 1.0f, 45.0f);
-      phi     = std::fmod(phi + delta_phi + 2*PI, 2*PI);    // cyclic in [0, 2pi)
+      state.view.offset -= delta_pos;
+      state.view.zoom    = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
+      state.view.phi     = std::fmod(state.view.phi + delta_phi + 2*PI, 2*PI);    // cyclic in [0, 2pi)
     }
 
     if (ImGui::BeginPopupContextWindow()) {
       if (gui_menu_item("Reset camera", icon_camera)) {
-        offset = {0.0, 0.0};
+        state.view.offset = {0.0, 0.0};
         state.renderer.target = {0.0f, 0.0f, 0.0f};
       }
       if (ImGui::BeginMenu("Snap to locset")) {
-        for (const auto &ls: state.locset_defs) {
+        for (const auto &[id, ls]: state.locset_defs) {
           if (ls.state != def_state::good) continue;
           auto name = ls.name.c_str();
           if (ImGui::BeginMenu(name)) {
@@ -599,7 +567,7 @@ void gui_cell(gui_state &state) {
             for (const auto &point: points) {
               const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
               if (ImGui::MenuItem(lbl.c_str())) {
-                offset = {0.0, 0.0};
+                state.view.offset = {0.0, 0.0};
                 state.renderer.target = point;
               }
             }
@@ -613,50 +581,47 @@ void gui_cell(gui_state &state) {
     ImGui::EndChild();
   }
   ImGui::End();
-
-  delta_pos = {0.0f, 0.0f};
-  delta_phi = 0.0f;
-  delta_zoom = 0.0f;
 }
 
-void gui_locdef(loc_def &def, renderable &render) {
-  with_id id(def.name.c_str());
-  ImGui::Bullet();
-  ImGui::SameLine();
-  ImGui::InputText("Name", &def.name);
-  with_indent ind(24.0f);
-  if (ImGui::InputText("Definition", &def.definition)) def.state = def_state::changed;
-  ImGui::SameLine();
-  gui_check_state(def);
-  gui_trash(def);
-  ImGui::SameLine();
-  gui_toggle(icon_show, icon_hide, render.active);
-  ImGui::SameLine();
-  ImGui::ColorEdit4("", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
-}
-
-template <typename Item>
-void gui_locdefs(const std::string &name,
-                 std::vector<Item> &items,
-                 std::vector<renderable> &render) {
-  with_id id(name.c_str());
+template<typename Item>
+void gui_locdefs(const char* name,
+                 const vec_type& ids,
+                 map_type<Item> &items,
+                 map_type<renderable> &renderables,
+                 std::vector<evt::event> &events) {
+  with_id guard{name};
   ImGui::AlignTextToFramePadding();
-  auto open = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
+  auto open = ImGui::TreeNodeEx(name, ImGuiTreeNodeFlags_AllowItemOverlap);
   gui_right_margin();
-  auto add = ImGui::Button(icon_add);
+  if (ImGui::Button(icon_add)) events.emplace_back(evt::create<Item>{});
   if (open) {
     with_item_width iw(120.0f);
-    for (auto idx = 0; idx < items.size(); ++idx) gui_locdef(items[idx], render[idx]);
+    for (const auto& id: ids) {
+      with_id guard{id.value};
+      auto& render = renderables[id];
+      auto& item   = items[id];
+      ImGui::Bullet();
+      ImGui::SameLine();
+      if (ImGui::InputText("Name", &item.name)) events.push_back(evt::update<Item>{id});
+      with_indent ind(24.0f);
+      if (ImGui::InputText("Definition", &item.definition)) events.push_back(evt::update<Item>{id});
+      ImGui::SameLine();
+      gui_check_state(item);
+      if (ImGui::Button(icon_delete)) events.push_back(evt::remove<Item>{id});
+      ImGui::SameLine();
+      gui_toggle(icon_show, icon_hide, render.active);
+      ImGui::SameLine();
+      ImGui::ColorEdit4("", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+    }
     ImGui::TreePop();
   }
-  if (add) items.emplace_back();
 }
 
 void gui_locations(gui_state &state) {
   if (ImGui::Begin("Locations")) {
-    gui_locdefs("Regions", state.region_defs, state.render_regions);
+    gui_locdefs("Regions", state.regions, state.region_defs, state.render_regions, state.events);
     ImGui::Separator();
-    gui_locdefs("Locsets", state.locset_defs, state.render_locsets);
+    gui_locdefs("Locsets", state.locsets, state.locset_defs, state.render_locsets, state.events);
   }
   ImGui::End();
 }
@@ -678,42 +643,42 @@ void gui_placeable(sdt_def &detector) {
 
 template <typename Item>
 void gui_placeables(const std::string &label,
-                    const std::vector<ls_def> &locsets,
+                    const map_type<ls_def> &locsets,
                     std::vector<Item> &items) {
-  with_id id(label.c_str());
+  with_id id{"placeables"};
   ImGui::AlignTextToFramePadding();
   auto open = ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
   gui_right_margin();
-  if (ImGui::Button(icon_add)) items.emplace_back();
+  // if (ImGui::Button(icon_add)) items.emplace_back();
   if (open) {
     with_item_width iw(120.0f);
     for (auto &item: items) {
-      with_id id(item.locset_name.c_str());
+      // with_id id;
       ImGui::Bullet();
       ImGui::SameLine();
       if (ImGui::BeginCombo("Locset", item.locset_name.c_str())) {
-        for (const auto &ls: locsets) gui_select(ls.name, item.locset_name);
+        for (const auto &[id, ls]: locsets) gui_select(ls.name, item.locset_name);
         ImGui::EndCombo();
       }
       ImGui::SameLine();
       gui_check_state(item);
       with_indent ind{24.0f};
       gui_placeable(item);
-      gui_trash(item);
+      // gui_trash(item);
     }
     ImGui::TreePop();
   }
 }
 
 void gui_place(gui_state &state) {
-  if (ImGui::Begin("Placings")) {
-    gui_placeables("Probes", state.locset_defs, state.probe_defs);
-    ImGui::Separator();
-    gui_placeables("Stimuli", state.locset_defs, state.iclamp_defs);
-    ImGui::Separator();
-    gui_placeables("Detectors", state.locset_defs, state.detector_defs);
-  }
-  ImGui::End();
+  // if (ImGui::Begin("Placings")) {
+    // gui_placeables("Probes", state.locset_defs, state.probe_defs);
+    // ImGui::Separator();
+    // gui_placeables("Stimuli", state.locset_defs, state.iclamp_defs);
+    // ImGui::Separator();
+    // gui_placeables("Detectors", state.locset_defs, state.detector_defs);
+  // }
+  // ImGui::End();
 }
 
 void gui_defaulted_double(const std::string &label, const char *format,
@@ -725,162 +690,159 @@ void gui_defaulted_double(const std::string &label, const char *format,
 }
 
 void gui_painting_preset(gui_state &state) {
-  static std::string preset = "Neuron";
-  static std::unordered_map<std::string, arb::cable_cell_parameter_set> presets{{"Neuron", arb::neuron_parameter_defaults}};
-  if (ImGui::BeginCombo("Load Preset", preset.c_str())) {
-    for (const auto &[k, v]: presets) gui_select(k, preset);
-    ImGui::EndCombo();
-  }
-  ImGui::SameLine();
-  if (ImGui::Button(icon_save)) {
-    auto df = presets[preset];
-    state.par_defaults.TK = df.temperature_K.value();
-    state.par_defaults.Vm = df.init_membrane_potential.value();
-    state.par_defaults.RL = df.axial_resistivity.value();
-    state.par_defaults.Cm = df.membrane_capacitance.value();
-    state.ion_defaults.clear();
-    state.ion_defs.clear();
-    auto blank = std::vector<ion_def>(state.region_defs.size(), ion_def{});
-    for (const auto &[k, v]: df.ion_data) {
-      state.ion_defaults.push_back({.name = k,
-                                    .Xi = v.init_int_concentration.value(),
-                                    .Xo = v.init_ext_concentration.value(),
-                                    .Er = v.init_reversal_potential.value()});
-      state.ion_defs.push_back(blank);
-    }
-  }
+  // static std::string preset = "Neuron";
+  // static std::unordered_map<std::string, arb::cable_cell_parameter_set> presets{{"Neuron", arb::neuron_parameter_defaults}};
+  // if (ImGui::BeginCombo("Load Preset", preset.c_str())) {
+    // for (const auto &[k, v]: presets) gui_select(k, preset);
+    // ImGui::EndCombo();
+  // }
+  // ImGui::SameLine();
+  // if (ImGui::Button(icon_save)) {
+    // auto df = presets[preset];
+    // state.par_defaults.TK = df.temperature_K.value();
+    // state.par_defaults.Vm = df.init_membrane_potential.value();
+    // state.par_defaults.RL = df.axial_resistivity.value();
+    // state.par_defaults.Cm = df.membrane_capacitance.value();
+    // state.ion_defaults.clear();
+    // state.ion_defs.clear();
+    // auto blank = std::vector<ion_def>(state.region_defs.size(), ion_def{});
+    // for (const auto &[k, v]: df.ion_data) {
+      // state.ion_defaults.push_back({.name = k,
+                                    // .Xi = v.init_int_concentration.value(),
+                                    // .Xo = v.init_ext_concentration.value(),
+                                    // .Er = v.init_reversal_potential.value()});
+      // state.ion_defs.push_back(blank);
+    // }
+  // }
 }
+
 
 void gui_painting_parameter(gui_state &state) {
-  if (ImGui::TreeNodeEx("Parameters")) {
-    if (ImGui::TreeNodeEx("Defaults")) {
-      gui_input_double("Temperature",          state.par_defaults.TK, "%.0f K");
-      gui_input_double("Membrane Potential",   state.par_defaults.Vm, "%.0f mV");
-      gui_input_double("Axial Resistivity",    state.par_defaults.RL, "%.0f Ω·cm");
-      gui_input_double("Membrane Capacitance", state.par_defaults.Cm, "%.0f F/m²");
-      ImGui::TreePop();
-    }
-    auto region = state.region_defs.begin();
-    for (auto &p: state.par_defs) {
-      if (ImGui::TreeNodeEx(region->name.c_str())) {
-        gui_defaulted_double("Temperature",          "%.0f K",     p.TK, state.par_defaults.TK);
-        gui_defaulted_double("Membrane Potential",   "%.0f mV",    p.Vm, state.par_defaults.Vm);
-        gui_defaulted_double("Axial Resistivity",    "%.0f Ω·cm ", p.RL, state.par_defaults.RL);
-        gui_defaulted_double("Membrane Capacitance", "%.0f F/m²",  p.Cm, state.par_defaults.Cm);
-        ImGui::TreePop();
-      }
-      ++region;
-    }
-    ImGui::TreePop();
-  }
+  // if (ImGui::TreeNodeEx("Parameters")) {
+    // if (ImGui::TreeNodeEx("Defaults")) {
+      // gui_input_double("Temperature",          state.par_defaults.TK, "%.0f K");
+      // gui_input_double("Membrane Potential",   state.par_defaults.Vm, "%.0f mV");
+      // gui_input_double("Axial Resistivity",    state.par_defaults.RL, "%.0f Ω·cm");
+      // gui_input_double("Membrane Capacitance", state.par_defaults.Cm, "%.0f F/m²");
+      // ImGui::TreePop();
+    // }
+    // auto region = state.regions.begin();
+    // for (auto &p: state.par_defs) {
+      // auto name = state.region_defs[*region].name;
+      // if (ImGui::TreeNodeEx(name.c_str())) {
+        // gui_defaulted_double("Temperature",          "%.0f K",     p.TK, state.par_defaults.TK);
+        // gui_defaulted_double("Membrane Potential",   "%.0f mV",    p.Vm, state.par_defaults.Vm);
+        // gui_defaulted_double("Axial Resistivity",    "%.0f Ω·cm ", p.RL, state.par_defaults.RL);
+        // gui_defaulted_double("Membrane Capacitance", "%.0f F/m²",  p.Cm, state.par_defaults.Cm);
+        // ImGui::TreePop();
+      // }
+      // ++region;
+    // }
+    // ImGui::TreePop();
+  // }
 }
 
-void gui_painting_ion(std::vector<ion_default> &ion_defaults,
-                      std::vector<std::vector<ion_def>> &ion_defs,
-                      const std::vector<reg_def>
-                          &region_defs) { // These could be name strings only
-  if (ImGui::TreeNodeEx("Ions")) {
-    static std::vector<std::string> methods{"constant", "Nernst"};
-    auto defaults = ion_defaults.begin();
-    for (auto &ion: ion_defs) {
-      auto name = defaults->name;
-      if (ImGui::TreeNodeEx(name.c_str())) {
-        if (ImGui::TreeNodeEx("Defaults")) {
-          gui_input_double("Internal Concentration", defaults->Xi, "%.0f F/m²");
-          gui_input_double("External Concentration", defaults->Xo, "%.0f F/m²");
-          gui_input_double("Reversal Potential",     defaults->Er, "%.0f F/m²");
-          gui_choose("Method", defaults->method, methods);
+void gui_ions(gui_state& state) {
+  if (ImGui::Begin("Ions")) {
+    ImGui::AlignTextToFramePadding();
+    auto open = ImGui::TreeNodeEx("Ions", ImGuiTreeNodeFlags_AllowItemOverlap);
+    gui_right_margin();
+    if (ImGui::Button(icon_add)) state.events.emplace_back(evt::create<ion_def>{});
+    if (open) {
+      for (const auto &ion: state.ions) {
+        with_id guard{ion.value};
+        ImGui::Bullet();
+        with_indent indent{24.0f};
+        with_item_width item_width{120.0f};
+        auto& definition = state.ion_defs[ion];
+        auto& defaults   = state.ion_defaults[ion];
+        if (ImGui::InputText("Name",  &definition.name)) state.events.push_back(evt::update<ion_def>{ion});
+        gui_right_margin();
+        if (ImGui::Button(icon_delete)) state.remove_ion(ion);
+        ImGui::InputInt("Charge", &definition.charge);
+        gui_input_double("Int. Concentration", defaults.Xi, "%.0f mM");
+        gui_input_double("Ext. Concentration", defaults.Xo, "%.0f mM");
+        gui_input_double("Reversal Potential", defaults.Er, "%.0f mV");
+        gui_choose("Method", defaults.method, std::vector<std::string>{"constant", "Nernst"});
+        if (ImGui::TreeNode("Per region")) {
+          for (const auto& region: state.regions) {
+            with_id region_guard{region.value};
+            auto region_data = state.region_defs[region];
+            ImGui::AlignTextToFramePadding();
+            auto open = ImGui::TreeNodeEx(region_data.name.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
+            gui_right_margin();
+            if (ImGui::Button(icon_add)) state.events.emplace_back(evt::create<mech_def>{mech_def{region}});
+            if (open) {
+              gui_input_double("Int. Concentration", defaults.Xi, "%.0f mM");
+              gui_input_double("Ext. Concentration", defaults.Xo, "%.0f mM");
+              gui_input_double("Reversal Potential", defaults.Er, "%.0f mV");
+              ImGui::TreePop();
+            }
+          }
           ImGui::TreePop();
         }
-        auto region = region_defs.begin();
-        for (auto &def: ion) {
-          if (ImGui::TreeNodeEx(region->name.c_str())) {
-            gui_defaulted_double("Internal Concentration", "%.0f F/m²", def.Xi, defaults->Xi);
-            gui_defaulted_double("External Concentration", "%.0f F/m²", def.Xo, defaults->Xo);
-            gui_defaulted_double("Reversal Potential",     "%.0f F/m²", def.Er, defaults->Er);
-            ImGui::TreePop();
-          }
-          ++region;
-        }
-        ImGui::TreePop();
       }
-      ++defaults;
     }
     ImGui::TreePop();
   }
+  ImGui::End();
 }
 
 const static std::unordered_map<std::string, arb::mechanism_catalogue>
     catalogues = {{"default", arb::global_default_catalogue()},
                   {"allen", arb::global_allen_catalogue()}};
 
-void gui_mechanism(mech_def &mech) {
-  with_id id{mech.name.c_str()};
-  ImGui::Bullet();
-  ImGui::SameLine();
-  if (ImGui::BeginCombo("Mechanism", mech.name.c_str())) {
-    for (const auto &[cat_name, cat]: catalogues) {
-      ImGui::Selectable(cat_name.c_str(), false);
-      with_indent ind{};
-      for (const auto &mech_name: cat.mechanism_names()) {
-        if (ImGui::Selectable(mech_name.c_str(), mech_name == mech.name)) {
-          mech.name = mech_name;
-          auto info = cat[mech_name];
-          mech.global_vars.clear();
-          for (const auto &[k, v]: info.globals) mech.global_vars[k] = v.default_value;
-          mech.parameters.clear();
-          for (const auto &[k, v]: info.parameters) mech.parameters[k] = v.default_value;
-        }
-      }
-    }
-    ImGui::EndCombo();
-  }
-  ImGui::SameLine();
-  gui_trash(mech);
-  with_indent ind{};
-  if (!mech.global_vars.empty()) {
-    ImGui::BulletText("Global Values");
-    with_indent ind{};
-    for (auto &[k, v]: mech.global_vars) gui_input_double(k, v, "%.3f");
-  }
-  if (!mech.parameters.empty()) {
-    ImGui::BulletText("Parameters");
-    with_indent ind{};
-    for (auto &[k, v]: mech.parameters) gui_input_double(k, v, "%.3f");
-  }
-}
-
-void gui_painting_mechanism(gui_state &state) {
-  with_id id("mechanims");
-  if (ImGui::TreeNodeEx("Mechanisms", ImGuiTreeNodeFlags_AllowItemOverlap)) {
-    auto region = state.region_defs.begin();
-    auto ridx = 0;
-    for (auto &mechanisms: state.mechanism_defs) {
-      with_id id{ridx++};
+void gui_mechanisms(gui_state &state) {
+  if (ImGui::Begin("Mechanisms")) {
+    for (const auto& region: state.regions) {
+      with_id region_guard{region.value};
+      auto region_data = state.region_defs[region];
       ImGui::AlignTextToFramePadding();
-      auto open = ImGui::TreeNodeEx(region->name.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
+      auto open = ImGui::TreeNodeEx(region_data.name.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
       gui_right_margin();
-      if (ImGui::Button(icon_add)) mechanisms.emplace_back();
+      if (ImGui::Button(icon_add)) state.events.emplace_back(evt::create<mech_def>{mech_def{region}});
       if (open) {
-        for (auto &mechanism: mechanisms) gui_mechanism(mechanism);
+        with_item_width width{120.0f};
+        for (const auto& mechanism: state.mechanisms) {
+          with_id mech_guard{mechanism.value};
+          auto& data = state.mechanism_defs[mechanism];
+          if (region != data.region) continue;
+          ImGui::Bullet();
+          ImGui::SameLine();
+          if (ImGui::BeginCombo("Mechanism", data.name.c_str())) {
+            for (const auto &[cat_name, cat]: catalogues) {
+              ImGui::Selectable(cat_name.c_str(), false);
+              with_indent ind{};
+              for (const auto &mech_name: cat.mechanism_names()) {
+                if (ImGui::Selectable(mech_name.c_str(), mech_name == data.name)) {
+                  data.name = mech_name;
+                  auto info = cat[mech_name];
+                  data.global_vars.clear();
+                  for (const auto &[k, v]: info.globals) data.global_vars[k] = v.default_value;
+                  data.parameters.clear();
+                  for (const auto &[k, v]: info.parameters) data.parameters[k] = v.default_value;
+                }
+              }
+            }
+            ImGui::EndCombo();
+          }
+          ImGui::SameLine();
+          if (ImGui::Button(icon_delete)) state.remove_mechanism(mechanism);
+          with_indent ind{};
+          if (!data.global_vars.empty()) {
+            ImGui::BulletText("Global Values");
+            with_indent ind{};
+            for (auto &[k, v]: data.global_vars) gui_input_double(k, v, "%.3f");
+          }
+          if (!data.parameters.empty()) {
+            ImGui::BulletText("Parameters");
+            with_indent ind{};
+            for (auto &[k, v]: data.parameters) gui_input_double(k, v, "%.3f");
+          }
+        }
         ImGui::TreePop();
       }
-      ++region;
     }
-    ImGui::TreePop();
-  }
-}
-
-void gui_painting(gui_state &state) {
-  if (ImGui::Begin("Paintings")) {
-    with_item_width iw(120.0f);
-    gui_painting_preset(state);
-    ImGui::Separator();
-    gui_painting_parameter(state);
-    ImGui::Separator();
-    gui_painting_ion(state.ion_defaults, state.ion_defs, state.region_defs);
-    ImGui::Separator();
-    gui_painting_mechanism(state);
   }
   ImGui::End();
 }
@@ -896,10 +858,9 @@ void gui_state::gui() {
   gui_main(*this);
   gui_locations(*this);
   gui_cell(*this);
-  gui_place(*this);
-  gui_painting(*this);
+  gui_mechanisms(*this);
+  gui_ions(*this);
 }
 
 void gui_state::serialize(const std::string &dn) {}
-
 void gui_state::deserialize(const std::string &dn) {}

@@ -13,6 +13,7 @@ add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
 add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W="ON")
 
 set(ARB_WITH_NEUROML ON CACHE BOOL "enable neuroml" FORCE)
+set(GLFW_BUILD_DOCS  OFF CACHE BOOL "disable" FORCE)
 
 # figure out OpenGL on *NIX
 if (APPLE)
@@ -43,6 +44,7 @@ set(gui_srcs
   src/cell_builder.hpp src/cell_builder.cpp
   src/gui_state.hpp src/gui_state.cpp
   src/window.hpp src/window.cpp
+  src/id.hpp src/id.cpp
   src/utils.hpp src/utils.cpp
   src/geometry.hpp src/geometry.cpp
   src/location.hpp src/location.cpp)
@@ -62,7 +64,6 @@ set_source_files_properties("${gui_srcs}"
 add_subdirectory("3rd-party/arbor")
 add_subdirectory("3rd-party/glfw")
 
-
 add_executable(arbor-gui ${gui_srcs} ${im_srcs})
 target_include_directories(arbor-gui PRIVATE 3rd-party/fmt/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/icons)
@@ -79,6 +80,8 @@ target_link_libraries(arbor-gui PRIVATE glfw)
 
 target_compile_options(arbor-gui PRIVATE "-I/usr/local/opt/llvm/include -I/usr/local/opt/llvm/include/c++/v1/ -stdlib=libc++")
 target_link_options(arbor-gui PRIVATE "-L/usr/local/opt/llvm/lib -Wl,-rpath,/usr/local/opt/llvm/lib")
+
+set(GLFW_BUILD_DOCS OFF)
 
 install(TARGETS arbor-gui
   RUNTIME DESTINATION bin)

@@ -159,4 +159,7 @@ void Window::end_frame() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(handle);
+    delta_pos = {0.0f, 0.0f};
+    delta_phi = 0.0f;
+    delta_zoom = 0.0f;
 }

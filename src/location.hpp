@@ -16,7 +16,6 @@
 
 struct loc_def: definition {
     std::string name, definition;
-    std::string message;
 
     loc_def(const loc_def&) = default;
     loc_def& operator=(const loc_def&) = default;

@@ -13,6 +13,8 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+#include "id.hpp"
+#include "view_state.hpp"
 #include <utils.hpp>
 #include <definition.hpp>
 
@@ -36,10 +38,10 @@ struct geometry {
   geometry();
   geometry(const arb::morphology&);
 
-  unsigned long render(float zoom, float phi,
+  unsigned long render(const view_state& view,
                        const glm::vec2& size,
-                       const glm::vec2& offset,
-                       const std::vector<renderable>&, const std::vector<renderable>&);
+                       const map_type<renderable>&,
+                       const map_type<renderable>&);
 
   renderable make_marker(const std::vector<glm::vec3>& points, glm::vec4 color);
   renderable make_region(const std::vector<arb::msegment>& segments, glm::vec4 color);

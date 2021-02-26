@@ -64,7 +64,7 @@ void render(unsigned program,
             glm::vec3 camera,
             glm::vec3 light,
             glm::vec3 light_color,
-            std::vector<renderable> render) {
+            const map_type<renderable>& render) {
     gl_check_error("render init");
     glUseProgram(program);
     set_uniform(program, "model", model);
@@ -76,12 +76,12 @@ void render(unsigned program,
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     // Render
-    for (const auto& r: render) {
-        if (r.active) {
-            log_debug("Rendering {} instances", r.instances);
-            set_uniform(program, "object_color", r.color);
-            glBindVertexArray(r.vao);
-            glDrawArraysInstanced(GL_TRIANGLES, 0, r.count, r.instances);
+    for (const auto& [k, v]: render) {
+        if (v.active) {
+            log_debug("Rendering {} instances", v.instances);
+            set_uniform(program, "object_color", v.color);
+            glBindVertexArray(v.vao);
+            glDrawArraysInstanced(GL_TRIANGLES, 0, v.count, v.instances);
             glBindVertexArray(0);
         }
     }
@@ -91,13 +91,11 @@ void render(unsigned program,
 
 auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
     log_info("Loading shader {}", fn.c_str());
-    std::ifstream fd(fn);
-    if (!fd.good()) log_fatal("Could not find shader source {}", fn.c_str());
-    std::string src(std::istreambuf_iterator<char>(fd), {});
-    auto src_str = src.c_str();
+    auto src = slurp(fn);
+    auto c_src = src.c_str();
 
     unsigned int shader = glCreateShader(shader_type);
-    glShaderSource(shader, 1, &src_str, NULL);
+    glShaderSource(shader, 1, &c_src, NULL);
     glCompileShader(shader);
 
     int success;
@@ -235,12 +233,10 @@ void geometry::maybe_make_fbo(int w, int h) {
 }
 
 unsigned long
-geometry::render(float zoom,
-                 float phi,
+geometry::render(const view_state& vs,
                  const glm::vec2& size,
-                 const glm::vec2& offset,
-                 const std::vector<renderable>& regions,
-                 const std::vector<renderable>& markers) {
+                 const map_type<renderable>& regions,
+                 const map_type<renderable>& markers) {
     // re-build fbo, if needed
     maybe_make_fbo(size.x, size.y);
 
@@ -254,23 +250,23 @@ geometry::render(float zoom,
     float distance   = 2.5f;
     auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
     glm::vec3 up     = {0.0f, 1.0f, 0.0f};
-    glm::vec3 shift = {offset.x/size.x, offset.y/size.y, 0.0f};
+    glm::vec3 shift = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
     glm::mat4 view = glm::lookAt(camera, (target - root)/rescale + shift, up);
     // * projection
-    glm::mat4 proj = glm::perspective(glm::radians(zoom), size.x/size.y, 0.1f, 100.0f);
+    glm::mat4 proj = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
 
     auto light = camera;
     auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
 
     {
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, phi, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
         ::render(region_program, model, view, proj, camera, light, light_color, regions);
     }
     {
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, -phi, glm::vec3(0.0f, 1.0f, 0.0f));
-        view  = glm::rotate(view,   phi, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, -vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
+        view  = glm::rotate(view,   vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
         glDisable(GL_DEPTH_TEST);
         ::render(marker_program, model, view, proj, camera, light, light_color, markers);
         glEnable(GL_DEPTH_TEST);

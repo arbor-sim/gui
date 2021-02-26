@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include <sstream>
+#include <fstream>
 
 #include <glm/glm.hpp>
 #include <imgui.h>
@@ -20,5 +22,12 @@ ImVec4 to_imvec(const glm::vec4& v);
 
 glm::vec2 to_glmvec(const ImVec2& v);
 
-// And constants
+template <typename T> std::string to_string(const T &r) {
+  std::stringstream ss;
+  ss << r;
+  return ss.str();
+}
+
+std::string slurp(const std::filesystem::path& fn);
+
 constexpr float PI = 3.141f;
