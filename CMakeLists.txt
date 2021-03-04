@@ -12,7 +12,8 @@ set(resource_path "${CMAKE_INSTALL_PREFIX}/etc/arbor-gui")
 add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
 add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W="ON")
 
-set(ARB_WITH_NEUROML ON CACHE BOOL "enable neuroml" FORCE)
+set(ARB_WITH_NEUROML     ON CACHE BOOL "enable neuroml"    FORCE)
+set(ARB_USE_BUNDLED_LIBS ON CACHE BOOL "use internal deps" FORCE)
 set(GLFW_BUILD_DOCS  OFF CACHE BOOL "disable" FORCE)
 
 # figure out OpenGL on *NIX
