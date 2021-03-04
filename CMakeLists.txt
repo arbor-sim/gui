@@ -46,6 +46,9 @@ set(gui_srcs
   src/window.hpp src/window.cpp
   src/id.hpp src/id.cpp
   src/utils.hpp src/utils.cpp
+  src/view_state.hpp
+  src/events.hpp
+  src/file_chooser.hpp
   src/geometry.hpp src/geometry.cpp
   src/location.hpp src/location.cpp)
 
