@@ -9,9 +9,9 @@
 enum class def_state { empty, error, good };
 
 struct definition {
-    void good()   { state = def_state::good;    message = "Ok."; }
-    void empty()  { state = def_state::empty;   message = "Empty."; }
-    void error(const std::string& m) { log_debug("called error {}!", m); state = def_state::error; message = m; }
+    void good()                      { state = def_state::good;  message = "Ok."; }
+    void empty()                     { state = def_state::empty; message = "Empty."; }
+    void error(const std::string& m) { state = def_state::error; message = m; }
     def_state state = def_state::empty;
     std::string message = "New.";
 };
@@ -26,37 +26,38 @@ struct ion_def: definition {
     ion_def(const std::string_view n, int c): name{n}, charge{c} {}
 };
 
-struct ion_par_def: definition {
-    std::optional<double> Xi;
-    std::optional<double> Xo;
-    std::optional<double> Er;
+struct ion_parameter: definition {
+    std::optional<double> Xi, Xo, Er;
 };
 
-struct prb_def: definition {
+struct ion_default {
+    double Xi = 0, Xo = 0, Er = 0;
+    std::string method = methods.front();
+    constexpr static std::array<const char*, 2> methods{"const.", "Nernst"};
+};
+
+struct probe_def {
     double frequency = 1000; // [Hz]
-    std::string variable = "voltage";
+    std::string variable = variables.front();
+    constexpr static std::array<const char*, 2> variables{"Voltage"};
 };
 
-struct stm_def: definition {
-    double delay = 0;      // [ms]
-    double duration = 0;   // [ms]
+struct stimulus_def {
+    double delay     = 0;  // [ms]
+    double duration  = 0;  // [ms]
     double amplitude = 0;  // [nA]
 };
 
-struct sdt_def: definition {
+struct detector_def {
     double threshold = 0;  // [mV]
 };
 
-// definitions for paintings
-struct par_def: definition {
+struct parameter_def {
     std::optional<double> TK, Cm, Vm, RL;
 };
 
-struct mech_def: definition {
-    mech_def() = default;
-    mech_def(const id_type& id): region{id} {}
+struct mechanism_def {
     std::string name = "";
-    id_type region = {};
     std::unordered_map<std::string, double> parameters  = {};
     std::unordered_map<std::string, double> global_vars = {};
 };

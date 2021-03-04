@@ -47,5 +47,6 @@ namespace std {
 id_type get_next_id();
 
 using vec_type = std::vector<id_type>;
+using mmap_type  = std::unordered_map<id_type, std::vector<id_type>>;
 template<typename V> using map_type  = std::unordered_map<id_type, V>;
 template<typename V> using join_type = std::unordered_map<std::tuple<id_type, id_type>, V>;

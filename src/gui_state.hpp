@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <string>
 #include <vector>
+#include <array>
 #include <filesystem>
 #include <variant>
 
@@ -21,16 +22,9 @@
 #include "view_state.hpp"
 #include "id.hpp"
 #include "definition.hpp"
-#include <location.hpp>
-#include <geometry.hpp>
-#include <cell_builder.hpp>
-
-struct ion_default {
-    double Xi = 0, Xo = 0, Er = 0;
-    std::string method = "constant";
-};
-
-struct par_default { double TK, Cm, Vm, RL; };
+#include "location.hpp"
+#include "geometry.hpp"
+#include "cell_builder.hpp"
 
 struct file_chooser_state {
     std::filesystem::path cwd = std::filesystem::current_path();
@@ -41,22 +35,18 @@ struct file_chooser_state {
 };
 
 namespace evt {
-    template<typename T> struct create { T item; };
-    template<typename T> struct update { id_type id; };
-    template<typename T> struct remove { id_type id; };
+    struct add_ion { std::string name; int charge; };
+    struct del_ion { id_type id; };
+    struct add_mechanism { id_type region; };
+    struct del_mechanism { id_type id; };
+    template <typename Item> struct add_locdef { std::string name, definition; };
+    template <typename Item> struct upd_locdef { id_type id; };
+    template <typename Item> struct del_locdef { id_type id; };
 
-    using event = std::variant<create<mech_def>,
-                               update<mech_def>,
-                               remove<mech_def>,
-                               create<ls_def>,
-                               update<ls_def>,
-                               remove<ls_def>,
-                               create<reg_def>,
-                               update<reg_def>,
-                               remove<reg_def>,
-                               create<ion_def>,
-                               update<ion_def>,
-                               remove<ion_def>>;
+    using event = std::variant<add_mechanism,                            del_mechanism,
+                               add_ion,                                  del_ion,
+                               add_locdef<reg_def>, upd_locdef<reg_def>, del_locdef<reg_def>,
+                               add_locdef<ls_def>,  upd_locdef<ls_def>,  del_locdef<ls_def>>;
 }
 
 struct gui_state {
@@ -75,19 +65,15 @@ struct gui_state {
     vec_type                 ions            = {};
     map_type<ion_def>        ion_defs        = {};
     map_type<ion_default>    ion_defaults    = {}; // Default ion settings per ion
+    join_type<ion_parameter> ion_par_defs    = {}; // Ion settings per region and ion
     // Mechanisms
     vec_type                 mechanisms      = {};
-    map_type<mech_def>       mechanism_defs  = {};
-
-// std::vector<prb_def>     probe_defs     = {}; // Probes
-    // std::vector<sdt_def>     detector_defs  = {}; // Spike detectors
-    // std::vector<stm_def>     iclamp_defs    = {}; // Current clamps
-    // paintings
-
-    // map_type<ion_default>    ion_defaults   = {}; // Default ion settings per ion
-    // std::vector<par_def>     par_defs       = {}; // Parameters per region
-    join_type<ion_par_def>   ion_par_defs   = {}; // Ion settings per region and ion
-    // std::vector<mech_def>    mechanism_defs = {}; // Mechanism setting per region per ion
+    map_type<mechanism_def>  mechanism_defs  = {};
+    mmap_type                region_mechanisms = {};
+    // Parameters
+    parameter_def            parameter_defaults;
+    map_type<parameter_def>  parameter_defs  = {};
+    // Placed items
 
     file_chooser_state file_chooser;
     view_state view;
@@ -105,14 +91,21 @@ struct gui_state {
     void serialize(const std::string& fn);
     void deserialize(const std::string& fn);
 
-    void add_region(const reg_def& def={}) { events.push_back(evt::create<reg_def>{def}); }
-    void add_ion(const ion_def& def={})    { events.push_back(evt::create<ion_def>{def}); }
-    void add_locset(const ls_def& def={})  { events.push_back(evt::create<ls_def>{def});  }
+    void add_ion(const std::string& lbl="", int charge=0) { events.push_back(evt::add_ion{lbl, charge}); }
+    template<typename Item> void add_locdef(const std::string& lbl="", const std::string& def="") { events.push_back(evt::add_locdef<Item>{lbl, def}); }
+    void add_region(const std::string& lbl="", const std::string& def="") { add_locdef<reg_def>(lbl, def); }
+    void add_locset(const std::string& lbl="", const std::string& def="") { add_locdef<ls_def>(lbl, def); }
+    void add_mechanism(const id_type& id) { events.push_back(evt::add_mechanism{id}); }
 
-    void remove_region(const id_type def) { events.push_back(evt::remove<reg_def>{def}); }
-    void remove_ion(const id_type& def)    { events.push_back(evt::remove<ion_def>{def}); }
-    void remove_mechanism(const id_type& def)    { events.push_back(evt::remove<mech_def>{def}); }
-    void remove_locset(const id_type& def)  { events.push_back(evt::remove<ls_def>{def});  }
+    template<typename Item> void remove_locdef(const id_type& def) { events.push_back(evt::del_locdef<Item>{def}); }
+    void remove_region(const id_type def)     { remove_locdef<reg_def>(def); }
+    void remove_locset(const id_type& def)    { remove_locdef<ls_def>(def); }
+    void remove_ion(const id_type& def)       { events.push_back(evt::del_ion{def}); }
+    void remove_mechanism(const id_type& def) { events.push_back(evt::del_mechanism{def}); }
+
+    template<typename Item> void update_locdef(const id_type& def) { events.push_back(evt::upd_locdef<Item>{def}); }
+    void update_region(const id_type& def) { update_locdef<reg_def>(def); }
+    void update_locset(const id_type& def) { update_locdef<ls_def>(def); }
 
 
     void update();
