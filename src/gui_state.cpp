@@ -1,8 +1,5 @@
 #include "gui_state.hpp"
 
-#include "utils.hpp"
-#include "icons.hpp"
-
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
 
@@ -10,14 +7,15 @@
 #include <arbornml/nmlexcept.hpp>
 
 #include <sstream>
+#include "utils.hpp"
+#include "icons.hpp"
+#include "events.hpp"
 
 extern float delta_phi;
 extern float delta_zoom;
 extern glm::vec2 delta_pos;
 
-gui_state::gui_state(): builder{} {
-  reset();
-}
+gui_state::gui_state(): builder{} { reset(); }
 
 void load_swc(gui_state &state,
               const std::filesystem::path &fn,
@@ -123,7 +121,7 @@ void gui_state::update() {
 
     event_visitor(gui_state* state_): state{state_} {}
 
-    void operator()(const evt::add_locdef<ls_def>& c) {
+    void operator()(const evt_add_locdef<ls_def>& c) {
       auto id = get_next_id();
       log_debug("Add locset {}", id.value);
       state->locsets.push_back(id);
@@ -132,21 +130,21 @@ void gui_state::update() {
       state->render_locsets[id] = {};
       state->update_locset(id);
     }
-    void operator()(const evt::upd_locdef<ls_def>& c) {
+    void operator()(const evt_upd_locdef<ls_def>& c) {
       auto id = c.id;
       auto& def = state->locset_defs[id];
       auto& red = state->render_locsets[id];
       update_def(def);
       def_set_renderable(state->renderer, state->builder, red, def);
     }
-    void operator()(const evt::del_locdef<ls_def>& c) {
+    void operator()(const evt_del_locdef<ls_def>& c) {
       auto id = c.id;
       log_debug("Erasing locset {}", id.value);
       state->render_locsets.erase(id);
       state->locset_defs.erase(id);
       std::erase_if(state->locsets, [&] (const auto& it){ return id == it; });
     }
-    void operator()(const evt::add_locdef<reg_def>& c) {
+    void operator()(const evt_add_locdef<reg_def>& c) {
       auto id = get_next_id();
       log_debug("Add region {}", id.value);
       state->regions.push_back(id);
@@ -157,14 +155,14 @@ void gui_state::update() {
       for (const auto& ion: state->ions) state->ion_par_defs[{id, ion}] = {};
       state->update_region(id);
     }
-    void operator()(const evt::upd_locdef<reg_def>& c) {
+    void operator()(const evt_upd_locdef<reg_def>& c) {
       auto id = c.id;
       auto& def = state->region_defs[id];
       auto& red = state->render_regions[id];
       update_def(def);
       def_set_renderable(state->renderer, state->builder, red, def);
     }
-    void operator()(const evt::del_locdef<reg_def>& c) {
+    void operator()(const evt_del_locdef<reg_def>& c) {
       auto id = c.id;
       log_debug("Erasing region {}", id.value);
       state->render_regions.erase(id);
@@ -175,7 +173,7 @@ void gui_state::update() {
       state->region_mechanisms.erase(id);
       std::erase_if(state->regions, [&] (const auto& it){ return id == it; });
     }
-    void operator()(const evt::add_ion& c) {
+    void operator()(const evt_add_ion& c) {
       auto id = get_next_id();
       log_debug("Add ion {}", id.value);
       state->ions.push_back(id);
@@ -183,7 +181,7 @@ void gui_state::update() {
       state->ion_defaults[id] = {};
       for (const auto& region: state->regions) state->ion_par_defs[{region, id}] = {};
     }
-    void operator()(const evt::del_ion& c) {
+    void operator()(const evt_del_ion& c) {
       auto id = c.id;
       log_debug("Remove ion {}", id.value);
       state->ion_defs.erase(id);
@@ -191,14 +189,14 @@ void gui_state::update() {
       for (const auto& region: state->regions) state->ion_par_defs.erase({region, id});
       std::erase_if(state->ions, [&] (const auto& it){ return id == it; });
     }
-    void operator()(const evt::add_mechanism& c) {
+    void operator()(const evt_add_mechanism& c) {
       auto id = get_next_id();
       log_debug("Add mechanism {}", id.value);
       state->mechanisms.push_back(id);
       state->region_mechanisms[c.region].push_back(id);
       state->mechanism_defs[id] = {};
     }
-    void operator()(const evt::del_mechanism& c) {
+    void operator()(const evt_del_mechanism& c) {
       auto id = c.id;
       log_debug("Remove mechanism {}", id.value);
       state->mechanism_defs.erase(id);
@@ -629,9 +627,9 @@ void gui_locdefs(const std::string& name,
                  const vec_type& ids,
                  map_type<Item> &items,
                  map_type<renderable> &renderables,
-                 std::vector<evt::event> &events) {
+                 std::vector<event> &events) {
   with_id guard{name};
-  auto open = gui_tree_add(name, [&](){ events.emplace_back(evt::upd_locdef<Item>{}); });
+  auto open = gui_tree_add(name, [&](){ events.emplace_back(evt_add_locdef<Item>{}); });
   if (open) {
     with_item_width iw(120.0f);
     for (const auto& id: ids) {
@@ -640,12 +638,12 @@ void gui_locdefs(const std::string& name,
       auto& item   = items[id];
       ImGui::Bullet();
       ImGui::SameLine();
-      if (ImGui::InputText("Name", &item.name)) events.push_back(evt::upd_locdef<Item>{id});
+      if (ImGui::InputText("Name", &item.name)) events.push_back(evt_upd_locdef<Item>{id});
       with_indent ind(24.0f);
-      if (ImGui::InputText("Definition", &item.definition)) events.push_back(evt::upd_locdef<Item>{id});
+      if (ImGui::InputText("Definition", &item.definition)) events.push_back(evt_upd_locdef<Item>{id});
       ImGui::SameLine();
       gui_check_state(item);
-      if (ImGui::Button(icon_delete)) events.push_back(evt::del_locdef<Item>{id});
+      if (ImGui::Button(icon_delete)) events.push_back(evt_del_locdef<Item>{id});
       ImGui::SameLine();
       gui_toggle(icon_show, icon_hide, render.active);
       ImGui::SameLine();
