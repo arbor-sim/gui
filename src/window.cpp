@@ -24,17 +24,19 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
     auto lb_down = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     auto alt_key = (glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS) ||
         (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS);
+    auto ctrl_key = (glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) ||
+        (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS);
 
     auto eps = 0.1;
     auto dx = mouse_x - x; mouse_x = x;
     auto dy = mouse_y - y; mouse_y = y;
 
-    if (lb_down && alt_key) {
+    if (lb_down && ctrl_key) {
         delta_pos.x = 2.0f*((dx > eps) - (dx < eps));
         delta_pos.y = 2.0f*((dy > eps) - (dy < eps));
     }
 
-    if (lb_down && !alt_key) {
+    if (lb_down && !ctrl_key) {
         delta_phi = ((dx > eps) - (dx < eps))*0.1f;
     }
 }
