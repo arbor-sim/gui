@@ -56,6 +56,8 @@ struct gui_state {
     file_chooser_state file_chooser;
     view_state view;
 
+    float color_under_mouse[3];
+
     gui_state(const gui_state&) = delete;
     gui_state();
 
@@ -84,7 +86,6 @@ struct gui_state {
     template<typename Item> void update_locdef(const id_type& def) { events.push_back(evt_upd_locdef<Item>{def}); }
     void update_region(const id_type& def) { update_locdef<reg_def>(def); }
     void update_locset(const id_type& def) { update_locdef<ls_def>(def); }
-
 
     void update();
     void reset();

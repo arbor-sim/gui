@@ -12,21 +12,22 @@ float delta_phi     = 0.0f;
 float delta_zoom    = 0.0f;
 glm::vec2 delta_pos = {0.0f, 0.0f};
 
+float mouse_x;
+float mouse_y;
+
 static void scroll_callback(GLFWwindow*, double xoffset, double yoffset) {
     delta_zoom -= (float) yoffset;
 }
 
 static void mouse_callback(GLFWwindow* window, double x, double y) {
-    static double last_x;
-    static double last_y;
 
     auto lb_down = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     auto alt_key = (glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS) ||
         (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS);
 
     auto eps = 0.1;
-    auto dx = last_x - x; last_x = x;
-    auto dy = last_y - y; last_y = y;
+    auto dx = mouse_x - x; mouse_x = x;
+    auto dy = mouse_y - y; mouse_y = y;
 
     if (lb_down && alt_key) {
         delta_pos.x = 2.0f*((dx > eps) - (dx < eps));
@@ -70,7 +71,7 @@ Window::Window() {
     log_info("Set up on Linux: OpenGL 3.0 GLSL v130");
 #endif
     // glEnable(GL_MULTISAMPLE);
-    // glfwWindowHint(GLFW_SAMPLES, 4);
+    glfwWindowHint(GLFW_SAMPLES, 4);
     // Create window with graphics context
     handle = glfwCreateWindow(1280, 720, "arbor-gui", NULL, NULL);
     if (handle == nullptr) log_fatal("Failed to obtain window");

@@ -22,7 +22,7 @@ void main() {
     vec3 diffuse   = diff*light_color;
 
     // specular
-    float specular_str = 0.1f;
+    float specular_str = 0.05f;
     vec3 view_dir    = normalize(camera - position);
     vec3 reflect_dir = reflect(-light_dir, norm);
     float spec       = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
