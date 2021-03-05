@@ -13,6 +13,8 @@
 
 extern float delta_phi;
 extern float delta_zoom;
+extern float mouse_x;
+extern float mouse_y;
 extern glm::vec2 delta_pos;
 
 gui_state::gui_state(): builder{} { reset(); }
@@ -433,7 +435,7 @@ void gui_dir_view(file_chooser_state &state) {
     }
     gui_right_margin();
     gui_toggle(icon_show, icon_hide, state.show_hidden);
-    log_debug("Show hidden files: {}", state.show_hidden);
+    // log_debug("Show hidden files: {}", state.show_hidden);
   }
   // Draw the current dir
   {
@@ -580,11 +582,14 @@ void gui_cell(gui_state &state) {
   if (ImGui::Begin("Cell")) {
     ImGui::BeginChild("Cell Render");
     auto size = ImGui::GetWindowSize();
-    auto image = state.renderer.render(state.view,
-                                       to_glmvec(size),
-                                       state.render_regions,
-                                       state.render_locsets);
-    ImGui::Image((ImTextureID) image, size, ImVec2(0, 1), ImVec2(1, 0));
+    auto pos  = ImGui::GetWindowPos();
+
+    state.renderer.render(state.view,
+                          to_glmvec(size),
+                          state.render_regions,
+                          state.render_locsets);
+
+    ImGui::Image((ImTextureID) state.renderer.tex, size, ImVec2(0, 1), ImVec2(1, 0));
 
     if (ImGui::IsItemHovered()) {
       state.view.offset -= delta_pos;
@@ -614,6 +619,12 @@ void gui_cell(gui_state &state) {
           }
         }
         ImGui::EndMenu();
+      }
+      auto pop_pos  = ImGui::GetWindowPos();
+      auto obj_id = state.renderer.get_id_at({pop_pos.x - pos.x, pop_pos.y - pos.y - size.y}, state.view, to_glmvec(size), state.render_regions);
+      if (obj_id) {
+        ImGui::LabelText("Segment", "%d", obj_id.value().segment);
+        ImGui::LabelText("Branch ", "%d", obj_id.value().branch);
       }
       ImGui::EndPopup();
     }

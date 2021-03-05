@@ -73,12 +73,8 @@ void render(unsigned program,
     set_uniform(program, "camera", camera);
     set_uniform(program, "light", light);
     set_uniform(program, "light_color", light_color);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // Render
     for (const auto& [k, v]: render) {
         if (v.active) {
-            log_debug("Rendering {} instances", v.instances);
             set_uniform(program, "object_color", v.color);
             glBindVertexArray(v.vao);
             glDrawArraysInstanced(GL_TRIANGLES, 0, v.count, v.instances);
@@ -124,6 +120,8 @@ auto make_vao_instanced(const std::vector<point>& tris, const std::vector<glm::v
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, normal)));
     glEnableVertexAttribArray(1);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, id)));
+    glEnableVertexAttribArray(3);
 
     unsigned int instanceVBO;
     glGenBuffers(1, &instanceVBO);
@@ -143,9 +141,7 @@ auto make_vao_instanced(const std::vector<point>& tris, const std::vector<glm::v
     return vao;
 }
 
-auto make_vao(const std::vector<point>& tris) {
-    return make_vao_instanced(tris, {{0.0f, 0.0f, 0.0f}});
-}
+auto make_vao(const std::vector<point>& tris) { return make_vao_instanced(tris, {{0.0f, 0.0f, 0.0f}}); }
 
 auto make_program(const std::string& dn) {
     std::filesystem::path base = ARBORGUI_RESOURCES_BASE;
@@ -187,15 +183,53 @@ unsigned make_lut(std::vector<glm::vec4> colors) {
 
 geometry::geometry():
     region_program{make_program("region")},
+    object_program{make_program("branch")},
     marker_program{make_program("marker")} {}
 
 geometry::geometry(const arb::morphology& morph):
     region_program{make_program("region")},
+    object_program{make_program("branch")},
     marker_program{make_program("marker")} {
     load_geometry(morph);
 }
 
-void geometry::maybe_make_fbo(int w, int h) {
+void make_fbo(int width, int height, unsigned int& fbo, unsigned int& post_fbo, unsigned int& tex) {
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    // create multisampled color attachment texture
+    unsigned int textureColorBufferMultiSampled;
+    glGenTextures(1, &textureColorBufferMultiSampled);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, width, height, GL_TRUE);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);
+    // create multisampled renderbuffer object for depth and stencil attachments
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, width, height);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) log_error("Framebuffer incomplete.");
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // configure post-processing framebuffer
+    glGenFramebuffers(1, &post_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, post_fbo);
+    // create a color attachment texture
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) log_error("Intermediate framebuffer incomplete.");
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void geometry::make_fbo(int w, int h) {
     gl_check_error("make fbo init");
     glViewport(0, 0, w, h);
 
@@ -203,56 +237,26 @@ void geometry::maybe_make_fbo(int w, int h) {
     log_debug("Resizing {}x{}", w, h);
     width = w;
     height = h;
-
-    if (fbo) { glDeleteFramebuffers(1, &fbo); fbo = 0; }
-    if (tex) { glDeleteTextures(1, &tex); tex = 0; }
-
-    glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    gl_check_error("mk fbo");
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    gl_check_error("mk tex");
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
-    gl_check_error("set tex to fbo");
-    unsigned int rbo;
-    glGenRenderbuffers(1, &rbo);
-    gl_check_error("mk rbo");
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-    gl_check_error("set rbo to fbo");
-    auto status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (status != GL_FRAMEBUFFER_COMPLETE) log_error("FBO incomplete, status={}", status);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    gl_check_error("end fbo init");
+    ::make_fbo(w, h, fbo, post_fbo, tex);
+    ::make_fbo(w, h, pick.fbo, pick.post_fbo, pick.tex);
 }
 
-unsigned long
-geometry::render(const view_state& vs,
-                 const glm::vec2& size,
-                 const map_type<renderable>& regions,
-                 const map_type<renderable>& markers) {
-    // re-build fbo, if needed
-    maybe_make_fbo(size.x, size.y);
+void geometry::render(const view_state& vs,
+                      const glm::vec2& size,
+                      const map_type<renderable>& regions,
+                      const map_type<renderable>& markers) {
+    make_fbo(size.x, size.y);
 
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 
-    // Set up transformations
-    // * view
     float distance   = 2.5f;
     auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
     glm::vec3 up     = {0.0f, 1.0f, 0.0f};
     glm::vec3 shift = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
     glm::mat4 view = glm::lookAt(camera, (target - root)/rescale + shift, up);
-    // * projection
     glm::mat4 proj = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
 
     auto light = camera;
@@ -271,8 +275,56 @@ geometry::render(const view_state& vs,
         ::render(marker_program, model, view, proj, camera, light, light_color, markers);
         glEnable(GL_DEPTH_TEST);
     }
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, post_fbo);
+    glBlitFramebuffer(0, 0, size.x, size.y, 0, 0, size.x, size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    return static_cast<unsigned long>(tex);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+}
+
+std::optional<object_id> geometry::get_id_at(const glm::vec2& pos,
+                                             const view_state& vs,
+                                             const glm::vec2& size,
+                                             const map_type<renderable>& regions) {
+    make_fbo(size.x, size.y);
+
+    float distance   = 2.5f;
+    auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
+    glm::vec3 up     = {0.0f, 1.0f, 0.0f};
+    glm::vec3 shift = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
+    glm::mat4 view = glm::lookAt(camera, (target - root)/rescale + shift, up);
+    glm::mat4 proj = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, pick.fbo);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+    {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::rotate(model, vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
+        ::render(object_program, model, view, proj, camera, {}, {}, regions);
+    }
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, pick.fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, pick.post_fbo);
+    glBlitFramebuffer(0, 0, size.x, size.y, 0, 0, size.x, size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+
+    glm::vec3 color_at;
+    glBindFramebuffer(GL_FRAMEBUFFER, pick.post_fbo);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glReadPixels(pos.x, -pos.y, 1, 1, GL_RGB, GL_FLOAT, &color_at.x);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (color_at == glm::vec3{1.0f, 1.0f, 1.0f}) return {};
+    if ((color_at.x < 0.0f) || (color_at.y < 0.0f) || (color_at.z < 0.0f)) return {};
+    size_t segment = color_at.x*256*256*256 + color_at.y*256*256 + color_at.z*256;
+    if (id_to_branch.contains(segment)) return {{segment, id_to_branch[segment]}};
+    return {};
 }
 
 renderable geometry::make_marker(const std::vector<glm::vec3>& points, glm::vec4 color) {
@@ -295,12 +347,10 @@ renderable geometry::make_marker(const std::vector<glm::vec3>& points, glm::vec4
 
 renderable geometry::make_region(const std::vector<arb::msegment>& segments, glm::vec4 color) {
     std::vector<point> tris{};
+    const auto n_pt = 6*(n_faces + 1);
     for (const auto& seg: segments) {
-        const auto id  = seg.id;
-        const auto idx = id_to_index[id];
-        for (auto idy = 6*(n_faces + 1)*idx; idy < 6*(n_faces + 1)*(idx + 1); ++idy) {
-            tris.push_back(triangles[idy]);
-        }
+        const auto idx = id_to_index[seg.id];
+        for (auto idy = n_pt*idx; idy < n_pt*(idx + 1); ++idy) tris.push_back(triangles[idy]);
     }
     auto vao = make_vao(tris);
     return {tris.size(), 1, vao, true, color};
@@ -311,6 +361,7 @@ void geometry::load_geometry(const arb::morphology& morph) {
     for (auto branch = 0ul; branch < morph.num_branches(); ++branch) {
         for (const auto& segment: morph.branch_segments(branch)) {
             segments.push_back(segment);
+            id_to_branch[segment.id] = branch;
         }
     }
     log_info("Making geometry");
@@ -340,20 +391,38 @@ void geometry::load_geometry(const arb::morphology& morph) {
         // Generate cylinder from n_faces triangles
         const auto dphi = 2.0f*PI/n_faces;
         const auto rot  = glm::mat3(glm::rotate(glm::mat4(1.0f), dphi, c_dif));
+
+        glm::vec3 obj{((id/256/256)%256)/256.0f, ((id/256)%256)/256.0f, (id%256)/256.0f};
+
         for (auto rx = 0ul; rx <= n_faces; ++rx) {
+            // Normal to line segment; used to extrude cylinder
             auto normal_next = rot*normal;
-            auto v00 = static_cast<float>(prox.radius)*normal + c_prox;
-            auto v01 = static_cast<float>(dist.radius)*normal + c_dist;
+
+            // Generate a quad from two triangles
+            // 00  10  proximal
+            //  *--*   rotation ->
+            //  | /|
+            //  |/ |
+            //  *--*   rotation ->
+            // 01  11  distal
+            auto v00 = static_cast<float>(prox.radius)*normal      + c_prox;
+            auto v01 = static_cast<float>(dist.radius)*normal      + c_dist;
             auto v10 = static_cast<float>(prox.radius)*normal_next + c_prox;
             auto v11 = static_cast<float>(dist.radius)*normal_next + c_dist;
 
-            triangles.push_back({v00, normal});
-            triangles.push_back({v01, normal});
-            triangles.push_back({v10, normal_next});
-            triangles.push_back({v11, normal_next});
-            triangles.push_back({v01, normal});
-            triangles.push_back({v10, normal_next});
+            // Find surface normals; these are cheating
+            auto n0 = normal;
+            auto n1 = normal_next;
 
+            // Make surface quad
+            triangles.push_back({v00, n0, obj});
+            triangles.push_back({v01, n0, obj});
+            triangles.push_back({v10, n1, obj});
+            triangles.push_back({v11, n1, obj});
+            triangles.push_back({v01, n0, obj});
+            triangles.push_back({v10, n1, obj});
+
+            // Step to next segment
             normal = normal_next;
         }
         id_to_index[id] = index;
@@ -367,11 +436,7 @@ void geometry::load_geometry(const arb::morphology& morph) {
         rescale = std::max(rescale, std::abs(tri.position.y));
         rescale = std::max(rescale, std::abs(tri.position.z));
     }
-    for(auto& tri: triangles) {
-        tri.position.x /= rescale;
-        tri.position.y /= rescale;
-        tri.position.z /= rescale;
-    }
+    for(auto& tri: triangles) tri.position /= rescale;
     log_debug("Geometry re-scaled by 1/{}", rescale);
     log_info("Making geometry: completed");
 }
