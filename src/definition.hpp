@@ -39,7 +39,7 @@ struct ion_default {
 struct probe_def {
     double frequency = 1000; // [Hz]
     std::string variable = variables.front();
-    constexpr static std::array<const char*, 2> variables{"Voltage"};
+    constexpr static std::array<const char*, 2> variables{"Voltage", "Current"};
 };
 
 struct stimulus_def {

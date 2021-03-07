@@ -16,10 +16,10 @@
 #include <arbor/morph/locset.hpp>
 #include <arbor/mechcat.hpp>
 #include <arbor/mechinfo.hpp>
-#include <arborio/swcio.hpp>
 
 #include "view_state.hpp"
 #include "id.hpp"
+#include "loader.hpp"
 #include "definition.hpp"
 #include "location.hpp"
 #include "geometry.hpp"
@@ -51,22 +51,24 @@ struct gui_state {
     // Parameters
     parameter_def            parameter_defaults = {};
     map_type<parameter_def>  parameter_defs     = {};
-    // Placed items
+    // Probes
+    vec_type                 probes             = {};
+    map_type<probe_def>      probe_defs         = {};
+    mmap_type                locset_probes      = {}; // Map locsets to lists of probes
+    // Detectors
+    vec_type                 detectors          = {};
+    map_type<detector_def>   detector_defs      = {};
+    mmap_type                locset_detectors   = {}; // Map locsets to lists of detectors
 
     file_chooser_state file_chooser;
     view_state view;
-
-    float color_under_mouse[3];
 
     gui_state(const gui_state&) = delete;
     gui_state();
 
     event_queue events;
 
-    void load_allen_swc(const std::string& fn);
-    void load_neuron_swc(const std::string& fn);
-    void load_arbor_swc(const std::string& fn);
-    void load_neuroml(const std::string& fn);
+    void reload(const io::loaded_morphology&);
 
     void serialize(const std::string& fn);
     void deserialize(const std::string& fn);
@@ -76,12 +78,16 @@ struct gui_state {
     void add_region(const std::string& lbl="", const std::string& def="") { add_locdef<reg_def>(lbl, def); }
     void add_locset(const std::string& lbl="", const std::string& def="") { add_locdef<ls_def>(lbl, def); }
     void add_mechanism(const id_type& id) { events.push_back(evt_add_mechanism{id}); }
+    void add_detector(const id_type& id) { events.push_back(evt_add_detector{id}); }
+    void add_probe(const id_type& id) { events.push_back(evt_add_probe{id}); }
 
     template<typename Item> void remove_locdef(const id_type& def) { events.push_back(evt_del_locdef<Item>{def}); }
     void remove_region(const id_type def)     { remove_locdef<reg_def>(def); }
     void remove_locset(const id_type& def)    { remove_locdef<ls_def>(def); }
     void remove_ion(const id_type& def)       { events.push_back(evt_del_ion{def}); }
     void remove_mechanism(const id_type& def) { events.push_back(evt_del_mechanism{def}); }
+    void remove_detector(const id_type& id)   { events.push_back(evt_del_detector{id}); }
+    void remove_probe(const id_type& id)      { events.push_back(evt_del_probe{id}); }
 
     template<typename Item> void update_locdef(const id_type& def) { events.push_back(evt_upd_locdef<Item>{def}); }
     void update_region(const id_type& def) { update_locdef<reg_def>(def); }

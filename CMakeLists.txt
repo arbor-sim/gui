@@ -50,6 +50,7 @@ set(gui_srcs
   src/view_state.hpp
   src/events.hpp
   src/file_chooser.hpp
+  src/loader.hpp src/loader.cpp
   src/geometry.hpp src/geometry.cpp
   src/location.hpp src/location.cpp)
 
