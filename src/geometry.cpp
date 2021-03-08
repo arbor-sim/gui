@@ -7,6 +7,16 @@
 
 auto randf() { return (float)rand()/(float)RAND_MAX; }
 
+template<typename T>
+unsigned make_buffer_object(const std::vector<T>& v, unsigned type) {
+    unsigned int VBO;
+    glGenBuffers(1, &VBO);
+    glBindBuffer(type, VBO);
+    glBufferData(type, v.size()*sizeof(T), v.data(), GL_STATIC_DRAW);
+    glBindBuffer(type, 0);
+    return VBO;
+}
+
 glm::vec4 next_color() {
   static size_t nxt = 0;
 
@@ -76,8 +86,9 @@ void render(unsigned program,
     for (const auto& v: render) {
         if (v.active) {
             set_uniform(program, "object_color", v.color);
+            // log_debug("Rendering {} elements x {} instances", v.count, v.instances);
             glBindVertexArray(v.vao);
-            glDrawArraysInstanced(GL_TRIANGLES, 0, v.count, v.instances);
+            glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);
             glBindVertexArray(0);
         }
     }
@@ -105,51 +116,42 @@ auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
     return shader;
 }
 
-auto make_vao_instanced(const std::vector<point>& tris, const std::vector<glm::vec3> offset) {
+auto make_vao(unsigned vbo,
+              const std::vector<unsigned>& idx,
+              const std::vector<glm::vec3> off) {
     log_info("Setting up VAO");
     unsigned vao = 0;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
-    unsigned int VBO;
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, tris.size()*sizeof(point), tris.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, position)));
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, normal)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, id)));
-    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, position))); glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, normal)));   glEnableVertexAttribArray(1);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, id)));       glEnableVertexAttribArray(3);
 
-    unsigned int instanceVBO;
-    glGenBuffers(1, &instanceVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(point)*offset.size(), offset.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    unsigned ivbo = make_buffer_object(off, GL_ARRAY_BUFFER);
+    glBindBuffer(GL_ARRAY_BUFFER, ivbo);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr); glEnableVertexAttribArray(2);
     glVertexAttribDivisor(2, 1);
-    glEnableVertexAttribArray(2);
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    unsigned int ebo = make_buffer_object(idx, GL_ELEMENT_ARRAY_BUFFER);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+
     glBindVertexArray(0);
     log_info("Setting up VAO: complete");
     return vao;
 }
 
-auto make_vao(const std::vector<point>& tris) { return make_vao_instanced(tris, {{0.0f, 0.0f, 0.0f}}); }
 
-auto make_program(const std::string& dn) {
+auto make_program(const std::string& dn, unsigned& program) {
     std::filesystem::path base = ARBORGUI_RESOURCES_BASE;
     log_info("Setting up shader program");
-    auto vertex_shader   = make_shader(base / "glsl" / dn / "vertex.glsl", GL_VERTEX_SHADER);
+    auto vertex_shader   = make_shader(base / "glsl" / dn / "vertex.glsl",   GL_VERTEX_SHADER);
     auto fragment_shader = make_shader(base / "glsl" / dn / "fragment.glsl", GL_FRAGMENT_SHADER);
 
-    unsigned program = glCreateProgram();
+    glDeleteProgram(program);
+    program = glCreateProgram();
     glAttachShader(program, vertex_shader);
     glAttachShader(program, fragment_shader);
     glLinkProgram(program);
@@ -162,47 +164,37 @@ auto make_program(const std::string& dn) {
         log_error("Shader program failed to link\n{}", info);
     }
     log_info("Setting up shader program: complete");
+
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
     return program;
 }
 
-unsigned make_lut(std::vector<glm::vec4> colors) {
-    // make and bind texture
-    unsigned lut = 0;
-    glGenTextures(1, &lut);
-    glBindTexture(GL_TEXTURE_1D, lut);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA32F, colors.size(), 0, GL_RGBA, GL_FLOAT, colors.data());
-    // set texture filtering
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    // unbind
-    glBindTexture(GL_TEXTURE_1D, 0);
-    return lut;
+geometry::geometry() {
+    make_program("region", region_program);
+    make_program("branch", object_program);
+    make_program("marker", marker_program);
+    auto dx = 1.0f/40.0f;
+    auto dy = dx/2.0f;
+    std::vector<point> tris{{{0.0f,      0.0f,      0.0f}, {0.0f, 0.0f, 0.0f}},
+                            {{0.0f + dy, 0.0f + dx, 0.0f}, {0.0f, 0.0f, 0.0f}},
+                            {{0.0f + dx, 0.0f + dy, 0.0f}, {0.0f, 0.0f, 0.0f}}};
+    marker_vbo = make_buffer_object(tris, GL_ARRAY_BUFFER);
 }
 
-geometry::geometry():
-    region_program{make_program("region")},
-    object_program{make_program("branch")},
-    marker_program{make_program("marker")} {}
-
-geometry::geometry(const arb::morphology& morph):
-    region_program{make_program("region")},
-    object_program{make_program("branch")},
-    marker_program{make_program("marker")} {
-    load_geometry(morph);
-}
+geometry::geometry(const arb::morphology& morph): geometry{} { load_geometry(morph); }
 
 void make_fbo(int width, int height, unsigned int& fbo, unsigned int& post_fbo, unsigned int& tex) {
+    glDeleteFramebuffers(1, &fbo);
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     // create multisampled color attachment texture
-    unsigned int textureColorBufferMultiSampled;
-    glGenTextures(1, &textureColorBufferMultiSampled);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
+    unsigned int ms_tex;
+    glGenTextures(1, &ms_tex);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, ms_tex);
     glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, width, height, GL_TRUE);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, ms_tex, 0);
     // create multisampled renderbuffer object for depth and stencil attachments
     unsigned int rbo;
     glGenRenderbuffers(1, &rbo);
@@ -215,9 +207,11 @@ void make_fbo(int width, int height, unsigned int& fbo, unsigned int& post_fbo, 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // configure post-processing framebuffer
+    glDeleteFramebuffers(1, &post_fbo);
     glGenFramebuffers(1, &post_fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, post_fbo);
     // create a color attachment texture
+    glDeleteTextures(1, &tex);
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -227,6 +221,9 @@ void make_fbo(int width, int height, unsigned int& fbo, unsigned int& post_fbo, 
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) log_error("Intermediate framebuffer incomplete.");
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glDeleteRenderbuffers(1, &rbo);
+    glDeleteTextures(1, &ms_tex);
 }
 
 void geometry::make_fbo(int w, int h) {
@@ -334,26 +331,22 @@ renderable geometry::make_marker(const std::vector<glm::vec3>& points, glm::vec4
                          (marker.y - root.y)/rescale,
                          (marker.z - root.z)/rescale);
     }
-    log_debug("Size of offset {}", off.size());
-    auto dx = 1.0f/40.0f;
-    auto dy = dx/2.0f;
-    std::vector<point> tris{{{0.0f,      0.0f,      0.0f}, {0.0f, 0.0f, 0.0f}},
-                            {{0.0f + dy, 0.0f + dx, 0.0f}, {0.0f, 0.0f, 0.0f}},
-                            {{0.0f + dx, 0.0f + dy, 0.0f}, {0.0f, 0.0f, 0.0f}}};
-
-    auto vao = make_vao_instanced(tris, off);
-    return {tris.size(), off.size(), vao, true, color};
+    auto vao = make_vao(marker_vbo, {0, 1, 2}, off);
+    return {3, off.size(), vao, true, color};
 }
 
 renderable geometry::make_region(const std::vector<arb::msegment>& segments, glm::vec4 color) {
-    std::vector<point> tris{};
-    const auto n_pt = 6*(n_faces + 1);
+    std::vector<unsigned> idcs{};
+    const auto n_pt = 6*n_faces;
     for (const auto& seg: segments) {
         const auto idx = id_to_index[seg.id];
-        for (auto idy = n_pt*idx; idy < n_pt*(idx + 1); ++idy) tris.push_back(triangles[idy]);
+        for (auto idy = 0; idy < n_pt; ++idy) {
+            idcs.push_back(indices[idy + n_pt*idx]);
+        }
     }
-    auto vao = make_vao(tris);
-    return {tris.size(), 1, vao, true, color};
+    assert(idcs.size() == n_pt*segments.size());
+    auto vao = make_vao(vbo, idcs, {{0.0f, 0.0f, 0.0f}});
+    return {idcs.size(), 1, vao, true, color};
 }
 
 void geometry::load_geometry(const arb::morphology& morph) {
@@ -379,64 +372,71 @@ void geometry::load_geometry(const arb::morphology& morph) {
         // Shift to root and find vector along the segment
         const auto c_prox = glm::vec3{(prox.x - root.x), (prox.y - root.y), (prox.z - root.z)};
         const auto c_dist = glm::vec3{(dist.x - root.x), (dist.y - root.y), (dist.z - root.z)};
-        const auto c_dif = c_prox - c_dist;
+        const auto c_diff = c_prox - c_dist;
+        const auto r_prox = (float) prox.radius;
+        const auto r_dist = (float) dist.radius;
 
         // Make a normal to segment vector
         auto normal = glm::vec3{0.0, 0.0, 0.0};
         for (; normal == glm::vec3{0.0, 0.0, 0.0};) {
             auto t = glm::vec3{randf(), randf(), randf()};
-            normal = glm::normalize(glm::cross(c_dif, t));
+            normal = glm::normalize(glm::cross(c_diff, t));
         }
 
         // Generate cylinder from n_faces triangles
-        const auto dphi = 2.0f*PI/n_faces;
-        const auto rot  = glm::mat3(glm::rotate(glm::mat4(1.0f), dphi, c_dif));
-
+        const auto rot = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, c_diff));
         glm::vec3 obj{((id/256/256)%256)/256.0f, ((id/256)%256)/256.0f, (id%256)/256.0f};
-
-        for (auto rx = 0ul; rx <= n_faces; ++rx) {
-            // Normal to line segment; used to extrude cylinder
-            auto normal_next = rot*normal;
-
-            // Generate a quad from two triangles
-            // 00  10  proximal
-            //  *--*   rotation ->
-            //  | /|
-            //  |/ |
-            //  *--*   rotation ->
-            // 01  11  distal
-            auto v00 = static_cast<float>(prox.radius)*normal      + c_prox;
-            auto v01 = static_cast<float>(dist.radius)*normal      + c_dist;
-            auto v10 = static_cast<float>(prox.radius)*normal_next + c_prox;
-            auto v11 = static_cast<float>(dist.radius)*normal_next + c_dist;
-
-            // Find surface normals; these are cheating
-            auto n0 = normal;
-            auto n1 = normal_next;
-
-            // Make surface quad
-            triangles.push_back({v00, n0, obj});
-            triangles.push_back({v01, n0, obj});
-            triangles.push_back({v10, n1, obj});
-            triangles.push_back({v11, n1, obj});
-            triangles.push_back({v01, n0, obj});
-            triangles.push_back({v10, n1, obj});
-
-            // Step to next segment
-            normal = normal_next;
+        // Make 2*n_faces points, alternating between proximal and distal end
+        for (auto face = 0ul; face < n_faces; ++face) {
+            vertices.push_back({r_prox*normal + c_prox, normal, obj});
+            vertices.push_back({r_dist*normal + c_dist, normal, obj});
+            normal = rot*normal;
         }
-        id_to_index[id] = index;
-        index++;
+
+        // Generate a quad from two triangles
+        // 00  10  proximal
+        //  *--*   rotation ->
+        //  | /|
+        //  |/ |
+        //  *--*   rotation ->
+        // 01  11  distal
+        auto base = index*n_faces*2;
+        for (auto face = 0ul; face < n_faces - 1; ++face) {
+            // Triangle 1
+            indices.push_back(base + 2*face + 0); // 00
+            indices.push_back(base + 2*face + 2); // 10
+            indices.push_back(base + 2*face + 1); // 01
+            // Triangle 2
+            indices.push_back(base + 2*face + 1); // 01
+            indices.push_back(base + 2*face + 2); // 10
+            indices.push_back(base + 2*face + 3); // 11
+        }
+        // Close Cylinder
+        // Triangle 1
+        indices.push_back(base + 2*n_faces - 2); // 00
+        indices.push_back(base);                 // 10
+        indices.push_back(base + 2*n_faces - 1); // 01
+        // Triangle 2
+        indices.push_back(base);  // 01
+        indices.push_back(base + 1); // 10
+        indices.push_back(base + 2*n_faces - 1); // 11
+
+        // Next
+        id_to_index[id] = index++;
     }
 
+    assert(vertices.size() == segments.size()*2*n_faces);
+    assert(indices.size()  == segments.size()*6*n_faces);
+
     // Re-scale into [-1, 1]^3 box
-    log_debug("Cylinders generated: {} ({} points)", triangles.size()/n_faces/6, triangles.size());
-    for (auto& tri: triangles) {
+    log_debug("Cylinders generated: {} ({} points)", indices.size()/n_faces/6, vertices.size());
+    for (auto& tri: vertices) {
         rescale = std::max(rescale, std::abs(tri.position.x));
         rescale = std::max(rescale, std::abs(tri.position.y));
         rescale = std::max(rescale, std::abs(tri.position.z));
     }
-    for(auto& tri: triangles) tri.position /= rescale;
+    for(auto& tri: vertices) tri.position /= rescale;
     log_debug("Geometry re-scaled by 1/{}", rescale);
+    vbo = make_buffer_object(vertices, GL_ARRAY_BUFFER);
     log_info("Making geometry: completed");
 }

@@ -20,8 +20,8 @@
 
 struct point {
   glm::vec3 position = {0.0f, 0.0f, 0.0f};
-  glm::vec3 normal = {0.0f, 0.0f, 0.0f};
-  glm::vec3 id = {0.0f, 0.0f, 0.0f};
+  glm::vec3 normal   = {0.0f, 0.0f, 0.0f};
+  glm::vec3 id       = {0.0f, 0.0f, 0.0f};
 };
 
 glm::vec4 next_color();
@@ -33,6 +33,15 @@ struct renderable {
   bool active = false;
   glm::vec4 color = next_color();
 };
+
+inline void destroy_renderables(std::vector<renderable>& rs) {
+  for (auto& r: rs) {
+    r.count = 0;
+    r.instances = 0;
+    glDeleteVertexArrays(1, &r.vao);
+    r.active = false;
+  }
+}
 
 struct picker {
   unsigned fbo = 0;
@@ -64,13 +73,16 @@ struct geometry {
   glm::vec3 target = {0.0f, 0.0f, 0.0f};
 
   void make_fbo(int w, int h);
-  std::vector<point> triangles = {};
-  std::unordered_map<size_t, size_t> id_to_index  = {};
-  std::unordered_map<size_t, size_t> id_to_branch = {};
+  std::vector<point>    vertices = {};
+  std::vector<unsigned> indices  = {};
+  std::unordered_map<size_t, size_t> id_to_index  = {}; // map segment id to cylinder index
+  std::unordered_map<size_t, size_t> id_to_branch = {}; // map segment id to branch id
 
   unsigned fbo = 0;
   unsigned post_fbo = 0;
   unsigned tex = 0;
+  unsigned vbo = 0;
+  unsigned marker_vbo = 0;
   unsigned region_program = 0;
   unsigned object_program = 0;
   unsigned marker_program = 0;

@@ -3,7 +3,6 @@
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
 
-#include <sstream>
 #include "utils.hpp"
 #include "icons.hpp"
 #include "events.hpp"
@@ -788,7 +787,7 @@ void gui_mechanisms(gui_state &state) {
   ImGui::End();
 }
 
-bool gui_probe(probe_def& data) {
+bool gui_measurement(probe_def& data) {
   ImGui::Bullet();
   ImGui::SameLine();
   with_item_width width {120.f};
@@ -800,7 +799,7 @@ bool gui_probe(probe_def& data) {
   return remove;
 }
 
-bool gui_detector(detector_def& data) {
+bool gui_measurement(detector_def& data) {
   ImGui::Bullet();
   ImGui::SameLine();
   with_item_width width {120.f};
@@ -821,7 +820,7 @@ void gui_measurements(gui_state& state) {
         if (open) {
           for (const auto& probe: state.probes.get_children(locset)) {
             with_id id{probe};
-            auto rem = gui_probe(state.probes[probe]);
+            auto rem = gui_measurement(state.probes[probe]);
             if (rem) state.remove_probe(probe);
           }
           ImGui::TreePop();
@@ -838,7 +837,7 @@ void gui_measurements(gui_state& state) {
         if (open) {
           for (const auto& detector: state.detectors.get_children(locset)) {
             with_id id{detector};
-            auto rem = gui_detector(state.detectors[detector]);
+            auto rem = gui_measurement(state.detectors[detector]);
             if (rem) state.remove_detector(detector);
           }
           ImGui::TreePop();
