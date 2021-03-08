@@ -49,6 +49,7 @@ set(gui_srcs
   src/utils.hpp src/utils.cpp
   src/view_state.hpp
   src/events.hpp
+  src/component.hpp
   src/file_chooser.hpp
   src/loader.hpp src/loader.cpp
   src/geometry.hpp src/geometry.cpp

@@ -64,7 +64,7 @@ void render(unsigned program,
             glm::vec3 camera,
             glm::vec3 light,
             glm::vec3 light_color,
-            const map_type<renderable>& render) {
+            const std::vector<renderable>& render) {
     gl_check_error("render init");
     glUseProgram(program);
     set_uniform(program, "model", model);
@@ -73,7 +73,7 @@ void render(unsigned program,
     set_uniform(program, "camera", camera);
     set_uniform(program, "light", light);
     set_uniform(program, "light_color", light_color);
-    for (const auto& [k, v]: render) {
+    for (const auto& v: render) {
         if (v.active) {
             set_uniform(program, "object_color", v.color);
             glBindVertexArray(v.vao);
@@ -243,8 +243,8 @@ void geometry::make_fbo(int w, int h) {
 
 void geometry::render(const view_state& vs,
                       const glm::vec2& size,
-                      const map_type<renderable>& regions,
-                      const map_type<renderable>& markers) {
+                      const std::vector<renderable>& regions,
+                      const std::vector<renderable>& markers) {
     make_fbo(size.x, size.y);
 
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -287,7 +287,7 @@ void geometry::render(const view_state& vs,
 std::optional<object_id> geometry::get_id_at(const glm::vec2& pos,
                                              const view_state& vs,
                                              const glm::vec2& size,
-                                             const map_type<renderable>& regions) {
+                                             const std::vector<renderable>& regions) {
     make_fbo(size.x, size.y);
 
     float distance   = 2.5f;

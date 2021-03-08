@@ -6,13 +6,18 @@
 
 #include <arbor/morph/region.hpp>
 #include <arbor/morph/locset.hpp>
-#include <arbor/morph/label_parse.hpp>
 
+#include "utils.hpp"
 
-#include <utils.hpp>
-#include <geometry.hpp>
-#include <cell_builder.hpp>
-#include <definition.hpp>
+enum class def_state { empty, error, good };
+
+struct definition {
+    void good()                      { state = def_state::good;  message = "Ok."; }
+    void empty()                     { state = def_state::empty; message = "Empty."; }
+    void error(const std::string& m) { state = def_state::error; message = m; }
+    def_state state = def_state::empty;
+    std::string message = "New.";
+};
 
 struct loc_def: definition {
     std::string name, definition;

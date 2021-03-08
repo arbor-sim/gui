@@ -2,21 +2,10 @@
 
 #include <string>
 
-#include "id.hpp"
+
 #include "utils.hpp"
 
-
-enum class def_state { empty, error, good };
-
-struct definition {
-    void good()                      { state = def_state::good;  message = "Ok."; }
-    void empty()                     { state = def_state::empty; message = "Empty."; }
-    void error(const std::string& m) { state = def_state::error; message = m; }
-    def_state state = def_state::empty;
-    std::string message = "New.";
-};
-
-struct ion_def: definition {
+struct ion_def {
     std::string name = "";
     int charge = 0;
 
@@ -26,7 +15,7 @@ struct ion_def: definition {
     ion_def(const std::string_view n, int c): name{n}, charge{c} {}
 };
 
-struct ion_parameter: definition {
+struct ion_parameter {
     std::optional<double> Xi, Xo, Er;
 };
 

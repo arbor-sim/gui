@@ -18,14 +18,18 @@ extern glm::vec2 delta_pos;
 gui_state::gui_state(): builder{} { reset(); }
 
 void gui_state::reset() {
+  locsets.clear();
+  regions.clear();
   render_regions.clear();
   render_locsets.clear();
   locset_defs.clear();
   region_defs.clear();
   ions.clear();
   ion_defs.clear();
-  locsets.clear();
-  regions.clear();
+  probes.clear();
+  detectors.clear();
+  ion_defaults.clear();
+  mechanisms.clear();
 
   static std::vector<std::pair<std::string, int>> species{{"na", 1}, {"k", 1}, {"ca", 2}};
   for (const auto &[k, v]: species) add_ion(k, v);
@@ -94,117 +98,68 @@ void gui_state::update() {
     event_visitor(gui_state* state_): state{state_} {}
 
     void operator()(const evt_add_locdef<ls_def>& c) {
-      auto id = get_next_id();
-      log_debug("Add locset {}", id.value);
-      state->locsets.push_back(id);
-      state->locset_defs[id] = {c.name, c.definition};
-      if (state->locset_defs[id].name.empty()) state->locset_defs[id].name = fmt::format("Locset {}", id.value);
-      state->render_locsets[id] = {};
-      state->update_locset(id);
+      auto ls = state->locsets.add();
+      state->locset_defs.add(ls, {c.name.empty() ? fmt::format("Locset {}", ls.value) : c.name, c.definition});
+      state->render_locsets.add(ls);
+      state->update_locset(ls);
     }
     void operator()(const evt_upd_locdef<ls_def>& c) {
-      auto id = c.id;
-      auto& def = state->locset_defs[id];
-      auto& red = state->render_locsets[id];
+      auto& def = state->locset_defs[c.id];
+      auto& red = state->render_locsets[c.id];
       update_def(def);
       def_set_renderable(state->renderer, state->builder, red, def);
     }
     void operator()(const evt_del_locdef<ls_def>& c) {
       auto id = c.id;
       log_debug("Erasing locset {}", id.value);
-      state->render_locsets.erase(id);
-      state->locset_defs.erase(id);
-      for (const auto& detector: state->locset_detectors[id]) std::erase_if(state->detectors, [&] (const auto& it){ return id == it; });
-      for (const auto& probe: state->locset_probes[id]) std::erase_if(state->probes, [&] (const auto& it){ return id == it; });
-      std::erase_if(state->locsets, [&] (const auto& it){ return id == it; });
+      state->render_locsets.del(id);
+      state->locset_defs.del(id);
+      state->probes.del_children(id);
+      state->detectors.del_children(id);
+      state->locsets.del(id);
     }
     void operator()(const evt_add_locdef<reg_def>& c) {
-      auto id = get_next_id();
-      log_debug("Add region {}", id.value);
-      state->regions.push_back(id);
-      state->region_defs[id] = {c.name, c.definition};
-      if (state->region_defs[id].name.empty()) state->region_defs[id].name = fmt::format("Region {}", id.value);
-      state->render_regions[id] = {};
-      state->parameter_defs[id] = {};
-      for (const auto& ion: state->ions) state->ion_par_defs[{id, ion}] = {};
+      auto id = state->regions.add();
+      state->region_defs.add(id, {c.name.empty() ? fmt::format("Region {}", id.value) : c.name, c.definition});
+      state->parameter_defs.add(id);
+      state->render_regions.add(id);
+      for (const auto& ion: state->ions) state->ion_par_defs.add(id, ion);
       state->update_region(id);
     }
     void operator()(const evt_upd_locdef<reg_def>& c) {
-      auto id = c.id;
-      auto& def = state->region_defs[id];
-      auto& red = state->render_regions[id];
+      auto& def = state->region_defs[c.id];
+      auto& red = state->render_regions[c.id];
       update_def(def);
       def_set_renderable(state->renderer, state->builder, red, def);
     }
     void operator()(const evt_del_locdef<reg_def>& c) {
       auto id = c.id;
-      log_debug("Erasing region {}", id.value);
-      state->render_regions.erase(id);
-      state->region_defs.erase(id);
-      state->parameter_defs.erase(id);
-      for (const auto& ion: state->ions) state->ion_par_defs.erase({id, ion});
-      for (const auto& mechanism: state->region_mechanisms[id]) std::erase_if(state->mechanisms, [&] (const auto& it){ return id == it; });
-      state->region_mechanisms.erase(id);
-      std::erase_if(state->regions, [&] (const auto& it){ return id == it; });
+      state->render_regions.del(id);
+      state->region_defs.del(id);
+      state->parameter_defs.del(id);
+      state->ion_par_defs.del_by_1st(id);
+      state->mechanisms.del_children(id);
+      state->regions.del(id);
     }
     void operator()(const evt_add_ion& c) {
-      auto id = get_next_id();
-      log_debug("Add ion {}", id.value);
-      state->ions.push_back(id);
-      state->ion_defs[id] = {c.name, c.charge};
-      state->ion_defaults[id] = {};
-      for (const auto& region: state->regions) state->ion_par_defs[{region, id}] = {};
+      auto id = state->ions.add();
+      state->ion_defs.add(id, {c.name.empty() ? fmt::format("Ion {}", id.value) : c.name, c.charge});
+      state->ion_defaults.add(id);
+      for (const auto& region: state->regions) state->ion_par_defs.add(region, id);
     }
     void operator()(const evt_del_ion& c) {
       auto id = c.id;
-      log_debug("Remove ion {}", id.value);
-      state->ion_defs.erase(id);
-      state->ion_defaults.erase(id);
-      for (const auto& region: state->regions) state->ion_par_defs.erase({region, id});
-      std::erase_if(state->ions, [&] (const auto& it){ return id == it; });
+      state->ion_defs.del(id);
+      state->ion_defaults.del(id);
+      state->ion_par_defs.del_by_2nd(id);
+      state->ions.del(id);
     }
-    void operator()(const evt_add_mechanism& c) {
-      auto id = get_next_id();
-      log_debug("Add mechanism {}", id.value);
-      state->mechanisms.push_back(id);
-      state->region_mechanisms[c.region].push_back(id);
-      state->mechanism_defs[id] = {};
-    }
-    void operator()(const evt_del_mechanism& c) {
-      auto id = c.id;
-      log_debug("Remove mechanism {}", id.value);
-      state->mechanism_defs.erase(id);
-      std::erase_if(state->mechanisms, [&] (const auto& it){ return id == it; });
-      for (auto& [region, mechanisms]: state->region_mechanisms) std::erase_if(mechanisms, [&] (const auto& it){ return id == it; });
-    }
-    void operator()(const evt_add_detector& c) {
-      auto id = get_next_id();
-      log_debug("Add detector {}", id.value);
-      state->detectors.push_back(id);
-      state->locset_detectors[c.locset].push_back(id);
-      state->detector_defs[id] = {};
-    }
-    void operator()(const evt_del_detector& c) {
-      auto id = c.id;
-      log_debug("Remove detector {}", id.value);
-      state->detector_defs.erase(id);
-      std::erase_if(state->detectors, [&] (const auto& it){ return id == it; });
-      for (auto& [locset, detectors]: state->locset_detectors) std::erase_if(detectors, [&] (const auto& it){ return id == it; });
-    }
-    void operator()(const evt_add_probe& c) {
-      auto id = get_next_id();
-      log_debug("Add probe {}", id.value);
-      state->probes.push_back(id);
-      state->locset_probes[c.locset].push_back(id);
-      state->probe_defs[id] = {};
-    }
-    void operator()(const evt_del_probe& c) {
-      auto id = c.id;
-      log_debug("Remove probe {}", id.value);
-      state->probe_defs.erase(id);
-      std::erase_if(state->probes, [&] (const auto& it){ return id == it; });
-      for (auto& [locset, probes]: state->locset_probes) std::erase_if(probes, [&] (const auto& it){ return id == it; });
-    }
+    void operator()(const evt_add_mechanism& c) { state->mechanisms.add(c.region); }
+    void operator()(const evt_del_mechanism& c) { state->mechanisms.del(c.id); }
+    void operator()(const evt_add_detector& c)  { state->detectors.add(c.locset); }
+    void operator()(const evt_del_detector& c)  { state->detectors.del(c.id); }
+    void operator()(const evt_add_probe& c)     { state->probes.add(c.locset); }
+    void operator()(const evt_del_probe& c)     { state->probes.del(c.id); }
   };
 
   while (!events.empty()) {
@@ -231,7 +186,6 @@ bool gui_tree_add(const std::string& label, F action) {
 
 void gui_menu_bar(gui_state &state);
 void gui_read_morphology(gui_state &state, bool &open);
-void gui_place(gui_state &state);
 void gui_tooltip(const std::string &);
 void gui_check_state(def_state);
 void gui_debug(bool &);
@@ -261,7 +215,13 @@ struct with_id {
   ~with_id() { ImGui::PopID(); }
 };
 
-void gui_select(const std::string& item, std::string& current) { if (ImGui::Selectable(item.c_str(), item == current)) current = item; }
+bool gui_select(const std::string& item, std::string& current) {
+  if (ImGui::Selectable(item.c_str(), item == current)) {
+    current = item;
+    return true;
+  }
+  return false;
+}
 
 template<typename Container>
 void gui_choose(const std::string& lbl, std::string& current, const Container& items) {
@@ -552,7 +512,7 @@ void gui_cell(gui_state &state) {
     auto size = ImGui::GetWindowSize();
     auto pos  = ImGui::GetWindowPos();
 
-    state.renderer.render(state.view, to_glmvec(size), state.render_regions, state.render_locsets);
+    state.renderer.render(state.view, to_glmvec(size), state.render_regions.items, state.render_locsets.items);
 
     ImGui::Image((ImTextureID) state.renderer.tex, size, ImVec2(0, 1), ImVec2(1, 0));
 
@@ -571,7 +531,8 @@ void gui_cell(gui_state &state) {
           state.renderer.target = {0.0f, 0.0f, 0.0f};
         }
         if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {
-          for (const auto &[id, ls]: state.locset_defs) {
+          for (const auto &id: state.locsets) {
+            const auto& ls = state.locset_defs[id];
             if (ls.state != def_state::good) continue;
             if (ImGui::BeginMenu(fmt::format("{} {}", icon_locset, ls.name).c_str())) {
               auto points = state.builder.make_points(ls.data.value());
@@ -589,7 +550,7 @@ void gui_cell(gui_state &state) {
         }
       }
       auto pop_pos  = ImGui::GetWindowPos();
-      auto obj_id = state.renderer.get_id_at({pop_pos.x - pos.x, pop_pos.y - pos.y - size.y}, state.view, to_glmvec(size), state.render_regions);
+      auto obj_id = state.renderer.get_id_at({pop_pos.x - pos.x, pop_pos.y - pos.y - size.y}, state.view, to_glmvec(size), state.render_regions.items);
       if (obj_id) {
         auto id = obj_id.value();
         ImGui::Separator();
@@ -607,10 +568,10 @@ void gui_cell(gui_state &state) {
 
 template<typename Item>
 void gui_locdefs(const std::string& name,
-                 const vec_type& ids,
-                 map_type<Item> &items,
-                 map_type<renderable> &renderables,
-                 std::vector<event> &events) {
+                 const entity& ids,
+                 component_unique<Item>& items,
+                 component_unique<renderable>& renderables,
+                 std::vector<event>& events) {
   with_id guard{name};
   auto open = gui_tree_add(name, [&](){ events.emplace_back(evt_add_locdef<Item>{}); });
   if (open) {
@@ -646,21 +607,6 @@ void gui_locations(gui_state &state) {
     gui_locdefs(fmt::format("{} Locsets", icon_locset), state.locsets, state.locset_defs, state.render_locsets, state.events);
   }
   ImGui::End();
-}
-
-void gui_placeable(probe_def &probe) {
-  gui_input_double("Frequency", probe.frequency, "Hz");
-  gui_choose("Variable", probe.variable, probe_def::variables);
-}
-
-void gui_placeable(stimulus_def &iclamp) {
-  gui_input_double("Delay",     iclamp.delay,     "ms");
-  gui_input_double("Duration",  iclamp.duration,  "ms");
-  gui_input_double("Amplitude", iclamp.amplitude, "nA");
-}
-
-void gui_placeable(detector_def &detector) {
-  gui_input_double("Threshold", detector.threshold, "mV");
 }
 
 void gui_ion_settings(gui_state& state) {
@@ -793,7 +739,7 @@ bool gui_mechanism(mechanism_def& data) {
       ImGui::Selectable(cat_name.c_str(), false);
       with_indent ind{};
       for (const auto &name: cat.mechanism_names()) {
-        if (ImGui::Selectable(name.c_str(), name == data.name)) {
+        if (gui_select(name, data.name)) {
           auto info = cat[data.name];
           data.global_vars.clear();
           for (const auto &[k, v]: info.globals) data.global_vars[k] = v.default_value;
@@ -804,8 +750,8 @@ bool gui_mechanism(mechanism_def& data) {
     }
     ImGui::EndCombo();
   }
-  ImGui::SameLine();
-  bool remove = ImGui::Button(icon_delete);
+  gui_right_margin();
+  auto remove = ImGui::Button(icon_delete);
   if (open) {
     if (!data.global_vars.empty()) {
       ImGui::BulletText("Global Values");
@@ -826,14 +772,14 @@ void gui_mechanisms(gui_state &state) {
   if (ImGui::Begin(fmt::format("{} Mechanisms", icon_gears).c_str())) {
     for (const auto& region: state.regions) {
       with_id region_guard{region.value};
-      auto region_data = state.region_defs[region];
-      auto open = gui_tree_add(region_data.name, [&]() { state.add_mechanism(region); });
+      auto name = state.region_defs[region].name;
+      auto open = gui_tree_add(name, [&]() { state.add_mechanism(region); });
       if (open) {
         with_item_width width{120.0f};
-        for (const auto& mechanism: state.region_mechanisms[region]) {
-          with_id mech_guard{mechanism.value};
-          auto rem = gui_mechanism(state.mechanism_defs[mechanism]);
-          if (rem) state.remove_mechanism(mechanism);
+        for (const auto& child: state.mechanisms.get_children(region)) {
+          with_id mech_guard{child};
+          auto rem = gui_mechanism(state.mechanisms[child]);
+          if (rem) state.remove_mechanism(child);
         }
         ImGui::TreePop();
       }
@@ -873,9 +819,9 @@ void gui_measurements(gui_state& state) {
         auto name = state.locset_defs[locset].name;
         auto open = gui_tree_add(fmt::format("{} {}", icon_locset, name), [&](){ state.add_probe(locset); });
         if (open) {
-          for (const auto& probe: state.locset_probes[locset]) {
+          for (const auto& probe: state.probes.get_children(locset)) {
             with_id id{probe};
-            auto rem = gui_probe(state.probe_defs[probe]);
+            auto rem = gui_probe(state.probes[probe]);
             if (rem) state.remove_probe(probe);
           }
           ImGui::TreePop();
@@ -890,9 +836,9 @@ void gui_measurements(gui_state& state) {
         auto name = state.locset_defs[locset].name;
         auto open = gui_tree_add(fmt::format("{} {}", icon_locset, name), [&](){ state.add_detector(locset); });
         if (open) {
-          for (const auto& detector: state.locset_detectors[locset]) {
+          for (const auto& detector: state.detectors.get_children(locset)) {
             with_id id{detector};
-            auto rem = gui_detector(state.detector_defs[detector]);
+            auto rem = gui_detector(state.detectors[detector]);
             if (rem) state.remove_detector(detector);
           }
           ImGui::TreePop();

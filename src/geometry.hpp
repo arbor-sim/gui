@@ -51,13 +51,13 @@ struct geometry {
 
   void render(const view_state& view,
               const glm::vec2& size,
-              const map_type<renderable>&,
-              const map_type<renderable>&);
+              const std::vector<renderable>&,
+              const std::vector<renderable>&);
 
   renderable make_marker(const std::vector<glm::vec3>& points, glm::vec4 color);
   renderable make_region(const std::vector<arb::msegment>& segments, glm::vec4 color);
 
-  std::optional<object_id> get_id_at(const glm::vec2& pos, const view_state&, const glm::vec2& size, const map_type<renderable>&);
+  std::optional<object_id> get_id_at(const glm::vec2& pos, const view_state&, const glm::vec2& size, const std::vector<renderable>&);
 
   void load_geometry(const arb::morphology&);
 

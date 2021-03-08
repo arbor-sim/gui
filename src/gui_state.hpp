@@ -19,6 +19,7 @@
 
 #include "view_state.hpp"
 #include "id.hpp"
+#include "component.hpp"
 #include "loader.hpp"
 #include "definition.hpp"
 #include "location.hpp"
@@ -28,37 +29,28 @@
 #include "events.hpp"
 
 struct gui_state {
-    arb::cable_cell_parameter_set presets = arb::neuron_parameter_defaults;
-    cell_builder builder;
-    geometry renderer;
-    // Location Sets
-    vec_type                 locsets            = {}; // List of ion ids
-    map_type<ls_def>         locset_defs        = {};
-    map_type<renderable>     render_locsets     = {};
-    // Regions
-    vec_type                 regions            = {};
-    map_type<reg_def>        region_defs        = {};
-    map_type<renderable>     render_regions     = {};
-    // Ions
-    vec_type                 ions               = {};
-    map_type<ion_def>        ion_defs           = {};
-    map_type<ion_default>    ion_defaults       = {}; // Default ion settings per ion
-    join_type<ion_parameter> ion_par_defs       = {}; // Ion settings per region and ion
-    // Mechanisms
-    vec_type                 mechanisms         = {};
-    map_type<mechanism_def>  mechanism_defs     = {};
-    mmap_type                region_mechanisms  = {}; // Map regions to lists of mechanisms
-    // Parameters
-    parameter_def            parameter_defaults = {};
-    map_type<parameter_def>  parameter_defs     = {};
-    // Probes
-    vec_type                 probes             = {};
-    map_type<probe_def>      probe_defs         = {};
-    mmap_type                locset_probes      = {}; // Map locsets to lists of probes
-    // Detectors
-    vec_type                 detectors          = {};
-    map_type<detector_def>   detector_defs      = {};
-    mmap_type                locset_detectors   = {}; // Map locsets to lists of detectors
+    arb::cable_cell_parameter_set   presets = arb::neuron_parameter_defaults;
+    parameter_def                   parameter_defaults = {};
+    cell_builder                    builder;
+    geometry                        renderer;
+
+    entity                          locsets;
+    component_unique<ls_def>        locset_defs;
+    component_unique<renderable>    render_locsets;
+    component_many<probe_def>       probes;
+    component_many<detector_def>    detectors;
+
+    entity                          regions;
+    component_unique<reg_def>       region_defs;
+    component_unique<renderable>    render_regions;
+    component_unique<parameter_def> parameter_defs;
+    component_many<mechanism_def>   mechanisms;
+
+    entity                          ions;
+    component_unique<ion_def>       ion_defs;
+    component_unique<ion_default>   ion_defaults;
+
+    component_join<ion_parameter>   ion_par_defs;
 
     file_chooser_state file_chooser;
     view_state view;
