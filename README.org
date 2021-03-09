@@ -1,5 +1,3 @@
-#+TITLE: Readme
-
 * Introduction
 
 - Load morphologies from ~.swc~ and ~.nml~
