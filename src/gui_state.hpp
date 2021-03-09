@@ -41,7 +41,7 @@ struct gui_state {
     component_many<detector_def>    detectors;
 
     entity                          regions;
-    component_unique<reg_def>       region_defs;
+    component_unique<rg_def>        region_defs;
     component_unique<renderable>    render_regions;
     component_unique<parameter_def> parameter_defs;
     component_many<mechanism_def>   mechanisms;
@@ -67,14 +67,14 @@ struct gui_state {
 
     void add_ion(const std::string& lbl="", int charge=0) { events.push_back(evt_add_ion{lbl, charge}); }
     template<typename Item> void add_locdef(const std::string& lbl="", const std::string& def="") { events.push_back(evt_add_locdef<Item>{lbl, def}); }
-    void add_region(const std::string& lbl="", const std::string& def="") { add_locdef<reg_def>(lbl, def); }
+    void add_region(const std::string& lbl="", const std::string& def="") { add_locdef<rg_def>(lbl, def); }
     void add_locset(const std::string& lbl="", const std::string& def="") { add_locdef<ls_def>(lbl, def); }
     void add_mechanism(const id_type& id) { events.push_back(evt_add_mechanism{id}); }
     void add_detector(const id_type& id) { events.push_back(evt_add_detector{id}); }
     void add_probe(const id_type& id) { events.push_back(evt_add_probe{id}); }
 
     template<typename Item> void remove_locdef(const id_type& def) { events.push_back(evt_del_locdef<Item>{def}); }
-    void remove_region(const id_type def)     { remove_locdef<reg_def>(def); }
+    void remove_region(const id_type def)     { remove_locdef<rg_def>(def); }
     void remove_locset(const id_type& def)    { remove_locdef<ls_def>(def); }
     void remove_ion(const id_type& def)       { events.push_back(evt_del_ion{def}); }
     void remove_mechanism(const id_type& def) { events.push_back(evt_del_mechanism{def}); }
@@ -82,7 +82,7 @@ struct gui_state {
     void remove_probe(const id_type& id)      { events.push_back(evt_del_probe{id}); }
 
     template<typename Item> void update_locdef(const id_type& def) { events.push_back(evt_upd_locdef<Item>{def}); }
-    void update_region(const id_type& def) { update_locdef<reg_def>(def); }
+    void update_region(const id_type& def) { update_locdef<rg_def>(def); }
     void update_locset(const id_type& def) { update_locdef<ls_def>(def); }
 
     void update();

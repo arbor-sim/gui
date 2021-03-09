@@ -182,8 +182,6 @@ geometry::geometry() {
     marker_vbo = make_buffer_object(tris, GL_ARRAY_BUFFER);
 }
 
-geometry::geometry(const arb::morphology& morph): geometry{} { load_geometry(morph); }
-
 void make_fbo(int width, int height, unsigned int& fbo, unsigned int& post_fbo, unsigned int& tex) {
     glDeleteFramebuffers(1, &fbo);
     glGenFramebuffers(1, &fbo);
@@ -226,26 +224,26 @@ void make_fbo(int width, int height, unsigned int& fbo, unsigned int& post_fbo, 
     glDeleteTextures(1, &ms_tex);
 }
 
-void geometry::make_fbo(int w, int h) {
+
+void make_fbo(int w, int h, render_ctx& ctx) {
     gl_check_error("make fbo init");
     glViewport(0, 0, w, h);
 
-    if ((w == width) && (h == height)) return;
+    if ((w == ctx.width) && (h == ctx.height)) return;
     log_debug("Resizing {}x{}", w, h);
-    width = w;
-    height = h;
-    ::make_fbo(w, h, fbo, post_fbo, tex);
-    ::make_fbo(w, h, pick.fbo, pick.post_fbo, pick.tex);
+    ctx.width = w;
+    ctx.height = h;
+    ::make_fbo(w, h, ctx.fbo, ctx.post_fbo, ctx.tex);
 }
 
 void geometry::render(const view_state& vs,
                       const glm::vec2& size,
                       const std::vector<renderable>& regions,
                       const std::vector<renderable>& markers) {
-    make_fbo(size.x, size.y);
+    make_fbo(size.x, size.y, cell);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+    glBindFramebuffer(GL_FRAMEBUFFER, cell.fbo);
+    glClearColor(cell.clear_color.x, cell.clear_color.y, cell.clear_color.z, cell.clear_color.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 
@@ -274,8 +272,8 @@ void geometry::render(const view_state& vs,
         ::render(marker_program, model, view, proj, camera, light, light_color, markers);
         glEnable(GL_DEPTH_TEST);
     }
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, post_fbo);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, cell.fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, cell.post_fbo);
     glBlitFramebuffer(0, 0, size.x, size.y, 0, 0, size.x, size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -287,14 +285,14 @@ std::optional<object_id> geometry::get_id_at(const glm::vec2& pos,
                                              const view_state& vs,
                                              const glm::vec2& size,
                                              const std::vector<renderable>& regions) {
-    make_fbo(size.x, size.y);
+    make_fbo(size.x, size.y, pick);
 
-    float distance   = 2.5f;
-    auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
-    glm::vec3 up     = {0.0f, 1.0f, 0.0f};
+    float distance  = 2.5f;
+    auto camera     = distance*glm::vec3{0.0f, 0.0f, 1.0f};
+    glm::vec3 up    = {0.0f, 1.0f, 0.0f};
     glm::vec3 shift = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
-    glm::mat4 view = glm::lookAt(camera, (target - root)/rescale + shift, up);
-    glm::mat4 proj = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
+    glm::mat4 view  = glm::lookAt(camera, (target - root)/rescale + shift, up);
+    glm::mat4 proj  = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
 
     glBindFramebuffer(GL_FRAMEBUFFER, pick.fbo);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -401,52 +399,32 @@ void geometry::load_geometry(const arb::morphology& morph) {
         //  *--*   rotation ->
         // 01  11  distal
         auto base = index*n_vertices;
+        auto c0  = base;
+        auto c1  = base + 1;
         for (auto face = 0ul; face < n_faces - 1; ++face) {
-            auto c0  = base;
-            auto c1  = base + 1;
             auto p00 = base + 2*face + 2;
             auto p01 = base + 2*face + 3;
             auto p10 = base + 2*face + 4;
             auto p11 = base + 2*face + 5;
-            // Triangle 1
-            indices.push_back(p00);
-            indices.push_back(p10);
-            indices.push_back(p01);
-            // Triangle 2
-            indices.push_back(p01);
-            indices.push_back(p10);
-            indices.push_back(p11);
+            // Face
+            indices.push_back(p00); indices.push_back(p10); indices.push_back(p01);
+            indices.push_back(p01); indices.push_back(p10); indices.push_back(p11);
             // Proximal cap
-            indices.push_back(c0);
-            indices.push_back(p10);
-            indices.push_back(p00);
+            indices.push_back(c0);  indices.push_back(p10); indices.push_back(p00);
             // Distal cap
-            indices.push_back(c1);
-            indices.push_back(p01);
-            indices.push_back(p11);
+            indices.push_back(c1);  indices.push_back(p01); indices.push_back(p11);
         }
-        auto c0  = base;
-        auto c1  = base + 1;
         auto p00 = base + 2*(n_faces - 1) + 2;
         auto p01 = base + 2*(n_faces - 1) + 3;
         auto p10 = base + 4;
         auto p11 = base + 3;
-        // Triangle 1
-        indices.push_back(p00);
-        indices.push_back(p10);
-        indices.push_back(p01);
-        // Triangle 2
-        indices.push_back(p01);
-        indices.push_back(p10);
-        indices.push_back(p11);
+        // Face
+        indices.push_back(p00); indices.push_back(p10); indices.push_back(p01);
+        indices.push_back(p01); indices.push_back(p10); indices.push_back(p11);
         // Proximal cap
-        indices.push_back(c0);
-        indices.push_back(p10);
-        indices.push_back(p00);
+        indices.push_back(c0);  indices.push_back(p10); indices.push_back(p00);
         // Distal cap
-        indices.push_back(c1);
-        indices.push_back(p01);
-        indices.push_back(p11);
+        indices.push_back(c1);  indices.push_back(p01); indices.push_back(p11);
 
         // Next
         id_to_index[id] = index++;
@@ -466,4 +444,16 @@ void geometry::load_geometry(const arb::morphology& morph) {
     log_debug("Geometry re-scaled by 1/{}", rescale);
     vbo = make_buffer_object(vertices, GL_ARRAY_BUFFER);
     log_info("Making geometry: completed");
+}
+
+void clear_ctx(render_ctx& ctx) {
+    glDeleteFramebuffers(1, &ctx.fbo);      ctx.fbo = 0;
+    glDeleteFramebuffers(1, &ctx.post_fbo); ctx.fbo = 0;
+    glDeleteTextures(1, &ctx.tex);          ctx.tex = 0;
+    ctx.width  = -1; ctx.height = -1;
+}
+
+void geometry::clear() {
+    clear_ctx(pick);
+    clear_ctx(cell);
 }

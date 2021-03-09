@@ -43,20 +43,23 @@ inline void destroy_renderables(std::vector<renderable>& rs) {
   }
 }
 
-struct picker {
-  unsigned fbo = 0;
-  unsigned post_fbo = 0;
-  unsigned tex = 0;
-};
-
 struct object_id {
     size_t segment;
     size_t branch;
 };
 
+struct render_ctx {
+  unsigned fbo          =  0;
+  unsigned post_fbo     =  0;
+  unsigned tex          =  0;
+  int width             = -1;
+  int height            = -1;
+  glm::vec4 clear_color = {214.0f/255, 214.0f/255, 214.0f/255, 1.00f};
+};
+
 struct geometry {
+
   geometry();
-  geometry(const arb::morphology&);
 
   void render(const view_state& view,
               const glm::vec2& size,
@@ -68,21 +71,21 @@ struct geometry {
 
   std::optional<object_id> get_id_at(const glm::vec2& pos, const view_state&, const glm::vec2& size, const std::vector<renderable>&);
 
+  void clear();
   void load_geometry(const arb::morphology&);
 
   glm::vec3 target = {0.0f, 0.0f, 0.0f};
 
-  void make_fbo(int w, int h);
   std::vector<point>    vertices = {};
   std::vector<unsigned> indices  = {};
   std::unordered_map<size_t, size_t> id_to_index  = {}; // map segment id to cylinder index
   std::unordered_map<size_t, size_t> id_to_branch = {}; // map segment id to branch id
 
-  unsigned fbo = 0;
-  unsigned post_fbo = 0;
-  unsigned tex = 0;
-  unsigned vbo = 0;
-  unsigned marker_vbo = 0;
+  render_ctx pick;
+  render_ctx cell;
+
+  unsigned vbo            = 0;
+  unsigned marker_vbo     = 0;
   unsigned region_program = 0;
   unsigned object_program = 0;
   unsigned marker_program = 0;
@@ -91,18 +94,8 @@ struct geometry {
   size_t n_faces     = 64;             // Faces on frustrum mantle
   size_t n_vertices  = n_faces*2 + 2;  // Vertices on frustrum incl cap
   size_t n_triangles = n_faces*4;      // Tris per frustrum: 4 per face for the mantle and cap
-  size_t n_indices   = n_triangles*3;
+  size_t n_indices   = n_triangles*3;  // Points per frustrum draw list
 
   float rescale = -1;
   glm::vec3 root = {0.0f, 0.0f, 0.0f};
-
-  // Viewport
-  int width = -1;
-  int height = -1;
-
-  // Background
-  glm::vec4 clear_color{214.0f/255, 214.0f/255, 214.0f/255, 1.00f};
-
-  // Picker
-  picker pick;
 };

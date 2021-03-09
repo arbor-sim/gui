@@ -21,7 +21,7 @@ using event = std::variant<evt_add_mechanism,                                evt
                            evt_add_ion,                                      evt_del_ion,
                            evt_add_probe,                                    evt_del_probe,
                            evt_add_detector,                                 evt_del_detector,
-                           evt_add_locdef<reg_def>, evt_upd_locdef<reg_def>, evt_del_locdef<reg_def>,
+                           evt_add_locdef<rg_def>,  evt_upd_locdef<rg_def>,  evt_del_locdef<rg_def>,
                            evt_add_locdef<ls_def>,  evt_upd_locdef<ls_def>,  evt_del_locdef<ls_def>>;
 
 using event_queue = std::vector<event>;

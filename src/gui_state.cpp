@@ -37,48 +37,24 @@ void gui_state::reset() {
 void gui_state::reload(const io::loaded_morphology& result) {
   reset();
   builder  = cell_builder{result.morph};
-  renderer = geometry{result.morph};
+  renderer.load_geometry(result.morph);
   for (const auto& [k, v]: result.regions) add_region(k, v);
   for (const auto& [k, v]: result.locsets) add_locset(k, v);
 }
 
-template <typename D> void update_def(D &def) {
-  if (def.definition.empty() || !def.definition[0]) {
-    def.data = {};
-    def.empty();
-  } else {
-    try {
-      def.data = {def.definition};
-      def.good();
-    } catch (const arb::label_parse_error &e) {
-      def.data = {};
-      std::string m = e.what();
-      auto colon = m.find(':') + 1;
-      colon = m.find(':', colon) + 1;
-      def.error(m.substr(colon, m.size() - 1));
-    }
-  }
-}
-
-void def_set_renderable(geometry &renderer,
-                        cell_builder &builder,
-                        renderable &render,
-                        ls_def &def) {
+void set_renderable(geometry &renderer, cell_builder &builder, renderable &render, ls_def &def) {
   render.active = false;
-  if (!def.data || (def.state != def_state::good)) return;
+  if (def.state != def_state::good) return;
   log_info("Making markers for locset {} '{}'", def.name, def.definition);
   try {
     auto points = builder.make_points(def.data.value());
     render = renderer.make_marker(points, render.color);
   } catch (arb::morphology_error &e) {
-    def.error(e.what());
+    def.set_error(e.what());
   }
 }
 
-void def_set_renderable(geometry &renderer,
-                        cell_builder &builder,
-                        renderable &render,
-                        reg_def &def) {
+void set_renderable(geometry &renderer, cell_builder &builder, renderable &render, rg_def &def) {
   render.active = false;
   if (!def.data || (def.state != def_state::good)) return;
   log_info("Making frustrums for region {} '{}'", def.name, def.definition);
@@ -86,7 +62,7 @@ void def_set_renderable(geometry &renderer,
     auto points = builder.make_segments(def.data.value());
     render = renderer.make_region(points, render.color);
   } catch (arb::morphology_error &e) {
-    def.error(e.what());
+    def.set_error(e.what());
   }
 }
 
@@ -105,8 +81,8 @@ void gui_state::update() {
     void operator()(const evt_upd_locdef<ls_def>& c) {
       auto& def = state->locset_defs[c.id];
       auto& red = state->render_locsets[c.id];
-      update_def(def);
-      def_set_renderable(state->renderer, state->builder, red, def);
+      def.update();
+      set_renderable(state->renderer, state->builder, red, def);
     }
     void operator()(const evt_del_locdef<ls_def>& c) {
       auto id = c.id;
@@ -117,7 +93,7 @@ void gui_state::update() {
       state->detectors.del_children(id);
       state->locsets.del(id);
     }
-    void operator()(const evt_add_locdef<reg_def>& c) {
+    void operator()(const evt_add_locdef<rg_def>& c) {
       auto id = state->regions.add();
       state->region_defs.add(id, {c.name.empty() ? fmt::format("Region {}", id.value) : c.name, c.definition});
       state->parameter_defs.add(id);
@@ -125,13 +101,13 @@ void gui_state::update() {
       for (const auto& ion: state->ions) state->ion_par_defs.add(id, ion);
       state->update_region(id);
     }
-    void operator()(const evt_upd_locdef<reg_def>& c) {
+    void operator()(const evt_upd_locdef<rg_def>& c) {
       auto& def = state->region_defs[c.id];
       auto& red = state->render_regions[c.id];
-      update_def(def);
-      def_set_renderable(state->renderer, state->builder, red, def);
+      def.update();
+      set_renderable(state->renderer, state->builder, red, def);
     }
-    void operator()(const evt_del_locdef<reg_def>& c) {
+    void operator()(const evt_del_locdef<rg_def>& c) {
       auto id = c.id;
       state->render_regions.del(id);
       state->region_defs.del(id);
@@ -186,7 +162,6 @@ bool gui_tree_add(const std::string& label, F action) {
 void gui_menu_bar(gui_state &state);
 void gui_read_morphology(gui_state &state, bool &open);
 void gui_tooltip(const std::string &);
-void gui_check_state(def_state);
 void gui_debug(bool &);
 void gui_style(bool &);
 
@@ -272,11 +247,12 @@ void gui_tooltip(const std::string &message) {
   }
 }
 
-void gui_check_state(const definition &def) {
-  auto tag = std::unordered_map<def_state, const char*>{{def_state::empty, icon_question},
-                                                        {def_state::error, icon_error},
-                                                        {def_state::good,  icon_ok}}[def.state];
-  ImGui::Text("%s", tag);
+template<typename T>
+void gui_check_state(const loc_def<T> &def) {
+  static std::unordered_map<def_state, const char*> tags{{def_state::empty, icon_question},
+                                                         {def_state::error, icon_error},
+                                                         {def_state::good,  icon_ok}};
+  ImGui::Text("%s", tags[def.state]);
   gui_tooltip(def.message);
 }
 
@@ -300,7 +276,7 @@ void gui_main(gui_state &state) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse             |  ImGuiWindowFlags_NoResize
-      |  ImGuiWindowFlags_NoMove     |  ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+                 |  ImGuiWindowFlags_NoMove     |  ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
   } else {
     dockspace_flags &= ~ImGuiDockNodeFlags_PassthruCentralNode;
   }
@@ -394,7 +370,6 @@ void gui_dir_view(file_chooser_state &state) {
     }
     gui_right_margin();
     gui_toggle(icon_show, icon_hide, state.show_hidden);
-    // log_debug("Show hidden files: {}", state.show_hidden);
   }
   // Draw the current dir
   {
@@ -513,7 +488,7 @@ void gui_cell(gui_state &state) {
 
     state.renderer.render(state.view, to_glmvec(size), state.render_regions.items, state.render_locsets.items);
 
-    ImGui::Image((ImTextureID) state.renderer.tex, size, ImVec2(0, 1), ImVec2(1, 0));
+    ImGui::Image((ImTextureID) state.renderer.cell.tex, size, ImVec2(0, 1), ImVec2(1, 0));
 
     if (ImGui::IsItemHovered()) {
       state.view.offset -= delta_pos;

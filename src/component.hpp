@@ -4,6 +4,8 @@
 
 #include "id.hpp"
 
+constexpr size_t max_entities = 1024;
+
 struct entity {
     std::vector<id_type> ids;
 
