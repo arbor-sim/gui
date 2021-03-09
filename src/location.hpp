@@ -10,7 +10,7 @@
 
 #include "utils.hpp"
 
-    enum class def_state { empty, error, good };
+enum class def_state { empty, error, good };
 
 template<typename T>
 struct loc_def {

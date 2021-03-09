@@ -9,13 +9,15 @@ constexpr size_t max_entities = 1024;
 struct entity {
     std::vector<id_type> ids;
 
-    id_type add() { auto id = get_next_id(); ids.push_back(id); return id; }
+    id_type add() { id_type result{id++}; ids.push_back(result); return result; }
     void del(const id_type& id) { std::erase_if(ids, [&] (const auto& it){ return id == it; });}
 
+    size_t id = 0;
+
     auto begin() { return ids.begin(); }
-    auto end() { return ids.end(); }
+    auto end()   { return ids.end(); }
     auto begin() const { return ids.begin(); }
-    auto end() const { return ids.end(); }
+    auto end()   const { return ids.end(); }
     auto clear() { ids.clear(); }
 };
 
@@ -65,6 +67,8 @@ struct component_many {
     std::unordered_map<id_type, size_t> lookup;
     std::unordered_map<id_type, std::vector<id_type>> parents;
 
+    size_t id = 0;
+
     auto clear() { items.clear(); parents.clear(); idx_to_parent.clear(); idx_to_id.clear(); lookup.clear(); ids.clear(); }
 
     struct child_iter {
@@ -78,15 +82,15 @@ struct component_many {
     auto& operator[](const id_type& ref) { return items[lookup[ref]]; }
 
     id_type add(const id_type& parent, const C& c={}) {
-        auto id = get_next_id();
+        id_type result{id++};
         auto idx = items.size();
 
-        lookup[id] = idx;
-        parents[parent].push_back(id);
+        lookup[result] = idx;
+        parents[parent].push_back(result);
         idx_to_parent[idx] = parent;
-        idx_to_id[idx] = id;
+        idx_to_id[idx] = result;
         items.push_back(c);
-        return id;
+        return result;
     }
 
     auto get_children(const id_type& parent) {

@@ -45,7 +45,7 @@ set(gui_srcs
   src/cell_builder.hpp src/cell_builder.cpp
   src/gui_state.hpp src/gui_state.cpp
   src/window.hpp src/window.cpp
-  src/id.hpp src/id.cpp
+  src/id.hpp
   src/utils.hpp src/utils.cpp
   src/view_state.hpp
   src/events.hpp
@@ -53,7 +53,7 @@ set(gui_srcs
   src/file_chooser.hpp
   src/loader.hpp src/loader.cpp
   src/geometry.hpp src/geometry.cpp
-  src/location.hpp src/location.cpp)
+  src/location.hpp)
 
 set(im_srcs
   3rd-party/imgui/examples/libs/gl3w/GL/gl3w.c
