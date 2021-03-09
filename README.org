@@ -1,5 +1,7 @@
 #+TITLE: Readme
 
+[[images/locations.png]]
+
 * Installation
 
 Please install a OpenGL package confirming to your choice and platform.
