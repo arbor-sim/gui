@@ -1,6 +1,15 @@
 #+TITLE: Readme
 
+* Introduction
+
+** Interactive Definition of Regions and Locsets
 [[images/locations.png]]
+
+** Definition of Ion Dynamics
+[[images/mechanisms.png]]
+
+** Manipulation of Cable Cell Parameters
+[[images/parameters.png]]
 
 * Installation
 
