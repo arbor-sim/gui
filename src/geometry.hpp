@@ -88,7 +88,11 @@ struct geometry {
   unsigned marker_program = 0;
 
   // Geometry
-  size_t n_faces = 64;
+  size_t n_faces     = 64;             // Faces on frustrum mantle
+  size_t n_vertices  = n_faces*2 + 2;  // Vertices on frustrum incl cap
+  size_t n_triangles = n_faces*4;      // Tris per frustrum: 4 per face for the mantle and cap
+  size_t n_indices   = n_triangles*3;
+
   float rescale = -1;
   glm::vec3 root = {0.0f, 0.0f, 0.0f};
 

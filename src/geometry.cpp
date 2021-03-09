@@ -252,17 +252,19 @@ void geometry::render(const view_state& vs,
     float distance   = 2.5f;
     auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
     glm::vec3 up     = {0.0f, 1.0f, 0.0f};
-    glm::vec3 shift = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
-    glm::mat4 view = glm::lookAt(camera, (target - root)/rescale + shift, up);
-    glm::mat4 proj = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
+    glm::vec3 shift  = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
+    glm::mat4 view   = glm::lookAt(camera, (target - root)/rescale + shift, up);
+    glm::mat4 proj   = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
 
     auto light = camera;
     auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
 
     {
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
+        glFrontFace(GL_CW);
+        glEnable(GL_CULL_FACE);
+        glm::mat4 model = glm::rotate(glm::mat4(1.0f), vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
         ::render(region_program, model, view, proj, camera, light, light_color, regions);
+        glDisable(GL_CULL_FACE);
     }
     {
         glm::mat4 model = glm::mat4(1.0f);
@@ -337,14 +339,11 @@ renderable geometry::make_marker(const std::vector<glm::vec3>& points, glm::vec4
 
 renderable geometry::make_region(const std::vector<arb::msegment>& segments, glm::vec4 color) {
     std::vector<unsigned> idcs{};
-    const auto n_pt = 6*n_faces;
     for (const auto& seg: segments) {
         const auto idx = id_to_index[seg.id];
-        for (auto idy = 0; idy < n_pt; ++idy) {
-            idcs.push_back(indices[idy + n_pt*idx]);
-        }
+        for (auto idy = 0; idy < n_indices; ++idy) idcs.push_back(indices[idy + n_indices*idx]);
     }
-    assert(idcs.size() == n_pt*segments.size());
+    assert(idcs.size() == n_indices*segments.size());
     auto vao = make_vao(vbo, idcs, {{0.0f, 0.0f, 0.0f}});
     return {idcs.size(), 1, vao, true, color};
 }
@@ -386,7 +385,8 @@ void geometry::load_geometry(const arb::morphology& morph) {
         // Generate cylinder from n_faces triangles
         const auto rot = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, c_diff));
         glm::vec3 obj{((id/256/256)%256)/256.0f, ((id/256)%256)/256.0f, (id%256)/256.0f};
-        // Make 2*n_faces points, alternating between proximal and distal end
+        vertices.push_back({c_prox,  glm::normalize(c_dist), obj});
+        vertices.push_back({c_dist, -glm::normalize(c_dist), obj});
         for (auto face = 0ul; face < n_faces; ++face) {
             vertices.push_back({r_prox*normal + c_prox, normal, obj});
             vertices.push_back({r_dist*normal + c_dist, normal, obj});
@@ -400,36 +400,63 @@ void geometry::load_geometry(const arb::morphology& morph) {
         //  |/ |
         //  *--*   rotation ->
         // 01  11  distal
-        auto base = index*n_faces*2;
+        auto base = index*n_vertices;
         for (auto face = 0ul; face < n_faces - 1; ++face) {
+            auto c0  = base;
+            auto c1  = base + 1;
+            auto p00 = base + 2*face + 2;
+            auto p01 = base + 2*face + 3;
+            auto p10 = base + 2*face + 4;
+            auto p11 = base + 2*face + 5;
             // Triangle 1
-            indices.push_back(base + 2*face + 0); // 00
-            indices.push_back(base + 2*face + 2); // 10
-            indices.push_back(base + 2*face + 1); // 01
+            indices.push_back(p00);
+            indices.push_back(p10);
+            indices.push_back(p01);
             // Triangle 2
-            indices.push_back(base + 2*face + 1); // 01
-            indices.push_back(base + 2*face + 2); // 10
-            indices.push_back(base + 2*face + 3); // 11
+            indices.push_back(p01);
+            indices.push_back(p10);
+            indices.push_back(p11);
+            // Proximal cap
+            indices.push_back(c0);
+            indices.push_back(p10);
+            indices.push_back(p00);
+            // Distal cap
+            indices.push_back(c1);
+            indices.push_back(p01);
+            indices.push_back(p11);
         }
-        // Close Cylinder
+        auto c0  = base;
+        auto c1  = base + 1;
+        auto p00 = base + 2*(n_faces - 1) + 2;
+        auto p01 = base + 2*(n_faces - 1) + 3;
+        auto p10 = base + 4;
+        auto p11 = base + 3;
         // Triangle 1
-        indices.push_back(base + 2*n_faces - 2); // 00
-        indices.push_back(base);                 // 10
-        indices.push_back(base + 2*n_faces - 1); // 01
+        indices.push_back(p00);
+        indices.push_back(p10);
+        indices.push_back(p01);
         // Triangle 2
-        indices.push_back(base);  // 01
-        indices.push_back(base + 1); // 10
-        indices.push_back(base + 2*n_faces - 1); // 11
+        indices.push_back(p01);
+        indices.push_back(p10);
+        indices.push_back(p11);
+        // Proximal cap
+        indices.push_back(c0);
+        indices.push_back(p10);
+        indices.push_back(p00);
+        // Distal cap
+        indices.push_back(c1);
+        indices.push_back(p01);
+        indices.push_back(p11);
 
         // Next
         id_to_index[id] = index++;
     }
 
-    assert(vertices.size() == segments.size()*2*n_faces);
-    assert(indices.size()  == segments.size()*6*n_faces);
+    assert(vertices.size() == segments.size()*n_vertices);
+    assert(indices.size()  == segments.size()*n_indices);
 
     // Re-scale into [-1, 1]^3 box
-    log_debug("Cylinders generated: {} ({} points)", indices.size()/n_faces/6, vertices.size());
+    log_debug("Cylinders generated: {} ({} points)", indices.size()/n_indices, vertices.size());
     for (auto& tri: vertices) {
         rescale = std::max(rescale, std::abs(tri.position.x));
         rescale = std::max(rescale, std::abs(tri.position.y));
