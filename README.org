@@ -1,4 +1,28 @@
-#+TITLE: Readme
+* Introduction
+
+- Load morphologies from ~.swc~ and ~.nml~
+
+** Interactive Definition of Regions and Locsets
+[[images/locations.png]]
+
+- Rendering of cable cell as seen by Arbor.
+- Navigate with 
+  - pan: arrow keys or C-drag,
+  - zoom: +/- or mouse wheel,
+  - rotate: mouse drag.
+- Right-click to 
+  - reset camera,
+  - snap-to a defined locset,
+  - and turn selections into regions/locset.
+
+** Definition of Ion Dynamics
+[[images/mechanisms.png]]
+
+- Load mechanisms from built-in catalogues.
+- Set parameters.
+
+** Manipulation of Cable Cell Parameters
+[[images/parameters.png]]
 
 * Installation
 
