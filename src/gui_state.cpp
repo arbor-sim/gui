@@ -484,7 +484,8 @@ void gui_cell(gui_state &state) {
   if (ImGui::Begin("Cell")) {
     ImGui::BeginChild("Cell Render");
     auto size = ImGui::GetWindowSize();
-    auto pos  = ImGui::GetWindowPos();
+    auto window_position = ImGui::GetWindowPos();
+    static glm::vec2 r_click_position;
 
     state.renderer.render(state.view, to_glmvec(size), state.render_regions.items, state.render_locsets.items);
 
@@ -495,6 +496,7 @@ void gui_cell(gui_state &state) {
       state.view.zoom    = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
       state.view.phi     = std::fmod(state.view.phi + delta_phi + 2*PI, 2*PI);    // cyclic in [0, 2pi)
     }
+    if (ImGui::IsItemClicked(1)) r_click_position = {mouse_x, mouse_y};
 
     if (ImGui::BeginPopupContextWindow()) {
       ImGui::Text("%s Camera", icon_camera);
@@ -523,8 +525,9 @@ void gui_cell(gui_state &state) {
           ImGui::EndMenu();
         }
       }
-      auto pop_pos  = ImGui::GetWindowPos();
-      auto obj_id = state.renderer.get_id_at({pop_pos.x - pos.x, pop_pos.y - pos.y - size.y}, state.view, to_glmvec(size), state.render_regions.items);
+      auto pos = r_click_position -  to_glmvec(window_position);
+      pos.y   -= size.y;
+      auto obj_id = state.renderer.get_id_at(pos, state.view, to_glmvec(size), state.render_regions.items);
       if (obj_id) {
         auto id = obj_id.value();
         ImGui::Separator();

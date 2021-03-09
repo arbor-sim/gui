@@ -13,13 +13,11 @@ unsigned make_buffer_object(const std::vector<T>& v, unsigned type) {
     glGenBuffers(1, &VBO);
     glBindBuffer(type, VBO);
     glBufferData(type, v.size()*sizeof(T), v.data(), GL_STATIC_DRAW);
-    glBindBuffer(type, 0);
     return VBO;
 }
 
 glm::vec4 next_color() {
   static size_t nxt = 0;
-
   constexpr glm::vec4 colors[] = {{166.0f/255.0f,206.0f/255.0f,227.0f/255.0f, 1.0f},
                                   { 31.0f/255.0f,120.0f/255.0f,180.0f/255.0f, 1.0f},
                                   {178.0f/255.0f,223.0f/255.0f,138.0f/255.0f, 1.0f},
@@ -68,26 +66,21 @@ void set_uniform(unsigned program, const std::string& name, const glm::mat4& dat
 }
 
 void render(unsigned program,
-            glm::mat4 model,
-            glm::mat4 view,
-            glm::mat4 proj,
-            glm::vec3 camera,
-            glm::vec3 light,
-            glm::vec3 light_color,
+            glm::mat4 model,  glm::mat4 view,  glm::mat4 proj,
+            glm::vec3 camera, glm::vec3 light, glm::vec3 light_color,
             const std::vector<renderable>& render) {
     gl_check_error("render init");
     glUseProgram(program);
-    set_uniform(program, "model", model);
-    set_uniform(program, "view", view);
-    set_uniform(program, "proj", proj);
-    set_uniform(program, "camera", camera);
-    set_uniform(program, "light", light);
+    set_uniform(program, "model",       model);
+    set_uniform(program, "view",        view);
+    set_uniform(program, "proj",        proj);
+    set_uniform(program, "camera",      camera);
+    set_uniform(program, "light",       light);
     set_uniform(program, "light_color", light_color);
     for (const auto& v: render) {
         if (v.active) {
             set_uniform(program, "object_color", v.color);
-            // log_debug("Rendering {} elements x {} instances", v.count, v.instances);
-            glBindVertexArray(v.vao);
+            glBindVertexArray(*(v.vao));
             glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);
             glBindVertexArray(0);
         }
@@ -131,12 +124,10 @@ auto make_vao(unsigned vbo,
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, id)));       glEnableVertexAttribArray(3);
 
     unsigned ivbo = make_buffer_object(off, GL_ARRAY_BUFFER);
-    glBindBuffer(GL_ARRAY_BUFFER, ivbo);
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr); glEnableVertexAttribArray(2);
     glVertexAttribDivisor(2, 1);
 
     unsigned int ebo = make_buffer_object(idx, GL_ELEMENT_ARRAY_BUFFER);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 
     glBindVertexArray(0);
     log_info("Setting up VAO: complete");
@@ -179,7 +170,7 @@ geometry::geometry() {
     std::vector<point> tris{{{0.0f,      0.0f,      0.0f}, {0.0f, 0.0f, 0.0f}},
                             {{0.0f + dy, 0.0f + dx, 0.0f}, {0.0f, 0.0f, 0.0f}},
                             {{0.0f + dx, 0.0f + dy, 0.0f}, {0.0f, 0.0f, 0.0f}}};
-    marker_vbo = make_buffer_object(tris, GL_ARRAY_BUFFER);
+    marker_vbo = make_buffer_object(tris, GL_ARRAY_BUFFER); glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void make_fbo(int width, int height, unsigned int& fbo, unsigned int& post_fbo, unsigned int& tex) {
@@ -332,7 +323,7 @@ renderable geometry::make_marker(const std::vector<glm::vec3>& points, glm::vec4
                          (marker.z - root.z)/rescale);
     }
     auto vao = make_vao(marker_vbo, {0, 1, 2}, off);
-    return {3, off.size(), vao, true, color};
+    return {3, off.size(), {new unsigned{vao}, [](auto p) { glDeleteVertexArrays(1, p); delete p; }}, true, color};
 }
 
 renderable geometry::make_region(const std::vector<arb::msegment>& segments, glm::vec4 color) {
@@ -343,10 +334,12 @@ renderable geometry::make_region(const std::vector<arb::msegment>& segments, glm
     }
     assert(idcs.size() == n_indices*segments.size());
     auto vao = make_vao(vbo, idcs, {{0.0f, 0.0f, 0.0f}});
-    return {idcs.size(), 1, vao, true, color};
+    return {idcs.size(), 1, {new unsigned{vao}, [](auto p) { glDeleteVertexArrays(1, p); delete p; }}, true, color};
 }
 
 void geometry::load_geometry(const arb::morphology& morph) {
+    clear();
+
     std::vector<arb::msegment> segments;
     for (auto branch = 0ul; branch < morph.num_branches(); ++branch) {
         for (const auto& segment: morph.branch_segments(branch)) {
@@ -442,7 +435,7 @@ void geometry::load_geometry(const arb::morphology& morph) {
     }
     for(auto& tri: vertices) tri.position /= rescale;
     log_debug("Geometry re-scaled by 1/{}", rescale);
-    vbo = make_buffer_object(vertices, GL_ARRAY_BUFFER);
+    vbo = make_buffer_object(vertices, GL_ARRAY_BUFFER); glBindBuffer(GL_ARRAY_BUFFER, 0);
     log_info("Making geometry: completed");
 }
 
@@ -454,6 +447,12 @@ void clear_ctx(render_ctx& ctx) {
 }
 
 void geometry::clear() {
+    vertices.clear();
+    indices.clear();
+    id_to_index.clear();
+    id_to_branch.clear();
+    rescale = -1;
+    target = {0.0f, 0.0f, 0.0f};
     clear_ctx(pick);
     clear_ctx(cell);
 }
