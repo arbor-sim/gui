@@ -1,7 +1,5 @@
 #+TITLE: Readme
 
-![Location](https://raw.githubusercontent.com/thorstenhater/arbor-gui/master/images/locations.png "title")
-
 * Installation
 
 Please install a OpenGL package confirming to your choice and platform.
