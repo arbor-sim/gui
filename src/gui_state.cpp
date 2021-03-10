@@ -57,6 +57,7 @@ void gui_state::update() {
     void operator()(const evt_upd_locdef<ls_def>& c) {
       auto& def = state->locset_defs[c.id];
       auto& rnd = state->render_locsets[c.id];
+      def.update();
       if (def.state != def_state::good) return;
       log_info("Making markers for locset {} '{}'", def.name, def.definition);
       try {
@@ -168,6 +169,8 @@ struct with_indent {
   ~with_indent() { ImGui::Unindent(px); }
   float px;
 };
+
+with_indent gui_tree_indent() { ImGui::Unindent(); {ImGui::GetTreeNodeToLabelSpacing()}; } // fix alignment under trees
 
 struct with_style {
   template<typename V> with_style(ImGuiStyleVar var, V val) { ImGui::PushStyleVar(var, val); }
@@ -496,8 +499,9 @@ void gui_cell(gui_state &state) {
       ImGui::Text("%s Camera", icon_camera);
       {
         with_indent indent{};
-        if (gui_menu_item("Reset", icon_refresh)) {
-          state.view.offset = {0.0, 0.0};
+        if (gui_menu_item("Reset##camera", icon_refresh)) {
+          state.view.offset = {0.0f, 0.0f};
+          state.view.phi    = 0.0f;
           state.view.target = {0.0f, 0.0f, 0.0f};
         }
         if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {
@@ -518,6 +522,17 @@ void gui_cell(gui_state &state) {
           }
           ImGui::EndMenu();
         }
+      }
+      ImGui::Separator();
+      ImGui::Text("%s Model", icon_cell);
+      {
+        with_indent indent{};
+        if (gui_menu_item("Reset##model", icon_refresh)) {
+          state.view.theta = 0.0f;
+          state.view.gamma = 0.0f;
+        }
+        ImGui::SliderFloat("Theta", &state.view.theta, -PI, PI);
+        ImGui::SliderFloat("Gamma", &state.view.gamma, -PI, PI);
       }
       ImGui::EndPopup();
     }
@@ -556,7 +571,7 @@ void gui_locdefs(const std::string& name,
   if (open) {
     with_item_width iw(120.0f);
     for (const auto& id: ids) {
-      with_id guard{id.value};
+      with_id guard{id};
       auto& render = renderables[id];
       auto& item   = items[id];
       auto open = gui_tree("");
@@ -569,6 +584,7 @@ void gui_locdefs(const std::string& name,
       gui_right_margin();
       if (ImGui::Button(icon_delete)) events.push_back(evt_del_locdef<Item>{id});
       if (open) {
+        auto indent = gui_tree_indent();
         if (ImGui::InputText("Definition", &item.definition)) events.push_back(evt_upd_locdef<Item>{id});
         ImGui::SameLine();
         gui_check_state(item);
@@ -636,6 +652,7 @@ void gui_ion_defaults(gui_state& state) {
       gui_right_margin();
       if (ImGui::Button(icon_delete)) state.remove_ion(ion);
       if (open) {
+        auto indent = gui_tree_indent();
         auto& defaults = state.ion_defaults[ion];
         ImGui::InputInt("Charge", &definition.charge);
         gui_input_double("Int. Concentration", defaults.Xi, "mM");
@@ -774,7 +791,7 @@ bool gui_measurement(probe_def& data) {
   gui_input_double("Frequency", data.frequency, "Hz");
   gui_right_margin();
   auto remove = ImGui::Button(icon_delete);
-  with_indent indent{};
+  with_indent indent{ImGui::GetTreeNodeToLabelSpacing()};
   gui_choose("Variable", data.variable, probe_def::variables);
   return remove;
 }

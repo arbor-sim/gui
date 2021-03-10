@@ -251,14 +251,21 @@ void geometry::render(const view_state& vs,
     {
         glFrontFace(GL_CW);
         glEnable(GL_CULL_FACE);
-        glm::mat4 model = glm::rotate(glm::mat4(1.0f), vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::rotate(model, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
         ::render(region_program, model, view, proj, camera, light, light_color, regions);
         glDisable(GL_CULL_FACE);
     }
     {
         glm::mat4 model = glm::mat4(1.0f);
+        model = glm::rotate(model, -vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::rotate(model, -vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
         model = glm::rotate(model, -vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
-        view  = glm::rotate(view,   vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
+        view = glm::rotate(view,   vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
+        view = glm::rotate(view, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
+        view = glm::rotate(view, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
         glDisable(GL_DEPTH_TEST);
         ::render(marker_program, model, view, proj, camera, light, light_color, markers);
         glEnable(GL_DEPTH_TEST);

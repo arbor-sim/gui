@@ -34,3 +34,4 @@ const char * icon_off      = (const char *)ICON_FK_TOGGLE_OFF;
 const char * icon_meter    = (const char *)ICON_FK_TACHOMETER;
 const char * icon_probe    = (const char *)ICON_FK_LINE_CHART;
 const char * icon_detector = (const char *)ICON_FK_HEARTBEAT;
+const char * icon_cell     = (const char *)ICON_FK_CIRCLE_O_NOTCH;

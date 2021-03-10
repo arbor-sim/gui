@@ -134,6 +134,7 @@ Window::Window() {
     }
     log_debug("Set up fonts");
 
+    #if !__APPLE__
     log_debug("Setting icon");
     GLFWimage images[1];
     images[0].pixels = stbi_load((base / "arbor.png").c_str(), &images[0].width, &images[0].height, 0, 4); //rgba channels
@@ -143,6 +144,7 @@ Window::Window() {
         log_info("Setting icon failed, possibly on OS X?");
     }
     stbi_image_free(images[0].pixels);
+    #endif
 }
 
 Window::~Window() {
