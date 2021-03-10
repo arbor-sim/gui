@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12...3.18)
+cmake_minimum_required(VERSION 3.12)
 
 project(the-arbor-gui
   VERSION 0.0.1
@@ -8,13 +8,21 @@ set(CMAKE_CXX_STANDARD 20)
 
 #set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*")
 
+set(CMAKE_INSTALL_PREFIX "/usr/local")
+
 set(resource_path "${CMAKE_INSTALL_PREFIX}/etc/arbor-gui")
 add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
 add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W="ON")
 
+# Tweak Arbor
 set(ARB_WITH_NEUROML     ON CACHE BOOL "enable neuroml"    FORCE)
 set(ARB_USE_BUNDLED_LIBS ON CACHE BOOL "use internal deps" FORCE)
-set(GLFW_BUILD_DOCS  OFF CACHE BOOL "disable" FORCE)
+
+# Tweak GLFW
+set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
 
 # figure out OpenGL on *NIX
 if (APPLE)
@@ -77,6 +85,7 @@ target_include_directories(arbor-gui PRIVATE 3rd-party/spdlog/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/json/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui)
 target_include_directories(arbor-gui PRIVATE 3rd-party/glm)
+# target_include_directories(arbor-gui PRIVATE 3rd-party/stb)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
 target_include_directories(arbor-gui PRIVATE src)

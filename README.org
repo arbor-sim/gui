@@ -55,3 +55,4 @@ This project uses various open source projects
   - C++ icon bindings https://github.com/juliettef/IconFontCppHeaders
   - fmt formatting https://github.com/fmtlib/fmt
   - spdlog logger https://github.com/gabime/spdlog
+  - stb image loader https://github.com/nothings/stb

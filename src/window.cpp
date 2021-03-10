@@ -2,6 +2,8 @@
 
 #include <filesystem>
 
+// #define STB_IMAGE_IMPLEMENTATION
+// #include <stb_image.h>
 #include <IconsForkAwesome.h>
 
 static void glfw_error_callback(int error, const char* description) {
@@ -42,9 +44,9 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    if ((key == GLFW_KEY_DOWN) &&  (action == GLFW_PRESS)) delta_pos.y =  15.0f;
-    if ((key == GLFW_KEY_UP)   &&  (action == GLFW_PRESS)) delta_pos.y = -15.0f;
-    if ((key == GLFW_KEY_LEFT) &&  (action == GLFW_PRESS)) delta_pos.x =  15.0f;
+    if ((key == GLFW_KEY_DOWN)  && (action == GLFW_PRESS)) delta_pos.y =  15.0f;
+    if ((key == GLFW_KEY_UP)    && (action == GLFW_PRESS)) delta_pos.y = -15.0f;
+    if ((key == GLFW_KEY_LEFT)  && (action == GLFW_PRESS)) delta_pos.x =  15.0f;
     if ((key == GLFW_KEY_RIGHT) && (action == GLFW_PRESS)) delta_pos.x = -15.0f;
     if ((key == GLFW_KEY_MINUS) && (action == GLFW_PRESS)) delta_zoom  =  2.0f;
     if ((key == GLFW_KEY_EQUAL) && (action == GLFW_PRESS)) delta_zoom  = -2.0f;
@@ -131,6 +133,14 @@ Window::Window() {
         io.Fonts->AddFontFromFileTTF(path.c_str(), 16.0f, &icons_config, icons_ranges);
     }
     log_debug("Set up fonts");
+
+    // log_debug("Setting icon");
+    // GLFWimage images[1];
+    // images[0].pixels = stbi_load("PATH", &images[0].width, &images[0].height, 0, 4); //rgba channels
+    // try {
+        // glfwSetWindowIcon(handle, 1, images);
+    // } catch(...) {}
+    // stbi_image_free(images[0].pixels);
 }
 
 Window::~Window() {
