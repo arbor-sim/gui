@@ -2,8 +2,8 @@
 
 #include <filesystem>
 
-// #define STB_IMAGE_IMPLEMENTATION
-// #include <stb_image.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 #include <IconsForkAwesome.h>
 
 static void glfw_error_callback(int error, const char* description) {
@@ -134,13 +134,15 @@ Window::Window() {
     }
     log_debug("Set up fonts");
 
-    // log_debug("Setting icon");
-    // GLFWimage images[1];
-    // images[0].pixels = stbi_load("PATH", &images[0].width, &images[0].height, 0, 4); //rgba channels
-    // try {
-        // glfwSetWindowIcon(handle, 1, images);
-    // } catch(...) {}
-    // stbi_image_free(images[0].pixels);
+    log_debug("Setting icon");
+    GLFWimage images[1];
+    images[0].pixels = stbi_load((base / "arbor.png").c_str(), &images[0].width, &images[0].height, 0, 4); //rgba channels
+    try {
+        glfwSetWindowIcon(handle, 1, images);
+    } catch(...) {
+        log_info("Setting icon failed, possibly on OS X?");
+    }
+    stbi_image_free(images[0].pixels);
 }
 
 Window::~Window() {
