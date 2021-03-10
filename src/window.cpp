@@ -136,14 +136,15 @@ Window::Window() {
 
     #if !__APPLE__
     log_debug("Setting icon");
-    GLFWimage images[1];
-    images[0].pixels = stbi_load((base / "arbor.png").c_str(), &images[0].width, &images[0].height, 0, 4); //rgba channels
+    GLFWimage image;
+    image.pixels = stbi_load((base / "arbor.png").c_str(), &image.width, &image.height, 0, 4); //rgba channels
+    if ((image.width == 0) && (image.height == 0)) log_error("No icon found, are we running after install?");
     try {
-        glfwSetWindowIcon(handle, 1, images);
+        glfwSetWindowIcon(handle, 1, &image);
     } catch(...) {
-        log_info("Setting icon failed, possibly on OS X?");
+        log_warn("Setting icon failed.");
     }
-    stbi_image_free(images[0].pixels);
+    stbi_image_free(image.pixels);
     #endif
 }
 
