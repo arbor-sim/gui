@@ -105,6 +105,8 @@ void gui_state::update() {
       state->parameter_defs.del(id);
       state->ion_par_defs.del_by_1st(id);
       state->mechanisms.del_children(id);
+      // TODO This is quite expensive ... see if we can keep it this way
+      for(auto& [segment, regions]: state->segment_to_regions) regions.erase(id);
       state->regions.del(id);
     }
     void operator()(const evt_add_ion& c) {
@@ -559,9 +561,9 @@ void gui_locdefs(const std::string& name,
       auto& item   = items[id];
       auto open = gui_tree("");
       ImGui::SameLine();
-      if (ImGui::InputText("", &item.name)) events.push_back(evt_upd_locdef<Item>{id});
+      if (ImGui::InputText("##locdef-name", &item.name)) events.push_back(evt_upd_locdef<Item>{id});
       ImGui::SameLine();
-      ImGui::ColorEdit4("", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+      ImGui::ColorEdit4("##locdef-color", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
       ImGui::SameLine();
       gui_toggle(icon_show, icon_hide, render.active);
       gui_right_margin();

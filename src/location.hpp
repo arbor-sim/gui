@@ -31,14 +31,14 @@ struct loc_def {
     loc_def(const std::string_view n, const std::string_view d): name{n}, definition{d} { update(); }
 
     void update() {
-        trim(definition);
-        if (definition.empty() || !definition[0]) {
+        auto def = trim_copy(definition);
+        if (def.empty() || !def[0]) {
             data = {}; state = def_state::empty; message = "Empty.";
             return;
         }
 
         try {
-            data = {definition}; state = def_state::good;  message = "Ok.";
+            data = {def}; state = def_state::good; message = "Ok.";
         } catch (const arb::label_parse_error &e) {
             set_error(e.what());
         }
