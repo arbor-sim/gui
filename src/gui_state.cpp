@@ -91,9 +91,9 @@ void gui_state::update() {
       if (def.state == def_state::good) {
         log_info("Making frustrums for region {} '{}'", def.name, def.definition);
         try {
-          auto points = state->builder.make_segments(def.data.value());
-          for (const auto& point: points) state->segment_to_regions[point.id].insert(c.id);
-          state->renderer.make_region(points, rnd);
+          auto ids = state->builder.make_segments(def.data.value());
+          for (const auto& id: ids) state->segment_to_regions[id].insert(c.id);
+          state->renderer.make_region(ids, rnd);
         } catch (arb::morphology_error &e) {
           def.set_error(e.what()); rnd.active = false;
         }
@@ -170,7 +170,7 @@ struct with_indent {
   float px;
 };
 
-with_indent gui_tree_indent() { ImGui::Unindent(); {ImGui::GetTreeNodeToLabelSpacing()}; } // fix alignment under trees
+with_indent gui_tree_indent() { ImGui::Unindent(); return {ImGui::GetTreeNodeToLabelSpacing()}; } // fix alignment under trees
 
 struct with_style {
   template<typename V> with_style(ImGuiStyleVar var, V val) { ImGui::PushStyleVar(var, val); }
@@ -546,14 +546,17 @@ void gui_cell_info(gui_state& state) {
     ImGui::Text("%s Selection", icon_branch);
     if (state.object) {
       auto id = state.object.value();
-      with_indent indent{};
       ImGui::Text("Segment: %6zu", id.segment);
       ImGui::Text("Branch:  %6zu", id.branch);
       ImGui::Text("In Regions");
-      for (const auto& region: state.segment_to_regions[id.segment]) {
-        ImGui::BulletText("%s", state.region_defs[region].name.c_str());
-        ImGui::SameLine();
-        ImGui::ColorButton("", to_imvec(state.render_regions[region].color));
+      {
+        with_indent indent{};
+        for (const auto& region: state.segment_to_regions[id.segment]) {
+          ImGui::ColorButton("", to_imvec(state.render_regions[region].color));
+          ImGui::SameLine();
+          ImGui::AlignTextToFramePadding();
+          ImGui::Text("%s", state.region_defs[region].name.c_str());
+        }
       }
     }
   }

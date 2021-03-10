@@ -7,10 +7,11 @@ cell_builder::cell_builder()
 cell_builder::cell_builder(const arb::morphology &t)
     : morph{t}, pwlin{morph}, labels{}, provider{morph, labels} {};
 
-std::vector<arb::msegment>
-cell_builder::make_segments(const arb::region &region) {
+std::vector<size_t> cell_builder::make_segments(const arb::region &region) {
   auto concrete = thingify(region, provider);
-  return pwlin.all_segments(concrete);
+  std::vector<size_t> result;
+  for (const auto& segment: pwlin.all_segments(concrete)) result.push_back(segment.id);
+  return result;
 }
 
 std::vector<glm::vec3> cell_builder::make_points(const arb::locset &locset) {

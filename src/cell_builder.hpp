@@ -22,7 +22,7 @@ struct cell_builder {
     cell_builder();
     cell_builder(const arb::morphology& t);
 
-    std::vector<arb::msegment> make_segments(const arb::region&);
+    std::vector<size_t> make_segments(const arb::region&);
     std::vector<glm::vec3> make_points(const arb::locset&);
 
     arb::cable_cell make_cell();
