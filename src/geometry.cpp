@@ -80,7 +80,7 @@ void render(unsigned program,
     for (const auto& v: render) {
         if (v.active) {
             set_uniform(program, "object_color", v.color);
-            glBindVertexArray(*(v.vao));
+            glBindVertexArray(v.vao);
             glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);
             glBindVertexArray(0);
         }
@@ -242,7 +242,7 @@ void geometry::render(const view_state& vs,
     auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
     glm::vec3 up     = {0.0f, 1.0f, 0.0f};
     glm::vec3 shift  = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
-    glm::mat4 view   = glm::lookAt(camera, (target - root)/rescale + shift, up);
+    glm::mat4 view   = glm::lookAt(camera, vs.target + shift, up);
     glm::mat4 proj   = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
 
     auto light = camera;
@@ -282,7 +282,7 @@ std::optional<object_id> geometry::get_id_at(const glm::vec2& pos,
     auto camera     = distance*glm::vec3{0.0f, 0.0f, 1.0f};
     glm::vec3 up    = {0.0f, 1.0f, 0.0f};
     glm::vec3 shift = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
-    glm::mat4 view  = glm::lookAt(camera, (target - root)/rescale + shift, up);
+    glm::mat4 view  = glm::lookAt(camera, vs.target + shift, up);
     glm::mat4 proj  = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
 
     glBindFramebuffer(GL_FRAMEBUFFER, pick.fbo);
@@ -315,26 +315,30 @@ std::optional<object_id> geometry::get_id_at(const glm::vec2& pos,
     return {};
 }
 
-renderable geometry::make_marker(const std::vector<glm::vec3>& points, glm::vec4 color) {
+void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) {
     std::vector<glm::vec3> off;
     for (const auto& marker: points) {
         off.emplace_back((marker.x - root.x)/rescale,
                          (marker.y - root.y)/rescale,
                          (marker.z - root.z)/rescale);
     }
-    auto vao = make_vao(marker_vbo, {0, 1, 2}, off);
-    return {3, off.size(), {new unsigned{vao}, [](auto p) { glDeleteVertexArrays(1, p); delete p; }}, true, color};
+    r.vao =  make_vao(marker_vbo, {0, 1, 2}, off);
+    r.count = 3;
+    r.instances = off.size();
+    r.active = true;
 }
 
-renderable geometry::make_region(const std::vector<arb::msegment>& segments, glm::vec4 color) {
+void geometry::make_region(const std::vector<arb::msegment>& segments, renderable& r) {
     std::vector<unsigned> idcs{};
     for (const auto& seg: segments) {
         const auto idx = id_to_index[seg.id];
         for (auto idy = 0; idy < n_indices; ++idy) idcs.push_back(indices[idy + n_indices*idx]);
     }
     assert(idcs.size() == n_indices*segments.size());
-    auto vao = make_vao(vbo, idcs, {{0.0f, 0.0f, 0.0f}});
-    return {idcs.size(), 1, {new unsigned{vao}, [](auto p) { glDeleteVertexArrays(1, p); delete p; }}, true, color};
+    r.vao = make_vao(vbo, idcs, {{0.0f, 0.0f, 0.0f}});
+    r.count = idcs.size();
+    r.instances = 1;
+    r.active = true;
 }
 
 void geometry::load_geometry(const arb::morphology& morph) {
@@ -355,7 +359,6 @@ void geometry::load_geometry(const arb::morphology& morph) {
     log_info("Got {} segments", segments.size());
     auto tmp = segments[0].prox; // is always the root
     root = {(float) tmp.x, (float) tmp.y, (float) tmp.z};
-    target = root;
     size_t index = 0;
 
     for (const auto& [id, prox, dist, tag]: segments) {
@@ -452,7 +455,6 @@ void geometry::clear() {
     id_to_index.clear();
     id_to_branch.clear();
     rescale = -1;
-    target = {0.0f, 0.0f, 0.0f};
     clear_ctx(pick);
     clear_ctx(cell);
 }

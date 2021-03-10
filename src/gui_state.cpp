@@ -42,30 +42,6 @@ void gui_state::reload(const io::loaded_morphology& result) {
   for (const auto& [k, v]: result.locsets) add_locset(k, v);
 }
 
-void set_renderable(geometry &renderer, cell_builder &builder, renderable &render, ls_def &def) {
-  render.active = false;
-  if (def.state != def_state::good) return;
-  log_info("Making markers for locset {} '{}'", def.name, def.definition);
-  try {
-    auto points = builder.make_points(def.data.value());
-    render = renderer.make_marker(points, render.color);
-  } catch (arb::morphology_error &e) {
-    def.set_error(e.what());
-  }
-}
-
-void set_renderable(geometry &renderer, cell_builder &builder, renderable &render, rg_def &def) {
-  render.active = false;
-  if (!def.data || (def.state != def_state::good)) return;
-  log_info("Making frustrums for region {} '{}'", def.name, def.definition);
-  try {
-    auto points = builder.make_segments(def.data.value());
-    render = renderer.make_region(points, render.color);
-  } catch (arb::morphology_error &e) {
-    def.set_error(e.what());
-  }
-}
-
 void gui_state::update() {
   struct event_visitor {
     gui_state* state;
@@ -80,9 +56,15 @@ void gui_state::update() {
     }
     void operator()(const evt_upd_locdef<ls_def>& c) {
       auto& def = state->locset_defs[c.id];
-      auto& red = state->render_locsets[c.id];
-      def.update();
-      set_renderable(state->renderer, state->builder, red, def);
+      auto& rnd = state->render_locsets[c.id];
+      if (def.state != def_state::good) return;
+      log_info("Making markers for locset {} '{}'", def.name, def.definition);
+      try {
+        auto points = state->builder.make_points(def.data.value());
+        state->renderer.make_marker(points, rnd);
+      } catch (arb::morphology_error &e) {
+        def.set_error(e.what()); rnd.active = false;
+      }
     }
     void operator()(const evt_del_locdef<ls_def>& c) {
       auto id = c.id;
@@ -103,9 +85,18 @@ void gui_state::update() {
     }
     void operator()(const evt_upd_locdef<rg_def>& c) {
       auto& def = state->region_defs[c.id];
-      auto& red = state->render_regions[c.id];
+      auto& rnd = state->render_regions[c.id];
       def.update();
-      set_renderable(state->renderer, state->builder, red, def);
+      if (def.state == def_state::good) {
+        log_info("Making frustrums for region {} '{}'", def.name, def.definition);
+        try {
+          auto points = state->builder.make_segments(def.data.value());
+          for (const auto& point: points) state->segment_to_regions[point.id].insert(c.id);
+          state->renderer.make_region(points, rnd);
+        } catch (arb::morphology_error &e) {
+          def.set_error(e.what()); rnd.active = false;
+        }
+      }
     }
     void operator()(const evt_del_locdef<rg_def>& c) {
       auto id = c.id;
@@ -485,7 +476,6 @@ void gui_cell(gui_state &state) {
     ImGui::BeginChild("Cell Render");
     auto size = ImGui::GetWindowSize();
     auto window_position = ImGui::GetWindowPos();
-    static glm::vec2 r_click_position;
 
     state.renderer.render(state.view, to_glmvec(size), state.render_regions.items, state.render_locsets.items);
 
@@ -495,8 +485,10 @@ void gui_cell(gui_state &state) {
       state.view.offset -= delta_pos;
       state.view.zoom    = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
       state.view.phi     = std::fmod(state.view.phi + delta_phi + 2*PI, 2*PI);    // cyclic in [0, 2pi)
+
+      auto pos = glm::vec2{mouse_x, mouse_y - size.y} - to_glmvec(window_position);
+      state.object = state.renderer.get_id_at(pos, state.view, to_glmvec(size), state.render_regions.items);
     }
-    if (ImGui::IsItemClicked(1)) r_click_position = {mouse_x, mouse_y};
 
     if (ImGui::BeginPopupContextWindow()) {
       ImGui::Text("%s Camera", icon_camera);
@@ -504,7 +496,7 @@ void gui_cell(gui_state &state) {
         with_indent indent{};
         if (gui_menu_item("Reset", icon_refresh)) {
           state.view.offset = {0.0, 0.0};
-          state.renderer.target = {0.0f, 0.0f, 0.0f};
+          state.view.target = {0.0f, 0.0f, 0.0f};
         }
         if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {
           for (const auto &id: state.locsets) {
@@ -516,7 +508,7 @@ void gui_cell(gui_state &state) {
                 const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
                 if (ImGui::MenuItem(lbl.c_str())) {
                   state.view.offset = {0.0, 0.0};
-                  state.renderer.target = point;
+                  state.view.target = point;
                 }
               }
               ImGui::EndMenu();
@@ -525,20 +517,28 @@ void gui_cell(gui_state &state) {
           ImGui::EndMenu();
         }
       }
-      auto pos = r_click_position -  to_glmvec(window_position);
-      pos.y   -= size.y;
-      auto obj_id = state.renderer.get_id_at(pos, state.view, to_glmvec(size), state.render_regions.items);
-      if (obj_id) {
-        auto id = obj_id.value();
-        ImGui::Separator();
-        ImGui::Text("%s Selection", icon_branch);
-        with_indent indent{};
-        ImGui::Text("Segment: %6zu", id.segment);
-        ImGui::Text("Branch:  %6zu", id.branch);
-      }
       ImGui::EndPopup();
     }
     ImGui::EndChild();
+  }
+  ImGui::End();
+}
+
+void gui_cell_info(gui_state& state) {
+  if (ImGui::Begin("Info")) {
+    ImGui::Text("%s Selection", icon_branch);
+    if (state.object) {
+      auto id = state.object.value();
+      with_indent indent{};
+      ImGui::Text("Segment: %6zu", id.segment);
+      ImGui::Text("Branch:  %6zu", id.branch);
+      ImGui::Text("In Regions");
+      for (const auto& region: state.segment_to_regions[id.segment]) {
+        ImGui::BulletText("%s", state.region_defs[region].name.c_str());
+        ImGui::SameLine();
+        ImGui::ColorButton("", to_imvec(state.render_regions[region].color));
+      }
+    }
   }
   ImGui::End();
 }
@@ -838,6 +838,7 @@ void gui_state::gui() {
   gui_main(*this);
   gui_locations(*this);
   gui_cell(*this);
+  gui_cell_info(*this);
   gui_mechanisms(*this);
   gui_parameters(*this);
   gui_measurements(*this);

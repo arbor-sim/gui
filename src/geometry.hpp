@@ -30,7 +30,7 @@ glm::vec4 next_color();
 struct renderable {
   size_t    count     = 0;
   size_t    instances = 0;
-  std::shared_ptr<unsigned> vao = nullptr;
+  unsigned  vao       = 0;
   bool      active    = false;
   glm::vec4 color     = next_color();
 };
@@ -53,13 +53,11 @@ struct geometry {
   geometry();
 
   void render(const view_state& view, const glm::vec2& size, const std::vector<renderable>&, const std::vector<renderable>&);
-  renderable make_marker(const std::vector<glm::vec3>& points, glm::vec4 color);
-  renderable make_region(const std::vector<arb::msegment>& segments, glm::vec4 color);
+  void make_marker(const std::vector<glm::vec3>& points, renderable&);
+  void make_region(const std::vector<arb::msegment>& segments, renderable&);
   std::optional<object_id> get_id_at(const glm::vec2& pos, const view_state&, const glm::vec2& size, const std::vector<renderable>&);
   void clear();
   void load_geometry(const arb::morphology&);
-
-  glm::vec3 target = {0.0f, 0.0f, 0.0f};
 
   std::vector<point>    vertices = {};
   std::vector<unsigned> indices  = {};

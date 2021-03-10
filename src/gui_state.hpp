@@ -5,6 +5,8 @@
 #include <array>
 #include <filesystem>
 #include <variant>
+#include <unordered_set>
+#include <unordered_map>
 
 #include <arbor/cable_cell.hpp>
 #include <arbor/morph/place_pwlin.hpp>
@@ -52,11 +54,16 @@ struct gui_state {
 
     component_join<ion_parameter>   ion_par_defs;
 
+    std::unordered_map<size_t, std::unordered_set<id_type>> segment_to_regions;
+
+
     file_chooser_state file_chooser;
     view_state view;
 
     gui_state(const gui_state&) = delete;
     gui_state();
+
+    std::optional<object_id> object;
 
     event_queue events;
 
