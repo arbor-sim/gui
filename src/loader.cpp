@@ -36,17 +36,27 @@ loaded_morphology load_neuroml(const std::filesystem::path &fn) {
 }
 
 
-std::vector<std::string> get_suffixes() {
-    std::vector<std::string> result;
-    for (const auto& [k, v]: loaders) result.push_back(k);
+const std::vector<std::string>& get_suffixes() {
+    static std::vector<std::string> result;
+    if (result.size() != loaders.size()) {
+        result.clear();
+        for (const auto& [k, v]: loaders) result.push_back(k);
+    }
     return result;
 }
 
-std::optional<std::vector<std::string>> get_flavors(const std::string& suffix) {
+const std::vector<std::string>& get_flavors(const std::string& suffix) {
     if (!loaders.contains(suffix)) return {};
-    std::vector<std::string> result;
-    for (const auto& [k, v]: loaders[suffix]) result.push_back(k);
-    return {result};
+    static std::unordered_map<std::string, std::vector<std::string>> result;
+    if (result.size() != loaders.size()) {
+        result.clear();
+        for (const auto& [s, kvs]: loaders) {
+            for (const auto& [k, v]: kvs) {
+                result[s].push_back(k);
+            }
+        }
+    }
+    return result[suffix];
 }
 
 loader_state get_loader(const std::string &extension, const std::string &flavor) {

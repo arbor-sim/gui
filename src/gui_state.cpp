@@ -29,6 +29,7 @@ void gui_state::reset() {
   detectors.clear();
   ion_defaults.clear();
   mechanisms.clear();
+  segment_to_regions.clear();
 
   static std::vector<std::pair<std::string, int>> species{{"na", 1}, {"k", 1}, {"ca", 2}};
   for (const auto &[k, v]: species) add_ion(k, v);
@@ -36,7 +37,7 @@ void gui_state::reset() {
 
 void gui_state::reload(const io::loaded_morphology& result) {
   reset();
-  builder  = cell_builder{result.morph};
+  builder = cell_builder{result.morph};
   renderer.load_geometry(result.morph);
   for (const auto& [k, v]: result.regions) add_region(k, v);
   for (const auto& [k, v]: result.locsets) add_locset(k, v);
@@ -425,11 +426,10 @@ void gui_read_morphology(gui_state &state, bool &open_file) {
         }
         ImGui::EndCombo();
       }
-      if (flavors) {
-        auto fs = flavors.value();
-        if (fs.end() == std::find(fs.begin(), fs.end(), flavor)) flavor = fs.front();
+      if (!flavors.empty()) {
+        if (flavors.end() == std::find(flavors.begin(), flavors.end(), flavor)) flavor = flavors.front();
         ImGui::SameLine();
-        gui_choose("Flavor", flavor, fs);
+        gui_choose("Flavor", flavor, flavors);
       } else {
         flavor = "";
       }

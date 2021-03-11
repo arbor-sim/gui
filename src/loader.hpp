@@ -34,9 +34,9 @@ loaders{{".swc", {{"Arbor",   [](const std::filesystem::path& fn) { return load_
                   {"Neuron",  [](const std::filesystem::path& fn) { return load_neuron_swc(fn); }}}},
         {".nml", {{"Default", [](const std::filesystem::path &fn) { return load_neuroml(fn); }}}}};
 
-std::vector<std::string> get_suffixes();
+const std::vector<std::string>& get_suffixes();
 
-std::optional<std::vector<std::string>> get_flavors(const std::string& suffix);
+const std::vector<std::string>& get_flavors(const std::string& suffix);
 
 struct loader_state {
     std::string message;
