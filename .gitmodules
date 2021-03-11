@@ -26,3 +26,6 @@
 [submodule "3rd-party/stb"]
 	path = 3rd-party/stb
 	url = https://github.com/nothings/stb.git
+[submodule "3rd-party/tracy"]
+	path = 3rd-party/tracy
+	url = https://github.com/wolfpld/tracy.git
