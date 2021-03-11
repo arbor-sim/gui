@@ -8,8 +8,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 #set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*")
 
-set(CMAKE_INSTALL_PREFIX "/usr/local")
-
 set(resource_path "${CMAKE_INSTALL_PREFIX}/etc/arbor-gui")
 add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
 add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W="ON")
@@ -101,6 +99,11 @@ if (APPLE)
   add_custom_command(TARGET arbor-gui POST_BUILD
     COMMAND sh ${CMAKE_SOURCE_DIR}/scripts/set-osx-icon.sh ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_CURRENT_BINARY_DIR}/arbor-gui
     DEPENDS ${CMAKE_SOURCE_DIR}/scripts/set-osx-icon.sh ${CMAKE_SOURCE_DIR}/images/arbor.png)
+endif()
+if (CMAKE_SYSTEM MATCHES "Linux")
+  add_custom_command(TARGET arbor-gui POST_BUILD
+    COMMAND sh ${CMAKE_SOURCE_DIR}/scripts/set-linux-desktop-file.sh ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_SOURCE_DIR}/images/arbor.svg ${CMAKE_SOURCE_DIR}/scripts/arbor-gui.desktop
+    DEPENDS ${CMAKE_SOURCE_DIR}/scripts/set-linux-desktop-file.sh ${CMAKE_SOURCE_DIR}/images/arbor.svg ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_SOURCE_DIR}/scripts/arbor-gui.desktop)
 endif()
 
 install(TARGETS arbor-gui

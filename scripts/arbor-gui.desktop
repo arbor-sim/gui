@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Arbor GUI
+Comment=Design cable cells for Arbor
+Exec=arbor-gui
+Icon=arbor
+Terminal=false
+Type=Application
+Categories=Science;

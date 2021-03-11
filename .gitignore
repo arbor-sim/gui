@@ -1,3 +1,4 @@
 *.o
 /arbor-gui
 *.ini
+*.kdev4
