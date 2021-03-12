@@ -115,7 +115,7 @@ if (APPLE)
 endif()
 if (CMAKE_SYSTEM MATCHES "Linux")
   add_custom_command(TARGET arbor-gui POST_BUILD
-    COMMAND sh ${CMAKE_SOURCE_DIR}/scripts/set-linux-desktop-file.sh ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_SOURCE_DIR}/images/arbor.svg ${CMAKE_SOURCE_DIR}/scripts/arbor-gui.desktop
+    COMMAND sh ${CMAKE_SOURCE_DIR}/scripts/set-linux-desktop-file.sh ${resource_path} ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_SOURCE_DIR}/images/arbor.svg ${CMAKE_SOURCE_DIR}/scripts/arbor-gui.desktop
     DEPENDS ${CMAKE_SOURCE_DIR}/scripts/set-linux-desktop-file.sh ${CMAKE_SOURCE_DIR}/images/arbor.svg ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_SOURCE_DIR}/scripts/arbor-gui.desktop)
 endif()
 
