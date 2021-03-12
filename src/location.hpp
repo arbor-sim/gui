@@ -39,7 +39,7 @@ struct loc_def {
 
         try {
             data = {def}; state = def_state::good; message = "Ok.";
-        } catch (const arb::label_parse_error &e) {
+        } catch (const arb::arbor_exception &e) {
             set_error(e.what());
         }
     }

@@ -321,7 +321,9 @@ namespace {
               auto result = loader.load.value()(state.file_chooser.file);
               state.reload(result);
               open_file = false;
-            } catch (arborio::swc_error &e) {
+            } catch (const arborio::swc_error &e) {
+              loader_error = e.what();
+            } catch (const arbnml::neuroml_exception& e) {
               loader_error = e.what();
             }
           }
@@ -467,7 +469,9 @@ namespace {
         if (open) {
           with_item_width iw(-50.0f);
           auto indent = gui_tree_indent();
+          ImGui::PushTextWrapPos(ImGui::GetFontSize() * 50.0f);
           if (ImGui::InputTextMultiline("##locdef-definition", &item.definition)) events.push_back(evt_upd_locdef<Item>{id});
+          ImGui::PopTextWrapPos();
           ImGui::TreePop();
         }
       }
@@ -812,7 +816,7 @@ void gui_state::update() {
       try {
         auto points = state->builder.make_points(def.data.value());
         state->renderer.make_marker(points, rnd);
-      } catch (arb::morphology_error &e) {
+      } catch (const arb::arbor_exception &e) {
         def.set_error(e.what()); rnd.active = false;
       }
     }
@@ -846,7 +850,7 @@ void gui_state::update() {
           auto ids = state->builder.make_segments(def.data.value());
           for (const auto& id: ids) state->segment_to_regions[id].insert(c.id);
           state->renderer.make_region(ids, rnd);
-        } catch (arb::morphology_error &e) {
+        } catch (const arb::arbor_exception &e) {
           def.set_error(e.what()); rnd.active = false;
         }
       }
