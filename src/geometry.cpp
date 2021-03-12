@@ -5,10 +5,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "utils.hpp"
+
 auto randf() { return (float)rand()/(float)RAND_MAX; }
 
 template<typename T>
 unsigned make_buffer_object(const std::vector<T>& v, unsigned type) {
+    ZoneScopedN(__FUNCTION__);
     unsigned int VBO;
     glGenBuffers(1, &VBO);
     glBindBuffer(type, VBO);
@@ -69,6 +72,7 @@ void render(unsigned program,
             glm::mat4 model,  glm::mat4 view,  glm::mat4 proj,
             glm::vec3 camera, glm::vec3 light, glm::vec3 light_color,
             const std::vector<renderable>& render) {
+    ZoneScopedN(__FUNCTION__);
     gl_check_error("render init");
     glUseProgram(program);
     set_uniform(program, "model",       model);
@@ -112,6 +116,7 @@ auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
 auto make_vao(unsigned vbo,
               const std::vector<unsigned>& idx,
               const std::vector<glm::vec3> off) {
+    ZoneScopedN(__FUNCTION__);
     log_info("Setting up VAO");
     unsigned vao = 0;
     glGenVertexArrays(1, &vao);
@@ -130,12 +135,15 @@ auto make_vao(unsigned vbo,
     unsigned int ebo = make_buffer_object(idx, GL_ELEMENT_ARRAY_BUFFER);
 
     glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     log_info("Setting up VAO: complete");
     return vao;
 }
 
 
 auto make_program(const std::string& dn, unsigned& program) {
+    ZoneScopedN(__FUNCTION__);
     std::filesystem::path base = ARBORGUI_RESOURCES_BASE;
     log_info("Setting up shader program");
     auto vertex_shader   = make_shader(base / "glsl" / dn / "vertex.glsl",   GL_VERTEX_SHADER);
@@ -162,18 +170,22 @@ auto make_program(const std::string& dn, unsigned& program) {
 }
 
 geometry::geometry() {
+    ZoneScopedN(__FUNCTION__);
     make_program("region", region_program);
     make_program("branch", object_program);
     make_program("marker", marker_program);
     auto dx = 1.0f/40.0f;
     auto dy = dx/2.0f;
+    cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
     std::vector<point> tris{{{0.0f,      0.0f,      0.0f}, {0.0f, 0.0f, 0.0f}},
                             {{0.0f + dy, 0.0f + dx, 0.0f}, {0.0f, 0.0f, 0.0f}},
                             {{0.0f + dx, 0.0f + dy, 0.0f}, {0.0f, 0.0f, 0.0f}}};
-    marker_vbo = make_buffer_object(tris, GL_ARRAY_BUFFER); glBindBuffer(GL_ARRAY_BUFFER, 0);
+    marker_vbo = make_buffer_object(tris, GL_ARRAY_BUFFER);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void make_fbo(int width, int height, unsigned int& fbo, unsigned int& post_fbo, unsigned int& tex) {
+    ZoneScopedN(__FUNCTION__);
     glDeleteFramebuffers(1, &fbo);
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -210,33 +222,32 @@ void make_fbo(int width, int height, unsigned int& fbo, unsigned int& post_fbo, 
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) log_error("Intermediate framebuffer incomplete.");
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     glDeleteRenderbuffers(1, &rbo);
     glDeleteTextures(1, &ms_tex);
 }
 
 
-void make_fbo(int w, int h, render_ctx& ctx) {
+bool make_fbo(int w, int h, render_ctx& ctx) {
+    ZoneScopedN(__FUNCTION__);
     gl_check_error("make fbo init");
     glViewport(0, 0, w, h);
 
-    if ((w == ctx.width) && (h == ctx.height)) return;
+    if ((w == ctx.width) && (h == ctx.height)) return false;
     log_debug("Resizing {}x{}", w, h);
     ctx.width = w;
     ctx.height = h;
     ::make_fbo(w, h, ctx.fbo, ctx.post_fbo, ctx.tex);
+    return true;
 }
 
 void geometry::render(const view_state& vs,
                       const glm::vec2& size,
                       const std::vector<renderable>& regions,
                       const std::vector<renderable>& markers) {
+    ZoneScopedN(__FUNCTION__);
     make_fbo(size.x, size.y, cell);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, cell.fbo);
-    glClearColor(cell.clear_color.x, cell.clear_color.y, cell.clear_color.z, cell.clear_color.w);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
 
     float distance   = 2.5f;
     auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
@@ -245,97 +256,100 @@ void geometry::render(const view_state& vs,
     glm::mat4 view   = glm::lookAt(camera, vs.target + shift, up);
     glm::mat4 proj   = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
 
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::rotate(model, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
+    model = glm::rotate(model, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::rotate(model, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
+
     auto light = camera;
     auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
 
+    glBindFramebuffer(GL_FRAMEBUFFER, cell.fbo);
+    glClearColor(cell.clear_color.x, cell.clear_color.y, cell.clear_color.z, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     {
+        ZoneScopedN("render-regions");
         glFrontFace(GL_CW);
         glEnable(GL_CULL_FACE);
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::rotate(model, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
         ::render(region_program, model, view, proj, camera, light, light_color, regions);
         glDisable(GL_CULL_FACE);
     }
     {
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, -vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
-        model = glm::rotate(model, -vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, -vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
-        view = glm::rotate(view,   vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
-        view = glm::rotate(view, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-        view = glm::rotate(view, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
+        ZoneScopedN("render-markers");
+        glm::mat4 imodel = glm::mat4(1.0f);
+        imodel = glm::rotate(imodel, -vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
+        imodel = glm::rotate(imodel, -vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
+        imodel = glm::rotate(imodel, -vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
+        auto iview = view;
+        iview = glm::rotate(iview, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
+        iview = glm::rotate(iview, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
+        iview = glm::rotate(iview, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
         glDisable(GL_DEPTH_TEST);
-        ::render(marker_program, model, view, proj, camera, light, light_color, markers);
+        ::render(marker_program, imodel, iview, proj, camera, light, light_color, markers);
         glEnable(GL_DEPTH_TEST);
     }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     glBindFramebuffer(GL_READ_FRAMEBUFFER, cell.fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, cell.post_fbo);
     glBlitFramebuffer(0, 0, size.x, size.y, 0, 0, size.x, size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_DEPTH_TEST);
-}
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
-std::optional<object_id> geometry::get_id_at(const glm::vec2& pos,
-                                             const view_state& vs,
-                                             const glm::vec2& size,
-                                             const std::vector<renderable>& regions) {
-    make_fbo(size.x, size.y, pick);
-
-    float distance  = 2.5f;
-    auto camera     = distance*glm::vec3{0.0f, 0.0f, 1.0f};
-    glm::vec3 up    = {0.0f, 1.0f, 0.0f};
-    glm::vec3 shift = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
-    glm::mat4 view  = glm::lookAt(camera, vs.target + shift, up);
-    glm::mat4 proj  = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
-
+    // Render flat colours to side fbo for picking
     glBindFramebuffer(GL_FRAMEBUFFER, pick.fbo);
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClearColor(pick.clear_color.x, pick.clear_color.y, pick.clear_color.z, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_DEPTH_TEST);
     {
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, vs.phi, glm::vec3(0.0f, 1.0f, 0.0f));
+        ZoneScopedN("render-pick");
+        glFrontFace(GL_CW);
+        glEnable(GL_CULL_FACE);
         ::render(object_program, model, view, proj, camera, {}, {}, regions);
+        glDisable(GL_CULL_FACE);
     }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     glBindFramebuffer(GL_READ_FRAMEBUFFER, pick.fbo);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, pick.post_fbo);
     glBlitFramebuffer(0, 0, size.x, size.y, 0, 0, size.x, size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_DEPTH_TEST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}
 
-    glm::vec3 color_at;
+glm::vec3 pack_id(size_t id)      { return {((id/256/256)%256)/256.0f, ((id/256)%256)/256.0f, (id%256)/256.0f}; }
+size_t    unpack_id(glm::vec3 id) { return (id.x*256.0f*256.0f*256.0f) + (id.y*256.0f*256.0f) + (id.z*256.0f); }
+
+std::optional<object_id> geometry::get_id_at(const glm::vec2&  pos, const view_state& vs, const glm::vec2&  size) {
+    ZoneScopedN(__FUNCTION__);
+    glm::vec3 color_at{-1.0f, -1.0f, -1.0f};
     glBindFramebuffer(GL_FRAMEBUFFER, pick.post_fbo);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glReadPixels(pos.x, -pos.y, 1, 1, GL_RGB, GL_FLOAT, &color_at.x);
-    glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    if (color_at == glm::vec3{1.0f, 1.0f, 1.0f}) return {};
+    if (color_at == pick.clear_color) return {};
     if ((color_at.x < 0.0f) || (color_at.y < 0.0f) || (color_at.z < 0.0f)) return {};
-    size_t segment = color_at.x*256*256*256 + color_at.y*256*256 + color_at.z*256;
+    size_t segment = unpack_id(color_at);
     if (id_to_branch.contains(segment)) return {{segment, id_to_branch[segment]}};
+    auto c = pack_id(segment);
     return {};
 }
 
 void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) {
+    ZoneScopedN(__FUNCTION__);
     std::vector<glm::vec3> off;
     for (const auto& marker: points) {
         off.emplace_back((marker.x - root.x)/rescale,
                          (marker.y - root.y)/rescale,
                          (marker.z - root.z)/rescale);
     }
-    r.vao =  make_vao(marker_vbo, {0, 1, 2}, off);
+    r.vao = make_vao(marker_vbo, {0, 1, 2}, off);
     r.count = 3;
     r.instances = off.size();
     r.active = true;
 }
 
 void geometry::make_region(const std::vector<size_t>& segments, renderable& r) {
+    ZoneScopedN(__FUNCTION__);
     std::vector<unsigned> idcs{};
     for (const auto& seg: segments) {
         const auto idx = id_to_index[seg];
@@ -349,13 +363,16 @@ void geometry::make_region(const std::vector<size_t>& segments, renderable& r) {
 }
 
 void geometry::load_geometry(const arb::morphology& morph) {
+    ZoneScopedN(__FUNCTION__);
     clear();
-
     std::vector<arb::msegment> segments;
-    for (auto branch = 0ul; branch < morph.num_branches(); ++branch) {
-        for (const auto& segment: morph.branch_segments(branch)) {
-            segments.push_back(segment);
-            id_to_branch[segment.id] = branch;
+    {
+        ZoneScopedN("look up tables");
+        for (auto branch = 0ul; branch < morph.num_branches(); ++branch) {
+            for (const auto& segment: morph.branch_segments(branch)) {
+                segments.push_back(segment);
+                id_to_branch[segment.id] = branch;
+            }
         }
     }
     log_info("Making geometry");
@@ -367,48 +384,65 @@ void geometry::load_geometry(const arb::morphology& morph) {
     auto tmp = segments[0].prox; // is always the root
     root = {(float) tmp.x, (float) tmp.y, (float) tmp.z};
     size_t index = 0;
+    vertices.reserve(segments.size()*n_vertices);
+    indices.reserve(segments.size()*n_indices);
+    {
+        ZoneScopedN("Frustra");
+        for (const auto& [id, prox, dist, tag]: segments) {
+            // Shift to root and find vector along the segment
+            const auto c_prox = glm::vec3{(prox.x - root.x), (prox.y - root.y), (prox.z - root.z)};
+            const auto c_dist = glm::vec3{(dist.x - root.x), (dist.y - root.y), (dist.z - root.z)};
+            const auto c_diff = c_prox - c_dist;
+            const auto r_prox = (float) prox.radius;
+            const auto r_dist = (float) dist.radius;
 
-    for (const auto& [id, prox, dist, tag]: segments) {
-        // Shift to root and find vector along the segment
-        const auto c_prox = glm::vec3{(prox.x - root.x), (prox.y - root.y), (prox.z - root.z)};
-        const auto c_dist = glm::vec3{(dist.x - root.x), (dist.y - root.y), (dist.z - root.z)};
-        const auto c_diff = c_prox - c_dist;
-        const auto r_prox = (float) prox.radius;
-        const auto r_dist = (float) dist.radius;
+            // Make a normal to segment vector
+            auto normal = glm::vec3{0.0, 0.0, 0.0};
+            for (; normal == glm::vec3{0.0, 0.0, 0.0};) {
+                auto t = glm::vec3{randf(), randf(), randf()};
+                normal = glm::normalize(glm::cross(c_diff, t));
+            }
 
-        // Make a normal to segment vector
-        auto normal = glm::vec3{0.0, 0.0, 0.0};
-        for (; normal == glm::vec3{0.0, 0.0, 0.0};) {
-            auto t = glm::vec3{randf(), randf(), randf()};
-            normal = glm::normalize(glm::cross(c_diff, t));
-        }
+            // Generate cylinder from n_faces triangles
+            const auto rot = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, c_diff));
+            glm::vec3 obj = pack_id(id);
+            log_debug("Packed ID {} <-> {} {} {} <-> {}", id, obj.x, obj.y, obj.z, unpack_id(obj));
 
-        // Generate cylinder from n_faces triangles
-        const auto rot = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, c_diff));
-        glm::vec3 obj{((id/256/256)%256)/256.0f, ((id/256)%256)/256.0f, (id%256)/256.0f};
-        vertices.push_back({c_prox,  glm::normalize(c_dist), obj});
-        vertices.push_back({c_dist, -glm::normalize(c_dist), obj});
-        for (auto face = 0ul; face < n_faces; ++face) {
-            vertices.push_back({r_prox*normal + c_prox, normal, obj});
-            vertices.push_back({r_dist*normal + c_dist, normal, obj});
-            normal = rot*normal;
-        }
+            vertices.push_back({c_prox,  glm::normalize(c_dist), obj});
+            vertices.push_back({c_dist, -glm::normalize(c_dist), obj});
+            for (auto face = 0ul; face < n_faces; ++face) {
+                vertices.push_back({r_prox*normal + c_prox, normal, obj});
+                vertices.push_back({r_dist*normal + c_dist, normal, obj});
+                normal = rot*normal;
+            }
 
-        // Generate a quad from two triangles
-        // 00  10  proximal
-        //  *--*   rotation ->
-        //  | /|
-        //  |/ |
-        //  *--*   rotation ->
-        // 01  11  distal
-        auto base = index*n_vertices;
-        auto c0  = base;
-        auto c1  = base + 1;
-        for (auto face = 0ul; face < n_faces - 1; ++face) {
-            auto p00 = base + 2*face + 2;
-            auto p01 = base + 2*face + 3;
-            auto p10 = base + 2*face + 4;
-            auto p11 = base + 2*face + 5;
+            // Generate a quad from two triangles
+            // 00  10  proximal
+            //  *--*   rotation ->
+            //  | /|
+            //  |/ |
+            //  *--*   rotation ->
+            // 01  11  distal
+            auto base = index*n_vertices;
+            auto c0  = base;
+            auto c1  = base + 1;
+            for (auto face = 0ul; face < n_faces - 1; ++face) {
+                auto p00 = base + 2*face + 2;
+                auto p01 = base + 2*face + 3;
+                auto p10 = base + 2*face + 4;
+                auto p11 = base + 2*face + 5;
+                // Face
+                indices.push_back(p00); indices.push_back(p10); indices.push_back(p01);
+                indices.push_back(p01); indices.push_back(p10); indices.push_back(p11);
+                // Proximal cap
+                indices.push_back(c0);  indices.push_back(p10); indices.push_back(p00);
+                // Distal cap
+                indices.push_back(c1);  indices.push_back(p01); indices.push_back(p11);
+            }
+            auto p00 = base + 2*(n_faces - 1) + 2;
+            auto p01 = base + 2*(n_faces - 1) + 3;
+            auto p10 = base + 4;
+            auto p11 = base + 3;
             // Face
             indices.push_back(p00); indices.push_back(p10); indices.push_back(p01);
             indices.push_back(p01); indices.push_back(p10); indices.push_back(p11);
@@ -416,21 +450,10 @@ void geometry::load_geometry(const arb::morphology& morph) {
             indices.push_back(c0);  indices.push_back(p10); indices.push_back(p00);
             // Distal cap
             indices.push_back(c1);  indices.push_back(p01); indices.push_back(p11);
-        }
-        auto p00 = base + 2*(n_faces - 1) + 2;
-        auto p01 = base + 2*(n_faces - 1) + 3;
-        auto p10 = base + 4;
-        auto p11 = base + 3;
-        // Face
-        indices.push_back(p00); indices.push_back(p10); indices.push_back(p01);
-        indices.push_back(p01); indices.push_back(p10); indices.push_back(p11);
-        // Proximal cap
-        indices.push_back(c0);  indices.push_back(p10); indices.push_back(p00);
-        // Distal cap
-        indices.push_back(c1);  indices.push_back(p01); indices.push_back(p11);
 
-        // Next
-        id_to_index[id] = index++;
+            // Next
+            id_to_index[id] = index++;
+        }
     }
 
     assert(vertices.size() == segments.size()*n_vertices);
@@ -445,7 +468,8 @@ void geometry::load_geometry(const arb::morphology& morph) {
     }
     for(auto& tri: vertices) tri.position /= rescale;
     log_debug("Geometry re-scaled by 1/{}", rescale);
-    vbo = make_buffer_object(vertices, GL_ARRAY_BUFFER); glBindBuffer(GL_ARRAY_BUFFER, 0);
+    vbo = make_buffer_object(vertices, GL_ARRAY_BUFFER);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     log_info("Making geometry: completed");
 }
 
@@ -457,6 +481,7 @@ void clear_ctx(render_ctx& ctx) {
 }
 
 void geometry::clear() {
+    ZoneScopedN(__FUNCTION__);
     vertices.clear();
     indices.clear();
     id_to_index.clear();

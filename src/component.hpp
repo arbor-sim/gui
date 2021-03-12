@@ -25,7 +25,7 @@ template<typename C>
 struct component_unique {
     std::vector<C> items;
     std::unordered_map<id_type, size_t> parents;
-    std::unordered_map<size_t, id_type> idx_to_parent;
+    std::vector<id_type> idx_to_parent;
 
     auto clear() { items.clear(); parents.clear(); idx_to_parent.clear();}
 
@@ -33,7 +33,7 @@ struct component_unique {
         auto idx = items.size();
         items.push_back(c);
         parents[parent]    = idx;
-        idx_to_parent[idx] = parent;
+        idx_to_parent.push_back(parent);
 
         assert(parents.size() == idx_to_parent.size());
         assert(items.size()   == idx_to_parent.size());
@@ -52,7 +52,7 @@ struct component_unique {
         auto old = idx_to_parent[end];
         std::swap(items[idx], items[end]);
         items.pop_back();
-        idx_to_parent.erase(end);
+        idx_to_parent.pop_back();
         parents[old] = idx;
         parents.erase(id);
     }
@@ -62,8 +62,8 @@ template<typename C>
 struct component_many {
     std::vector<C> items;
     std::vector<id_type> ids;
-    std::unordered_map<size_t, id_type> idx_to_parent;
-    std::unordered_map<size_t, id_type> idx_to_id;
+    std::vector<id_type> idx_to_parent;
+    std::vector<id_type> idx_to_id;
     std::unordered_map<id_type, size_t> lookup;
     std::unordered_map<id_type, std::vector<id_type>> parents;
 
@@ -87,8 +87,8 @@ struct component_many {
 
         lookup[result] = idx;
         parents[parent].push_back(result);
-        idx_to_parent[idx] = parent;
-        idx_to_id[idx] = result;
+        idx_to_parent.push_back(parent);
+        idx_to_id.push_back(result);
         items.push_back(c);
         return result;
     }
@@ -117,8 +117,8 @@ struct component_many {
         lookup[idx_to_id[end]] = idx;
 
         // Shave off remainder
-        idx_to_id.erase(end);
-        idx_to_parent.erase(end);
+        idx_to_id.pop_back();
+        idx_to_parent.pop_back();
         lookup.erase(id);
     }
 
@@ -133,7 +133,7 @@ template<typename C>
 struct component_join {
     using key_type = std::pair<id_type, id_type>;
     std::vector<C> items;
-    std::unordered_map<size_t, key_type> idx_to_parent;
+    std::vector<key_type> idx_to_parent;
     std::unordered_map<key_type, size_t> parents;
 
     auto& operator[](const key_type& key) { return items[parents[key]]; }
@@ -142,7 +142,7 @@ struct component_join {
         auto idx = items.size();
         auto par = std::make_pair(a, b);
         parents[par] = idx;
-        idx_to_parent[idx] = par;
+        idx_to_parent.push_back(par);
         items.push_back(c);
     }
 
@@ -152,7 +152,7 @@ struct component_join {
         auto old = idx_to_parent[end];
         std::swap(items[idx], items[end]);
         items.pop_back();
-        idx_to_parent.erase(end);
+        idx_to_parent.pop_back();
         parents[old] = idx;
         parents.erase(id);
     }

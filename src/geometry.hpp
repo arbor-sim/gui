@@ -7,17 +7,16 @@
 #include <unordered_map>
 #include <string>
 #include <fstream>
+#include <memory>
 
 #include <arbor/morph/morphology.hpp>
-
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-#include <memory>
 
 #include "id.hpp"
 #include "view_state.hpp"
-#include <utils.hpp>
-#include <definition.hpp>
+#include "utils.hpp"
+#include "definition.hpp"
 
 struct point {
   glm::vec3 position = {0.0f, 0.0f, 0.0f};
@@ -46,16 +45,18 @@ struct render_ctx {
   unsigned tex          =  0;
   int width             = -1;
   int height            = -1;
-  glm::vec4 clear_color = {214.0f/255, 214.0f/255, 214.0f/255, 1.00f};
+  glm::vec3 clear_color = {1.0f, 1.0f, 1.0f};
 };
 
 struct geometry {
   geometry();
 
+  // std::pmr::monotoc
+
   void render(const view_state& view, const glm::vec2& size, const std::vector<renderable>&, const std::vector<renderable>&);
   void make_marker(const std::vector<glm::vec3>& points, renderable&);
   void make_region(const std::vector<size_t>& segments, renderable&);
-  std::optional<object_id> get_id_at(const glm::vec2& pos, const view_state&, const glm::vec2& size, const std::vector<renderable>&);
+  std::optional<object_id> get_id_at(const glm::vec2& pos, const view_state&, const glm::vec2& size);
   void clear();
   void load_geometry(const arb::morphology&);
 

@@ -1,5 +1,6 @@
-#include <gui_state.hpp>
-#include <window.hpp>
+#include "gui_state.hpp"
+#include "window.hpp"
+#include "utils.hpp"
 
 #include <chrono>
 #include <thread>
@@ -38,5 +39,6 @@ int main(int, char**) {
         ++loop;
         time += to_us(t2 - t0)*1e-6;
         // log_debug("Frame budget {} us; frame took {}; to sleep {} us; actually slept {} us; fps {}", to_us(frame_time), to_us(dt), to_us(frame_time - dt), to_us(t2 - t1), loop/time);
+        FrameMark;
     }
 }

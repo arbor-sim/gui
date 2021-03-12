@@ -12,6 +12,8 @@ struct evt_add_probe { id_type locset; };
 struct evt_del_probe { id_type id; };
 struct evt_add_detector { id_type locset; };
 struct evt_del_detector { id_type id; };
+struct evt_damage {};
+
 
 template <typename Item> struct evt_add_locdef { std::string name, definition; };
 template <typename Item> struct evt_upd_locdef { id_type id; };

@@ -38,18 +38,15 @@ loaded_morphology load_neuroml(const std::filesystem::path &fn) {
 
 const std::vector<std::string>& get_suffixes() {
     static std::vector<std::string> result;
-    if (result.size() != loaders.size()) {
-        result.clear();
+    if (result.empty()) {
         for (const auto& [k, v]: loaders) result.push_back(k);
     }
     return result;
 }
 
 const std::vector<std::string>& get_flavors(const std::string& suffix) {
-    if (!loaders.contains(suffix)) return {};
     static std::unordered_map<std::string, std::vector<std::string>> result;
-    if (result.size() != loaders.size()) {
-        result.clear();
+    if (result.empty()) {
         for (const auto& [s, kvs]: loaders) {
             for (const auto& [k, v]: kvs) {
                 result[s].push_back(k);

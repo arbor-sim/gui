@@ -6,6 +6,9 @@ project(the-arbor-gui
 
 set(CMAKE_CXX_STANDARD 20)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 #set(CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*")
 
 set(CMAKE_INSTALL_PREFIX "/usr/local")
@@ -47,6 +50,9 @@ elseif (CMAKE_SYSTEM MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "BSD")
   endif()
 endif()
 
+add_compile_definitions(TRACY_ENABLE PUBLIC TRACY_ENABLE=1)
+add_compile_definitions(TRACY_ONLY_LOCALHOST PUBLIC TRACY_ONLY_LOCALHOST=1)
+
 set(gui_srcs
   main.cpp
   src/definition.hpp
@@ -63,6 +69,8 @@ set(gui_srcs
   src/geometry.hpp src/geometry.cpp
   src/location.hpp)
 
+set(gui_srcs ${gui_srcs})
+
 set(im_srcs
   3rd-party/imgui/examples/libs/gl3w/GL/gl3w.c
   3rd-party/imgui/examples/imgui_impl_opengl3.cpp
@@ -72,13 +80,15 @@ set(im_srcs
   3rd-party/imgui/imgui_demo.cpp
   3rd-party/imgui/misc/cpp/imgui_stdlib.cpp)
 
-set_source_files_properties("${gui_srcs}"
-  PROPERTIES COMPILE_FLAGS "-Wall -Wextra -pedantic")
+set_source_files_properties("${gui_srcs}" PROPERTIES COMPILE_FLAGS "-Wall -Wextra -pedantic -flto")
 
-add_subdirectory("3rd-party/arbor")
-add_subdirectory("3rd-party/glfw")
+add_subdirectory(3rd-party/arbor)
+add_subdirectory(3rd-party/glfw)
+
+add_library(TracyClient STATIC 3rd-party/tracy/TracyClient.cpp)
 
 add_executable(arbor-gui ${gui_srcs} ${im_srcs})
+target_link_options(arbor-gui PUBLIC "-flto")
 target_include_directories(arbor-gui PRIVATE 3rd-party/fmt/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/icons)
 target_include_directories(arbor-gui PRIVATE 3rd-party/spdlog/include)
@@ -86,15 +96,15 @@ target_include_directories(arbor-gui PRIVATE 3rd-party/json/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui)
 target_include_directories(arbor-gui PRIVATE 3rd-party/glm)
 target_include_directories(arbor-gui PRIVATE 3rd-party/stb)
+target_include_directories(arbor-gui PRIVATE 3rd-party/tracy)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
 target_include_directories(arbor-gui PRIVATE src)
 target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS})
 target_link_libraries(arbor-gui PRIVATE arbor arborio arbornml)
 target_link_libraries(arbor-gui PRIVATE glfw)
-
-target_compile_options(arbor-gui PRIVATE "-I/usr/local/opt/llvm/include -I/usr/local/opt/llvm/include/c++/v1/ -stdlib=libc++")
-target_link_options(arbor-gui PRIVATE "-L/usr/local/opt/llvm/lib -Wl,-rpath,/usr/local/opt/llvm/lib")
+target_link_libraries(arbor-gui PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(arbor-gui PUBLIC TracyClient)
 
 # Set icon on output
 if (APPLE)
@@ -103,16 +113,11 @@ if (APPLE)
     DEPENDS ${CMAKE_SOURCE_DIR}/scripts/set-osx-icon.sh ${CMAKE_SOURCE_DIR}/images/arbor.png)
 endif()
 
-install(TARGETS arbor-gui
-  RUNTIME DESTINATION bin)
+install(TARGETS arbor-gui RUNTIME DESTINATION bin)
 # Set icon _again_ since CMake strips installed binaries
 if (APPLE)
   install(CODE "execute_process(COMMAND sh ${CMAKE_SOURCE_DIR}/scripts/set-osx-icon.sh ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_INSTALL_PREFIX}/bin/arbor-gui)")
 endif()
-install(DIRECTORY glsl
-  DESTINATION ${resource_path})
-install(DIRECTORY fonts
-  DESTINATION ${resource_path})
-install(FILES default.ini
-  DESTINATION ${resource_path}
-  RENAME imgui.ini)
+install(DIRECTORY glsl    DESTINATION ${resource_path})
+install(DIRECTORY fonts   DESTINATION ${resource_path})
+install(FILES default.ini DESTINATION ${resource_path} RENAME imgui.ini)
