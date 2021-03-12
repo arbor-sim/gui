@@ -389,7 +389,7 @@ namespace {
                   const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
                   if (ImGui::MenuItem(lbl.c_str())) {
                     state.view.offset = {0.0, 0.0};
-                    state.view.target = point;
+                    state.view.target = point - state.renderer.root;
                   }
                 }
                 ImGui::EndMenu();

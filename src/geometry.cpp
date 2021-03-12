@@ -406,8 +406,6 @@ void geometry::load_geometry(const arb::morphology& morph) {
             // Generate cylinder from n_faces triangles
             const auto rot = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, c_diff));
             glm::vec3 obj = pack_id(id);
-            log_debug("Packed ID {} <-> {} {} {} <-> {}", id, obj.x, obj.y, obj.z, unpack_id(obj));
-
             vertices.push_back({c_prox,  glm::normalize(c_dist), obj});
             vertices.push_back({c_dist, -glm::normalize(c_dist), obj});
             for (auto face = 0ul; face < n_faces; ++face) {
