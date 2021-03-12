@@ -214,12 +214,6 @@ namespace {
     // DockSpace
     ImGuiIO &io = ImGui::GetIO();
 
-    // Swap Space and Enter key bindings
-    // ImGuiKey_Space is used to "activate" menu items,
-    // ImGuiKey_Enter is more intuitive.
-    io.KeyMap[ImGuiKey_Space] = GLFW_KEY_ENTER;
-    io.KeyMap[ImGuiKey_Enter] = GLFW_KEY_SPACE;
-
     if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
       ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
       ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
@@ -460,18 +454,20 @@ namespace {
         auto& item   = items[id];
         auto open = gui_tree("");
         ImGui::SameLine();
-        if (ImGui::InputText("##locdef-name", &item.name)) events.push_back(evt_upd_locdef<Item>{id});
+        if (ImGui::InputText("##locdef-name", &item.name, ImGuiInputTextFlags_AutoSelectAll)) events.push_back(evt_upd_locdef<Item>{id});
         ImGui::SameLine();
         ImGui::ColorEdit3("##locdef-color", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
         ImGui::SameLine();
         gui_toggle(icon_show, icon_hide, render.active);
+        ImGui::SameLine();
+        gui_check_state(item);
+
         gui_right_margin();
         if (ImGui::Button(icon_delete)) events.push_back(evt_del_locdef<Item>{id});
         if (open) {
+          with_item_width iw(-50.0f);
           auto indent = gui_tree_indent();
-          if (ImGui::InputText("Definition", &item.definition)) events.push_back(evt_upd_locdef<Item>{id});
-          ImGui::SameLine();
-          gui_check_state(item);
+          if (ImGui::InputTextMultiline("##locdef-definition", &item.definition)) events.push_back(evt_upd_locdef<Item>{id});
           ImGui::TreePop();
         }
       }
@@ -535,7 +531,7 @@ namespace {
         auto& definition = state.ion_defs[ion];
         auto open = gui_tree("##ion-tree");
         ImGui::SameLine();
-        ImGui::InputText("##ion-name",  &definition.name);
+        ImGui::InputText("##ion-name",  &definition.name, ImGuiInputTextFlags_AutoSelectAll);
         gui_right_margin();
         if (ImGui::Button(icon_delete)) state.remove_ion(ion);
         if (open) {
