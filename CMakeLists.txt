@@ -50,9 +50,6 @@ elseif (CMAKE_SYSTEM MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "BSD")
   endif()
 endif()
 
-add_compile_definitions(TRACY_ENABLE PUBLIC TRACY_ENABLE=1)
-add_compile_definitions(TRACY_ONLY_LOCALHOST PUBLIC TRACY_ONLY_LOCALHOST=1)
-
 set(gui_srcs
   main.cpp
   src/definition.hpp
@@ -85,9 +82,17 @@ set_source_files_properties("${gui_srcs}" PROPERTIES COMPILE_FLAGS "-Wall -Wextr
 add_subdirectory(3rd-party/arbor)
 add_subdirectory(3rd-party/glfw)
 
-add_library(TracyClient STATIC 3rd-party/tracy/TracyClient.cpp)
-
 add_executable(arbor-gui ${gui_srcs} ${im_srcs})
+
+if(NOT CMAKE_BUILD_TYPE STREQUAL "release")
+  message("Adding profiling.")
+  add_library(TracyClient STATIC 3rd-party/tracy/TracyClient.cpp)
+  target_link_libraries(arbor-gui PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+  target_link_libraries(arbor-gui PUBLIC TracyClient)
+  add_compile_definitions(TRACY_ENABLE PUBLIC TRACY_ENABLE=1)
+  add_compile_definitions(TRACY_ONLY_LOCALHOST PUBLIC TRACY_ONLY_LOCALHOST=1)
+endif()
+
 target_link_options(arbor-gui PUBLIC "-flto")
 target_include_directories(arbor-gui PRIVATE 3rd-party/fmt/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/icons)
@@ -103,8 +108,6 @@ target_include_directories(arbor-gui PRIVATE src)
 target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS})
 target_link_libraries(arbor-gui PRIVATE arbor arborio arbornml)
 target_link_libraries(arbor-gui PRIVATE glfw)
-target_link_libraries(arbor-gui PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
-target_link_libraries(arbor-gui PUBLIC TracyClient)
 
 # Set icon on output
 if (APPLE)
