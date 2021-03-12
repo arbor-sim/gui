@@ -5,11 +5,18 @@
 - Define and highlight Arbor regions and locsets.
 - Paint ion dynamics and bio-physical properties onto morphologies.
 - Place spike detectors and probes.
+- Soon: export cable cells to Arbor's internal format for direct simulation.
+
+This project is under active development and welcomes early feedback. Currently,
+Arbor 0.5 is supported (and bundled with the).
 
 ** Interactive Definition of Regions and Locsets
 [[images/locations.png]]
 
 - Rendering of cable cell as seen by Arbor.
+- Define locations in Arbor's Locset/Region DSL.
+  - Live feedback by Arbor's parser.
+  - Well-formed expressions are rendered immediately.
 - Navigate with 
   - pan: arrow keys or C-drag,
   - zoom: +/- or mouse wheel,
