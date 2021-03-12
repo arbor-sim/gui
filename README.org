@@ -1,6 +1,10 @@
 * Introduction
 
-- Load morphologies from ~.swc~ and ~.nml~
+- Design morphologically detailled cells for simulation in Arbor.
+- Load morphologies from ~.swc~ and ~.nml~ (coming soon: NeuroLucida).
+- Define and highlight Arbor regions and locsets.
+- Paint ion dynamics and bio-physical properties onto morphologies.
+- Place spike detectors and probes.
 
 ** Interactive Definition of Regions and Locsets
 [[images/locations.png]]
@@ -13,16 +17,22 @@
 - Right-click to 
   - reset camera,
   - snap-to a defined locset,
-  - and turn selections into regions/locset.
+  - set the background colour,
+  - tweak morphology orientation.
 
 ** Definition of Ion Dynamics
 [[images/mechanisms.png]]
 
 - Load mechanisms from built-in catalogues.
-- Set parameters.
+- Define ion species.
+- Set parameters of mechanisms and ions.
+- Set global and cell level defaults.
 
 ** Manipulation of Cable Cell Parameters
 [[images/parameters.png]]
+
+- Set per-region parameters like temperature, resisitivities, and more.
+- Set global and cell level defaults.
 
 * Installation
 
