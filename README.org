@@ -8,7 +8,7 @@
 - Soon: export cable cells to Arbor's internal format for direct simulation.
 
 This project is under active development and welcomes early feedback. Currently,
-Arbor 0.5 is supported (and bundled with the).
+Arbor 0.5 is supported (and bundled with the project).
 
 ** Interactive Definition of Regions and Locsets
 [[images/locations.png]]
