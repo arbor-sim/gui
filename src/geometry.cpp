@@ -69,7 +69,7 @@ void set_uniform(unsigned program, const std::string& name, const glm::mat4& dat
 }
 
 void render(unsigned program,
-            glm::mat4 model,  glm::mat4 view,  glm::mat4 proj,
+            glm::mat4 model,  glm::mat4 view,
             glm::vec3 camera, glm::vec3 light, glm::vec3 light_color,
             const std::vector<renderable>& render) {
     ZoneScopedN(__FUNCTION__);
@@ -77,7 +77,6 @@ void render(unsigned program,
     glUseProgram(program);
     set_uniform(program, "model",       model);
     set_uniform(program, "view",        view);
-    set_uniform(program, "proj",        proj);
     set_uniform(program, "camera",      camera);
     set_uniform(program, "light",       light);
     set_uniform(program, "light_color", light_color);
@@ -255,6 +254,8 @@ void geometry::render(const view_state& vs,
     glm::vec3 shift  = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
     glm::mat4 view   = glm::lookAt(camera, vs.target + shift, up);
     glm::mat4 proj   = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
+    view = proj*view;
+
 
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::rotate(model, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
@@ -271,7 +272,7 @@ void geometry::render(const view_state& vs,
         ZoneScopedN("render-regions");
         glFrontFace(GL_CW);
         glEnable(GL_CULL_FACE);
-        ::render(region_program, model, view, proj, camera, light, light_color, regions);
+        ::render(region_program, model, view, camera, light, light_color, regions);
         glDisable(GL_CULL_FACE);
     }
     {
@@ -284,8 +285,9 @@ void geometry::render(const view_state& vs,
         iview = glm::rotate(iview, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
         iview = glm::rotate(iview, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
         iview = glm::rotate(iview, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
+        iview = iview;
         glDisable(GL_DEPTH_TEST);
-        ::render(marker_program, imodel, iview, proj, camera, light, light_color, markers);
+        ::render(marker_program, imodel, iview, camera, light, light_color, markers);
         glEnable(GL_DEPTH_TEST);
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -304,7 +306,7 @@ void geometry::render(const view_state& vs,
         ZoneScopedN("render-pick");
         glFrontFace(GL_CW);
         glEnable(GL_CULL_FACE);
-        ::render(object_program, model, view, proj, camera, {}, {}, regions);
+        ::render(object_program, model, view, camera, {}, {}, regions);
         glDisable(GL_CULL_FACE);
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
