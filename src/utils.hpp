@@ -70,3 +70,5 @@ inline std::string trim_copy(std::string s) {
     trim(s);
     return s;
 }
+
+glm::vec4 next_color();

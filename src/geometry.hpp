@@ -24,8 +24,6 @@ struct point {
   glm::vec3 id       = {0.0f, 0.0f, 0.0f};
 };
 
-glm::vec4 next_color();
-
 struct renderable {
   size_t    count     = 0;
   size_t    instances = 0;
@@ -43,6 +41,8 @@ struct render_ctx {
   unsigned fbo          =  0;
   unsigned post_fbo     =  0;
   unsigned tex          =  0;
+  unsigned rbo          =  0;
+  unsigned ms_tex       =  0;
   int width             = -1;
   int height            = -1;
   glm::vec3 clear_color = {1.0f, 1.0f, 1.0f};
@@ -50,8 +50,6 @@ struct render_ctx {
 
 struct geometry {
   geometry();
-
-  // std::pmr::monotoc
 
   void render(const view_state& view, const glm::vec2& size, const std::vector<renderable>&, const std::vector<renderable>&);
   void make_marker(const std::vector<glm::vec3>& points, renderable&);

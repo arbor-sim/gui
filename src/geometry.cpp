@@ -7,29 +7,21 @@
 
 #include "utils.hpp"
 
-auto randf() { return (float)rand()/(float)RAND_MAX; }
-
-glm::vec4 next_color() {
-  static size_t nxt = 0;
-  constexpr glm::vec4 colors[] = {{166.0f/255.0f,206.0f/255.0f,227.0f/255.0f, 1.0f},
-                                  { 31.0f/255.0f,120.0f/255.0f,180.0f/255.0f, 1.0f},
-                                  {178.0f/255.0f,223.0f/255.0f,138.0f/255.0f, 1.0f},
-                                  { 51.0f/255.0f,160.0f/255.0f, 44.0f/255.0f, 1.0f},
-                                  {251.0f/255.0f,154.0f/255.0f,153.0f/255.0f, 1.0f},
-                                  {227.0f/255.0f, 26.0f/255.0f, 28.0f/255.0f, 1.0f},
-                                  {253.0f/255.0f,191.0f/255.0f,111.0f/255.0f, 1.0f},
-                                  {255.0f/255.0f,127.0f/255.0f,  0.0f/255.0f, 1.0f},
-                                  {202.0f/255.0f,178.0f/255.0f,214.0f/255.0f, 1.0f},
-                                  {106.0f/255.0f, 61.0f/255.0f,154.0f/255.0f, 1.0f},
-                                  {255.0f/255.0f,255.0f/255.0f,153.0f/255.0f, 1.0f},
-                                  {177.0f/255.0f, 89.0f/255.0f, 40.0f/255.0f, 1.0f}};
-  constexpr size_t count = sizeof(colors)/sizeof(glm::vec4);
-  log_debug("Loaded {}/{} colours.", nxt, count);
-  nxt = (nxt + 1) % count;
-  return colors[nxt];
+#ifndef NDEBUG
+void gl_check_error(const std::string& where) {
+    auto rc = glGetError();
+    if (rc != GL_NO_ERROR) {
+        log_error("OpenGL error @ {}: {}", where, rc);
+    }
 }
+#else
+void gl_check_error(const std::string&) {}
+#endif
 
 namespace {
+
+auto randf() { return (float)rand()/(float)RAND_MAX; }
+
 template<typename T>
 unsigned make_buffer_object(const std::vector<T>& v, unsigned type) {
     ZoneScopedN(__FUNCTION__);
@@ -48,41 +40,28 @@ inline void finalise_msaa_fbo(render_ctx& ctx, const glm::vec2& size) {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
-}
-
-#ifndef NDEBUG
-void gl_check_error(const std::string& where) {
-    auto rc = glGetError();
-    if (rc != GL_NO_ERROR) {
-        log_error("OpenGL error @ {}: {}", where, rc);
-    }
-}
-#else
-void gl_check_error(const std::string&) {}
-#endif
-
-void set_uniform(unsigned program, const std::string& name, const glm::vec3& data) {
+inline void set_uniform(unsigned program, const std::string& name, const glm::vec3& data) {
     auto loc = glGetUniformLocation(program, name.c_str());
     glUniform3fv(loc, 1, glm::value_ptr(data));
     gl_check_error(fmt::format("setting uniform vec3: {}", name));
 }
 
-void set_uniform(unsigned program, const std::string& name, const glm::vec4& data) {
+inline void set_uniform(unsigned program, const std::string& name, const glm::vec4& data) {
     auto loc = glGetUniformLocation(program, name.c_str());
     glUniform4fv(loc, 1, glm::value_ptr(data));
     gl_check_error(fmt::format("setting uniform vec4: {}", name));
 }
 
-void set_uniform(unsigned program, const std::string& name, const glm::mat4& data) {
+inline void set_uniform(unsigned program, const std::string& name, const glm::mat4& data) {
     auto loc = glGetUniformLocation(program, name.c_str());
     glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(data));
     gl_check_error(fmt::format("setting uniform mat4: {}", name));
 }
 
-void render(unsigned program,
-            glm::mat4 model,  glm::mat4 view,
-            glm::vec3 camera, glm::vec3 light, glm::vec3 light_color,
-            const std::vector<renderable>& render) {
+inline void render(unsigned program,
+                   const glm::mat4& model,  const glm::mat4& view,
+                   const glm::vec3& camera, const glm::vec3& light, const glm::vec3& light_color,
+                   const std::vector<renderable>& render) {
     ZoneScopedN(__FUNCTION__);
     gl_check_error("render init");
     glUseProgram(program);
@@ -103,7 +82,7 @@ void render(unsigned program,
     gl_check_error("render end");
 }
 
-auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
+inline auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
     log_info("Loading shader {}", fn.c_str());
     auto src = slurp(fn);
     auto c_src = src.c_str();
@@ -123,9 +102,7 @@ auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
     return shader;
 }
 
-auto make_vao(unsigned vbo,
-              const std::vector<unsigned>& idx,
-              const std::vector<glm::vec3> off) {
+inline auto make_vao(unsigned vbo, const std::vector<unsigned>& idx, const std::vector<glm::vec3>& off) {
     ZoneScopedN(__FUNCTION__);
     log_info("Setting up VAO");
     unsigned vao = 0;
@@ -151,8 +128,7 @@ auto make_vao(unsigned vbo,
     return vao;
 }
 
-
-auto make_program(const std::string& dn, unsigned& program) {
+inline auto make_program(const std::string& dn, unsigned& program) {
     ZoneScopedN(__FUNCTION__);
     std::filesystem::path base = ARBORGUI_RESOURCES_BASE;
     log_info("Setting up shader program");
@@ -179,6 +155,56 @@ auto make_program(const std::string& dn, unsigned& program) {
     return program;
 }
 
+void make_fbo(int w, int h, render_ctx& ctx) {
+    ZoneScopedN(__FUNCTION__);
+    ZoneScopedN(__FUNCTION__);
+    gl_check_error("make fbo init");
+    glViewport(0, 0, w, h);
+
+    if ((w == ctx.width) && (h == ctx.height)) return;
+    ctx.width = w;
+    ctx.height = h;
+    log_debug("Resizing {}x{}", w, h);
+
+    glDeleteFramebuffers(1, &ctx.fbo);
+    glGenFramebuffers(1, &ctx.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, ctx.fbo);
+    // create multisampled color attachment texture
+    glGenTextures(1, &ctx.ms_tex);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, ctx.ms_tex);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, ctx.width, ctx.height, GL_TRUE);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, ctx.ms_tex, 0);
+    // create multisampled renderbuffer object for depth and stencil attachments
+    glGenRenderbuffers(1, &ctx.rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, ctx.rbo);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, ctx.width, ctx.height);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, ctx.rbo);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) log_error("Framebuffer incomplete.");
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // configure post-processing framebuffer
+    glDeleteFramebuffers(1, &ctx.post_fbo);
+    glGenFramebuffers(1, &ctx.post_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, ctx.post_fbo);
+    // create a color attachment texture
+    glDeleteTextures(1, &ctx.tex);
+    glGenTextures(1, &ctx.tex);
+    glBindTexture(GL_TEXTURE_2D, ctx.tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ctx.width, ctx.height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ctx.tex, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) log_error("Intermediate framebuffer incomplete.");
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+}
+
 geometry::geometry() {
     ZoneScopedN(__FUNCTION__);
     make_program("region", region_program);
@@ -194,70 +220,13 @@ geometry::geometry() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void make_fbo(int width, int height, unsigned int& fbo, unsigned int& post_fbo, unsigned int& tex) {
-    ZoneScopedN(__FUNCTION__);
-    glDeleteFramebuffers(1, &fbo);
-    glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    // create multisampled color attachment texture
-    unsigned int ms_tex;
-    glGenTextures(1, &ms_tex);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, ms_tex);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, width, height, GL_TRUE);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, ms_tex, 0);
-    // create multisampled renderbuffer object for depth and stencil attachments
-    unsigned int rbo;
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, width, height);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) log_error("Framebuffer incomplete.");
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // configure post-processing framebuffer
-    glDeleteFramebuffers(1, &post_fbo);
-    glGenFramebuffers(1, &post_fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, post_fbo);
-    // create a color attachment texture
-    glDeleteTextures(1, &tex);
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) log_error("Intermediate framebuffer incomplete.");
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    glDeleteRenderbuffers(1, &rbo);
-    glDeleteTextures(1, &ms_tex);
-}
-
-
-bool make_fbo(int w, int h, render_ctx& ctx) {
-    ZoneScopedN(__FUNCTION__);
-    gl_check_error("make fbo init");
-    glViewport(0, 0, w, h);
-
-    if ((w == ctx.width) && (h == ctx.height)) return false;
-    log_debug("Resizing {}x{}", w, h);
-    ctx.width = w;
-    ctx.height = h;
-    ::make_fbo(w, h, ctx.fbo, ctx.post_fbo, ctx.tex);
-    return true;
-}
-
 void geometry::render(const view_state& vs,
                       const glm::vec2& size,
                       const std::vector<renderable>& regions,
                       const std::vector<renderable>& markers) {
     ZoneScopedN(__FUNCTION__);
     make_fbo(size.x, size.y, cell);
+    make_fbo(size.x, size.y, pick);
 
     float distance   = 2.5f;
     auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
@@ -286,9 +255,9 @@ void geometry::render(const view_state& vs,
             glDisable(GL_CULL_FACE);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
         finalise_msaa_fbo(pick, size);
     }
+
     // Render main scene
     {
         auto light = camera;
@@ -327,7 +296,7 @@ void geometry::render(const view_state& vs,
 glm::vec3 pack_id(size_t id)      { return {((id/256/256)%256)/256.0f, ((id/256)%256)/256.0f, (id%256)/256.0f}; }
 size_t    unpack_id(glm::vec3 id) { return (id.x*256.0f*256.0f*256.0f) + (id.y*256.0f*256.0f) + (id.z*256.0f); }
 
-std::optional<object_id> geometry::get_id_at(const glm::vec2&  pos, const view_state& vs, const glm::vec2&  size) {
+std::optional<object_id> geometry::get_id_at(const glm::vec2& pos, const view_state& vs, const glm::vec2& size) {
     ZoneScopedN(__FUNCTION__);
     glm::vec3 color_at{-1.0f, -1.0f, -1.0f};
     glBindFramebuffer(GL_FRAMEBUFFER, pick.post_fbo);
