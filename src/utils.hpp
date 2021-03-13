@@ -20,6 +20,7 @@ template <typename... T> void log_error(T... t) { spdlog::error(t...); throw std
 template <typename... T> void log_fatal(T... t) { spdlog::error(t...); abort(); }
 
 ImVec4 to_imvec(const glm::vec4& v);
+ImVec4 to_imvec(const glm::vec3& v);
 
 glm::vec2 to_glmvec(const ImVec2& v);
 
@@ -71,4 +72,4 @@ inline std::string trim_copy(std::string s) {
     return s;
 }
 
-glm::vec4 next_color();
+glm::vec3 next_color();

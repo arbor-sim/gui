@@ -29,7 +29,7 @@ struct renderable {
   size_t    instances = 0;
   unsigned  vao       = 0;
   bool      active    = false;
-  glm::vec4 color     = next_color();
+  glm::vec3 color     = next_color();
 };
 
 struct object_id {

@@ -2,7 +2,8 @@
 
 void log_init() { spdlog::set_level(spdlog::level::debug); }
 
-ImVec4 to_imvec(const glm::vec4& v) { return ImVec4{v.x, v.y, v.z, v.w}; }
+ImVec4 to_imvec(const glm::vec4& v) { return {v.x, v.y, v.z, v.w}; }
+ImVec4 to_imvec(const glm::vec3& v) { return {v.x, v.y, v.z, 1.0f}; }
 
 glm::vec2 to_glmvec(const ImVec2& v) { return glm::vec2{v.x, v.y}; }
 
@@ -12,22 +13,26 @@ std::string slurp(const std::filesystem::path& fn) {
     return {std::istreambuf_iterator<char>(fd), {}};
 }
 
-glm::vec4 next_color() {
-  static size_t nxt = 0;
-  constexpr glm::vec4 colors[] = {{166.0f/255.0f,206.0f/255.0f,227.0f/255.0f, 1.0f},
-                                  { 31.0f/255.0f,120.0f/255.0f,180.0f/255.0f, 1.0f},
-                                  {178.0f/255.0f,223.0f/255.0f,138.0f/255.0f, 1.0f},
-                                  { 51.0f/255.0f,160.0f/255.0f, 44.0f/255.0f, 1.0f},
-                                  {251.0f/255.0f,154.0f/255.0f,153.0f/255.0f, 1.0f},
-                                  {227.0f/255.0f, 26.0f/255.0f, 28.0f/255.0f, 1.0f},
-                                  {253.0f/255.0f,191.0f/255.0f,111.0f/255.0f, 1.0f},
-                                  {255.0f/255.0f,127.0f/255.0f,  0.0f/255.0f, 1.0f},
-                                  {202.0f/255.0f,178.0f/255.0f,214.0f/255.0f, 1.0f},
-                                  {106.0f/255.0f, 61.0f/255.0f,154.0f/255.0f, 1.0f},
-                                  {255.0f/255.0f,255.0f/255.0f,153.0f/255.0f, 1.0f},
-                                  {177.0f/255.0f, 89.0f/255.0f, 40.0f/255.0f, 1.0f}};
-  constexpr size_t count = sizeof(colors)/sizeof(glm::vec4);
-  log_debug("Loaded {}/{} colours.", nxt, count);
-  nxt = (nxt + 1) % count;
-  return colors[nxt];
+glm::vec3 hsv2rgb(glm::vec3 in) {
+    if(in.s <= 0.0) return {in.z, in.z, in.z};
+    float hh = ((in.x >= 360.0f) ? 0.0f : in.x/60.0f) ;
+    float ff = hh - (long)hh;
+    float p  = in.x * (1.0 -  in.y);
+    float q  = in.x * (1.0 - (in.y * ff));
+    float t  = in.x * (1.0 - (in.y * (1.0 - ff)));
+    switch((long)hh) {
+      case 0:  return {in.z, t, p};
+      case 1:  return {q, in.z, p};
+      case 2:  return {p, in.z, t};
+      case 3:  return {p, q, in.z};
+      case 4:  return {t, p, in.z};
+      default: return {in.z, p, q};
+    }
+}
+
+glm::vec3 next_color() {
+  static glm::vec3 cur{};
+  cur.z += 0.618033988749895;
+  if (cur.z >= 1.0f) cur.z -= 1.0f;
+  return hsv2rgb(cur);
 }
