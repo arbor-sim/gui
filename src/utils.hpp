@@ -72,4 +72,4 @@ inline std::string trim_copy(std::string s) {
     return s;
 }
 
-glm::vec3 next_color();
+glm::vec4 next_color();

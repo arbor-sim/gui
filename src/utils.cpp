@@ -13,26 +13,49 @@ std::string slurp(const std::filesystem::path& fn) {
     return {std::istreambuf_iterator<char>(fd), {}};
 }
 
-glm::vec3 hsv2rgb(glm::vec3 in) {
-    if(in.s <= 0.0) return {in.z, in.z, in.z};
-    float hh = ((in.x >= 360.0f) ? 0.0f : in.x/60.0f) ;
-    float ff = hh - (long)hh;
-    float p  = in.x * (1.0 -  in.y);
-    float q  = in.x * (1.0 - (in.y * ff));
-    float t  = in.x * (1.0 - (in.y * (1.0 - ff)));
-    switch((long)hh) {
-      case 0:  return {in.z, t, p};
-      case 1:  return {q, in.z, p};
-      case 2:  return {p, in.z, t};
-      case 3:  return {p, q, in.z};
-      case 4:  return {t, p, in.z};
-      default: return {in.z, p, q};
-    }
+
+glm::vec4 hsv2rgb(const glm::vec4& hsv) {
+  glm::vec4 rgb{hsv.z, hsv.z, hsv.z, hsv.w};
+  if (hsv.y == 0.0f) return rgb;
+
+  float h = std::fmod(hsv.x, 1.0f) / (60.0f / 360.0f);
+  int   i = (int)h;
+  float f = h - (float)i;
+  float p = hsv.z * (1.0f - hsv.y);
+  float q = hsv.z * (1.0f - hsv.y * f);
+  float t = hsv.z * (1.0f - hsv.y * (1.0f - f));
+
+  switch (i) {
+    case 0: rgb.x = hsv.z; rgb.y = t; rgb.z = p; break;
+    case 1: rgb.x = q; rgb.y = hsv.z; rgb.z = p; break;
+    case 2: rgb.x = p; rgb.y = hsv.z; rgb.z = t; break;
+    case 3: rgb.x = p; rgb.y = q; rgb.z = hsv.z; break;
+    case 4: rgb.x = t; rgb.y = p; rgb.z = hsv.z; break;
+    case 5: default: rgb.x = hsv.z; rgb.y = p; rgb.z = q; break;
+  }
+  return rgb;
 }
 
-glm::vec3 next_color() {
-  static glm::vec3 cur{};
-  cur.z += 0.618033988749895;
-  if (cur.z >= 1.0f) cur.z -= 1.0f;
-  return hsv2rgb(cur);
+glm::vec4 next_color() {
+  static size_t idx = 0;
+  static glm::vec4 cur{0.27, 0.5f, 0.95f, 1.0f};
+  static std::vector<glm::vec4> colours{
+      glm::vec4{166,206,227, 255.0f}/256.0f,
+      glm::vec4{31, 120,180, 255.0f}/256.0f,
+      glm::vec4{178,223,138, 255.0f}/256.0f,
+      glm::vec4{ 51,160, 44, 255.0f}/256.0f,
+      glm::vec4{251,154,153, 255.0f}/256.0f,
+      glm::vec4{227, 26, 28, 255.0f}/256.0f,
+      glm::vec4{253,191,111, 255.0f}/256.0f,
+      glm::vec4{255,127,  0, 255.0f}/256.0f,
+      glm::vec4{202,178,214, 255.0f}/256.0f,
+      glm::vec4{106, 61,154, 255.0f}/256.0f};
+
+  if (idx < colours.size()) {
+    return colours[idx++];
+  } else {
+    cur.x += 0.618033988749895;
+    if (cur.x >= 1.0f) cur.x -= 1.0f;
+    return hsv2rgb(cur);
+  }
 }
