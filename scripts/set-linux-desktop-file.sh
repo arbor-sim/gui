@@ -1,7 +1,10 @@
 #!/bin/sh
-iconpng=$1
-iconsvg=$2
-desktop=$3
+respath=$1
+iconpng=$2
+iconsvg=$3
+desktop=$4
+mkdir -p $respath
+cp $iconpng $respath
 userid=$(id -u)
 if [ $userid -eq 0 ]
   then
