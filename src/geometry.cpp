@@ -9,16 +9,6 @@
 
 auto randf() { return (float)rand()/(float)RAND_MAX; }
 
-template<typename T>
-unsigned make_buffer_object(const std::vector<T>& v, unsigned type) {
-    ZoneScopedN(__FUNCTION__);
-    unsigned int VBO;
-    glGenBuffers(1, &VBO);
-    glBindBuffer(type, VBO);
-    glBufferData(type, v.size()*sizeof(T), v.data(), GL_STATIC_DRAW);
-    return VBO;
-}
-
 glm::vec4 next_color() {
   static size_t nxt = 0;
   constexpr glm::vec4 colors[] = {{166.0f/255.0f,206.0f/255.0f,227.0f/255.0f, 1.0f},
@@ -37,6 +27,27 @@ glm::vec4 next_color() {
   log_debug("Loaded {}/{} colours.", nxt, count);
   nxt = (nxt + 1) % count;
   return colors[nxt];
+}
+
+namespace {
+template<typename T>
+unsigned make_buffer_object(const std::vector<T>& v, unsigned type) {
+    ZoneScopedN(__FUNCTION__);
+    unsigned int VBO;
+    glGenBuffers(1, &VBO);
+    glBindBuffer(type, VBO);
+    glBufferData(type, v.size()*sizeof(T), v.data(), GL_STATIC_DRAW);
+    return VBO;
+}
+
+inline void finalise_msaa_fbo(render_ctx& ctx, const glm::vec2& size) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, ctx.fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ctx.post_fbo);
+    glBlitFramebuffer(0, 0, size.x, size.y, 0, 0, size.x, size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}
+
 }
 
 #ifndef NDEBUG
@@ -262,60 +273,55 @@ void geometry::render(const view_state& vs,
     model = glm::rotate(model, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
     model = glm::rotate(model, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
 
-    auto light = camera;
-    auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
-
-    glBindFramebuffer(GL_FRAMEBUFFER, cell.fbo);
-    glClearColor(cell.clear_color.x, cell.clear_color.y, cell.clear_color.z, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    {
-        ZoneScopedN("render-regions");
-        glFrontFace(GL_CW);
-        glEnable(GL_CULL_FACE);
-        ::render(region_program, model, view, camera, light, light_color, regions);
-        glDisable(GL_CULL_FACE);
-    }
-    {
-        ZoneScopedN("render-markers");
-        glm::mat4 imodel = glm::mat4(1.0f);
-        imodel = glm::rotate(imodel, -vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
-        imodel = glm::rotate(imodel, -vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-        imodel = glm::rotate(imodel, -vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
-        auto iview = view;
-        iview = glm::rotate(iview, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
-        iview = glm::rotate(iview, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-        iview = glm::rotate(iview, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
-        iview = iview;
-        glDisable(GL_DEPTH_TEST);
-        ::render(marker_program, imodel, iview, camera, light, light_color, markers);
-        glEnable(GL_DEPTH_TEST);
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, cell.fbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, cell.post_fbo);
-    glBlitFramebuffer(0, 0, size.x, size.y, 0, 0, size.x, size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
     // Render flat colours to side fbo for picking
-    glBindFramebuffer(GL_FRAMEBUFFER, pick.fbo);
-    glClearColor(pick.clear_color.x, pick.clear_color.y, pick.clear_color.z, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     {
-        ZoneScopedN("render-pick");
-        glFrontFace(GL_CW);
-        glEnable(GL_CULL_FACE);
-        ::render(object_program, model, view, camera, {}, {}, regions);
-        glDisable(GL_CULL_FACE);
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, pick.fbo);
+        glClearColor(pick.clear_color.x, pick.clear_color.y, pick.clear_color.z, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        {
+            ZoneScopedN("render-pick");
+            glFrontFace(GL_CW);
+            glEnable(GL_CULL_FACE);
+            ::render(object_program, model, view, camera, {}, {}, regions);
+            glDisable(GL_CULL_FACE);
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, pick.fbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, pick.post_fbo);
-    glBlitFramebuffer(0, 0, size.x, size.y, 0, 0, size.x, size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        finalise_msaa_fbo(pick, size);
+    }
+    // Render main scene
+    {
+        auto light = camera;
+        auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
+        glBindFramebuffer(GL_FRAMEBUFFER, cell.fbo);
+        glClearColor(cell.clear_color.x, cell.clear_color.y, cell.clear_color.z, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Render Frustra ...
+        {
+            ZoneScopedN("render-regions");
+            glFrontFace(GL_CW);
+            glEnable(GL_CULL_FACE);
+            ::render(region_program, model, view, camera, light, light_color, regions);
+            glDisable(GL_CULL_FACE);
+        }
+        // ... and markers
+        {
+            ZoneScopedN("render-markers");
+            glm::mat4 imodel = glm::mat4(1.0f);
+            imodel = glm::rotate(imodel, -vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
+            imodel = glm::rotate(imodel, -vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
+            imodel = glm::rotate(imodel, -vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
+            auto iview = view;
+            iview = glm::rotate(iview, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
+            iview = glm::rotate(iview, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
+            iview = glm::rotate(iview, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
+            glDisable(GL_DEPTH_TEST);
+            ::render(marker_program, imodel, iview, camera, light, light_color, markers);
+            glEnable(GL_DEPTH_TEST);
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        finalise_msaa_fbo(cell, size);
+    }
 }
 
 glm::vec3 pack_id(size_t id)      { return {((id/256/256)%256)/256.0f, ((id/256)%256)/256.0f, (id%256)/256.0f}; }
