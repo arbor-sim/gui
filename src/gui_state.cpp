@@ -354,6 +354,10 @@ namespace {
       auto size = ImGui::GetWindowSize();
       auto window_position = ImGui::GetWindowPos();
 
+      auto pos = glm::vec2{mouse_x, mouse_y - size.y} - to_glmvec(window_position);
+      pos.y = -pos.y; // Flip to UL -> LR coords
+      state.renderer.pick_pos = pos;
+
       state.renderer.render(state.view, to_glmvec(size), state.render_regions.items, state.render_locsets.items);
 
       ImGui::Image((ImTextureID) state.renderer.cell.tex, size, ImVec2(0, 1), ImVec2(1, 0));
@@ -363,9 +367,7 @@ namespace {
         state.view.offset -= delta_pos;
         state.view.zoom    = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
         state.view.phi     = std::fmod(state.view.phi + delta_phi + 2*PI, 2*PI);    // cyclic in [0, 2pi)
-
-        auto pos = glm::vec2{mouse_x, mouse_y - size.y} - to_glmvec(window_position);
-        state.object = state.renderer.get_id_at(pos, state.view, to_glmvec(size));
+        state.object       = state.renderer.get_id();
       }
 
       if (ImGui::BeginPopupContextWindow()) {

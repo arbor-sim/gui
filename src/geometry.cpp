@@ -19,6 +19,35 @@ void gl_check_error(const std::string&) {}
 #endif
 
 namespace {
+unsigned make_pixel_buffer() {
+    ZoneScopedN(__FUNCTION__);
+    unsigned pbo = 0;
+    glGenBuffers(1, &pbo);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glBufferData(GL_PIXEL_PACK_BUFFER, sizeof(glm::vec3), NULL, GL_STREAM_READ);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    return pbo;
+}
+
+// intiate transfer
+void fetch_pixel_buffer(unsigned pbo, const glm::vec2& pos) {
+    ZoneScopedN(__FUNCTION__);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glReadPixels(pos.x, pos.y, 1, 1, GL_RGB, GL_FLOAT, 0); // where, size, format, type, offset
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+}
+
+// finalise transfer and obtain value
+auto get_value_pixel_buffer(unsigned pbo) {
+    ZoneScopedN(__FUNCTION__);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glm::vec3 out = {-1, -1, -1};
+    float* ptr = (float*) glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+    std::memcpy(&out.x, ptr, sizeof(glm::vec3));
+    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    return out;
+}
 
 auto randf() { return (float)rand()/(float)RAND_MAX; }
 
@@ -157,7 +186,6 @@ inline auto make_program(const std::string& dn, unsigned& program) {
 
 void make_fbo(int w, int h, render_ctx& ctx) {
     ZoneScopedN(__FUNCTION__);
-    ZoneScopedN(__FUNCTION__);
     gl_check_error("make fbo init");
     glViewport(0, 0, w, h);
 
@@ -220,10 +248,8 @@ geometry::geometry() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void geometry::render(const view_state& vs,
-                      const glm::vec2& size,
-                      const std::vector<renderable>& regions,
-                      const std::vector<renderable>& markers) {
+void geometry::render(const view_state& vs, const glm::vec2& size,
+                      const std::vector<renderable>& regions, const std::vector<renderable>& markers) {
     ZoneScopedN(__FUNCTION__);
     make_fbo(size.x, size.y, cell);
     make_fbo(size.x, size.y, pick);
@@ -242,13 +268,16 @@ void geometry::render(const view_state& vs,
     model = glm::rotate(model, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
     model = glm::rotate(model, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
 
+    if (!pbo) pbo = make_pixel_buffer();
+
     // Render flat colours to side fbo for picking
     {
+        ZoneScopedN("render-pick");
         glBindFramebuffer(GL_FRAMEBUFFER, pick.fbo);
         glClearColor(pick.clear_color.x, pick.clear_color.y, pick.clear_color.z, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         {
-            ZoneScopedN("render-pick");
+            ZoneScopedN("render-pick-opengl");
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
             ::render(object_program, model, view, camera, {}, {}, regions);
@@ -256,10 +285,15 @@ void geometry::render(const view_state& vs,
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         finalise_msaa_fbo(pick, size);
+        // Initialise pixel read
+        glBindFramebuffer(GL_FRAMEBUFFER, pick.post_fbo);
+        fetch_pixel_buffer(pbo, pick_pos);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
     // Render main scene
     {
+        ZoneScopedN("render-cell");
         auto light = camera;
         auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
         glBindFramebuffer(GL_FRAMEBUFFER, cell.fbo);
@@ -267,7 +301,7 @@ void geometry::render(const view_state& vs,
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Render Frustra ...
         {
-            ZoneScopedN("render-regions");
+            ZoneScopedN("render-regions-opengl");
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
             ::render(region_program, model, view, camera, light, light_color, regions);
@@ -275,7 +309,7 @@ void geometry::render(const view_state& vs,
         }
         // ... and markers
         {
-            ZoneScopedN("render-markers");
+            ZoneScopedN("render-markers-opengl");
             glm::mat4 imodel = glm::mat4(1.0f);
             imodel = glm::rotate(imodel, -vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
             imodel = glm::rotate(imodel, -vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
@@ -296,13 +330,9 @@ void geometry::render(const view_state& vs,
 glm::vec3 pack_id(size_t id)      { return {((id/256/256)%256)/256.0f, ((id/256)%256)/256.0f, (id%256)/256.0f}; }
 size_t    unpack_id(glm::vec3 id) { return (id.x*256.0f*256.0f*256.0f) + (id.y*256.0f*256.0f) + (id.z*256.0f); }
 
-std::optional<object_id> geometry::get_id_at(const glm::vec2& pos, const view_state& vs, const glm::vec2& size) {
+std::optional<object_id> geometry::get_id() {
     ZoneScopedN(__FUNCTION__);
-    glm::vec3 color_at{-1.0f, -1.0f, -1.0f};
-    glBindFramebuffer(GL_FRAMEBUFFER, pick.post_fbo);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glReadPixels(pos.x, -pos.y, 1, 1, GL_RGB, GL_FLOAT, &color_at.x);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    auto color_at = get_value_pixel_buffer(pbo);
     if (color_at == pick.clear_color) return {};
     if ((color_at.x < 0.0f) || (color_at.y < 0.0f) || (color_at.z < 0.0f)) return {};
     size_t segment = unpack_id(color_at);

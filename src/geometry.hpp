@@ -48,13 +48,14 @@ struct render_ctx {
   glm::vec3 clear_color = {1.0f, 1.0f, 1.0f};
 };
 
+// TODO Split this into rendering and actual geometry. ATM these are coupled in `get_object_id` via the `id_to_*` tables.
 struct geometry {
   geometry();
 
   void render(const view_state& view, const glm::vec2& size, const std::vector<renderable>&, const std::vector<renderable>&);
   void make_marker(const std::vector<glm::vec3>& points, renderable&);
   void make_region(const std::vector<size_t>& segments, renderable&);
-  std::optional<object_id> get_id_at(const glm::vec2& pos, const view_state&, const glm::vec2& size);
+  std::optional<object_id> get_id();
   void clear();
   void load_geometry(const arb::morphology&);
 
@@ -63,9 +64,12 @@ struct geometry {
   std::unordered_map<size_t, size_t> id_to_index  = {}; // map segment id to cylinder index
   std::unordered_map<size_t, size_t> id_to_branch = {}; // map segment id to branch id
 
+  glm::vec2 pick_pos;
+
   render_ctx pick;
   render_ctx cell;
 
+  unsigned pbo            = 0;
   unsigned vbo            = 0;
   unsigned marker_vbo     = 0;
   unsigned region_program = 0;
@@ -74,9 +78,10 @@ struct geometry {
 
   // Geometry
   size_t n_faces     = 64;             // Faces on frustrum mantle
-  size_t n_vertices  = n_faces*2 + 2;  // Vertices on frustrum incl cap
-  size_t n_triangles = n_faces*4;      // Tris per frustrum: 4 per face for the mantle and cap
-  size_t n_indices   = n_triangles*3;  // Points per frustrum draw list
+  size_t n_vertices  = n_faces*2 + 2;  // Faces needs 4 vertices, but 2 are shared w/ the next. Caps need three per face,
+                                       // but center is shared for all, and two are shared with the faces
+  size_t n_triangles = n_faces*4;      // Each face is a quad made from 2 tris, caps have one tri per face
+  size_t n_indices   = n_triangles*3;  // Three indices (reference to vertex) per tri
 
   float rescale = -1;
   glm::vec3 root = {0.0f, 0.0f, 0.0f};
