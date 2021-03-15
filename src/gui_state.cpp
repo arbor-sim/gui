@@ -424,6 +424,7 @@ namespace {
         }
         ImGui::Separator();
         if (gui_menu_item("Snapshot", icon_paint)) state.store_snapshot();
+        ImGui::InputText("Output", &state.snapshot_path);
         ImGui::EndPopup();
       }
       ImGui::EndChild();
@@ -912,8 +913,7 @@ void gui_state::update() {
   }
 }
 
-void gui_state::store_snapshot() {
-  auto path = std::filesystem::current_path() / "snapshot.png";
+bool gui_state::store_snapshot() {
   auto w = renderer.cell.width;
   auto h = renderer.cell.height;
   auto c = 3;
@@ -922,5 +922,6 @@ void gui_state::store_snapshot() {
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  stbi_write_png(path.c_str(), w, h, c, pixels.data() + c*w*(h - 1), -c*w);
+  auto rc = stbi_write_png(snapshot_path.c_str(), w, h, c, pixels.data() + c*w*(h - 1), -c*w);
+  return !!rc;
 }

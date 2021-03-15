@@ -68,6 +68,8 @@ struct gui_state {
 
     event_queue events;
 
+    std::string snapshot_path = std::filesystem::current_path() / "snapshot.png";
+
     void reload(const io::loaded_morphology&);
 
     void serialize(const std::string& fn);
@@ -93,8 +95,7 @@ struct gui_state {
     void update_region(const id_type& def) { update_locdef<rg_def>(def); }
     void update_locset(const id_type& def) { update_locdef<ls_def>(def); }
 
-    void store_snapshot();
-
+    bool store_snapshot();
     void update();
     void reset();
     void gui();
