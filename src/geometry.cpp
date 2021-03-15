@@ -153,7 +153,7 @@ inline auto make_vao(unsigned vbo, const std::vector<unsigned>& idx, const std::
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    log_info("Setting up VAO: complete");
+    log_debug("Setting up VAO: complete");
     return vao;
 }
 
