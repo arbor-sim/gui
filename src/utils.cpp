@@ -1,5 +1,8 @@
 #include "utils.hpp"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+
 void log_init() { spdlog::set_level(spdlog::level::debug); }
 
 ImVec4 to_imvec(const glm::vec4& v) { return {v.x, v.y, v.z, v.w}; }

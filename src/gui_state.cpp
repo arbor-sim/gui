@@ -422,6 +422,8 @@ namespace {
           ImGui::SliderFloat("Theta", &state.view.theta, -PI, PI);
           ImGui::SliderFloat("Gamma", &state.view.gamma, -PI, PI);
         }
+        ImGui::Separator();
+        if (gui_menu_item("Snapshot", icon_paint)) state.store_snapshot();
         ImGui::EndPopup();
       }
       ImGui::EndChild();
@@ -908,4 +910,17 @@ void gui_state::update() {
     events.pop_back();
     std::visit(event_visitor{this}, evt);
   }
+}
+
+void gui_state::store_snapshot() {
+  auto path = std::filesystem::current_path() / "snapshot.png";
+  auto w = renderer.cell.width;
+  auto h = renderer.cell.height;
+  auto c = 3;
+  auto pixels = std::vector<unsigned char>(c*w*h);
+  glBindFramebuffer(GL_FRAMEBUFFER, renderer.cell.post_fbo);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  stbi_write_png(path.c_str(), w, h, c, pixels.data() + c*w*(h - 1), -c*w);
 }

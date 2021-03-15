@@ -93,6 +93,8 @@ struct gui_state {
     void update_region(const id_type& def) { update_locdef<rg_def>(def); }
     void update_locset(const id_type& def) { update_locdef<ls_def>(def); }
 
+    void store_snapshot();
+
     void update();
     void reset();
     void gui();

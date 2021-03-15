@@ -9,6 +9,7 @@
 #include "imgui.h"
 #include "spdlog/spdlog.h"
 #include "Tracy.hpp"
+#include <stb_image_write.h>
 
 // target time for a frame, locked to 60Hz
 using timer = std::chrono::high_resolution_clock;
