@@ -9,6 +9,7 @@
 #include "loader.hpp"
 
 extern float delta_phi;
+extern float delta_gamma;
 extern float delta_zoom;
 extern float mouse_x;
 extern float mouse_y;
@@ -144,7 +145,7 @@ namespace {
 
   inline void gui_menu_bar(gui_state &state) {
     ZoneScopedN(__FUNCTION__);
-    ImGui::BeginMenuBar();
+    ImGui::BeginMainMenuBar();
     static auto open_morph_read = false;
     static auto open_decor_read = false;
     static auto open_decor_save = false;
@@ -162,7 +163,7 @@ namespace {
       open_style = gui_menu_item("Style",   icon_paint);
       ImGui::EndMenu();
     }
-    ImGui::EndMenuBar();
+    ImGui::EndMainMenuBar();
     if (open_morph_read) gui_read_morphology(state, open_morph_read);
     if (open_decor_read) gui_read_decoration(state, open_decor_read);
     if (open_decor_save) gui_save_decoration(state, open_decor_save);
@@ -180,7 +181,7 @@ namespace {
     // not dockable into, because it would be confusing to have two docking
     // targets within each others.
     ImGuiWindowFlags window_flags =
-      ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+      ImGuiWindowFlags_NoDocking;
     if (opt_fullscreen) {
       ImGuiViewport *viewport = ImGui::GetMainViewport();
       ImGui::SetNextWindowPos(viewport->GetWorkPos());
@@ -363,6 +364,7 @@ namespace {
         state.view.offset -= delta_pos;
         state.view.zoom    = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
         state.view.phi     = std::fmod(state.view.phi + delta_phi + 2*PI, 2*PI);    // cyclic in [0, 2pi)
+        state.view.gamma     = std::fmod(state.view.gamma + delta_gamma + 2*PI, 2*PI);    // cyclic in [0, 2pi)
 
         auto pos = glm::vec2{mouse_x, mouse_y - size.y} - to_glmvec(window_position);
         state.object = state.renderer.get_id_at(pos, state.view, to_glmvec(size));

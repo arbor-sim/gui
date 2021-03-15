@@ -11,6 +11,7 @@ static void glfw_error_callback(int error, const char* description) {
 }
 
 float delta_phi     = 0.0f;
+float delta_gamma     = 0.0f;
 float delta_zoom    = 0.0f;
 glm::vec2 delta_pos = {0.0f, 0.0f};
 
@@ -23,6 +24,7 @@ static void scroll_callback(GLFWwindow*, double xoffset, double yoffset) {
 
 static void mouse_callback(GLFWwindow* window, double x, double y) {
     auto lb_down = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    auto mb_down = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS;
     auto alt_key = (glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS) ||
         (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS);
     auto ctrl_key = (glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) ||
@@ -33,12 +35,16 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
     auto dy = mouse_y - y; mouse_y = y;
 
     if (lb_down && ctrl_key) {
-        delta_pos.x = (std::abs(dx) > eps) ? -dx : 0.0f;
-        delta_pos.y = (std::abs(dy) > eps) ?  dy : 0.0f;
+        delta_pos.x = (std::abs(dx) > eps) ? -dx*2 : 0.0f;
+        delta_pos.y = (std::abs(dy) > eps) ?  dy*2 : 0.0f;
     }
 
     if (lb_down && !ctrl_key) {
         delta_phi = ((dx > eps) - (dx < eps))*0.1f;
+    }
+
+    if (mb_down && !ctrl_key) {
+        delta_gamma = ((dy > eps) - (dy < eps))*0.1f;
     }
 }
 
@@ -188,5 +194,6 @@ void Window::end_frame() {
     glfwSwapBuffers(handle);
     delta_pos = {0.0f, 0.0f};
     delta_phi = 0.0f;
+    delta_gamma = 0.0f;
     delta_zoom = 0.0f;
 }
