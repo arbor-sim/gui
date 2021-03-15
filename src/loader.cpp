@@ -35,6 +35,11 @@ loaded_morphology load_neuroml(const std::filesystem::path &fn) {
     return result;
 }
 
+loaded_morphology load_asc(const std::filesystem::path &fn) {
+    loaded_morphology result;
+    return result;
+}
+
 
 const std::vector<std::string>& get_suffixes() {
     static std::vector<std::string> result;

@@ -21,7 +21,7 @@ namespace {
   inline void gui_debug(bool &);
   inline void gui_style(bool &);
 
-  inline void gui_right_margin() { ImGui::SameLine(ImGui::GetWindowWidth() - 40.0f); }
+  inline void gui_right_margin(float delta=40.0f) { ImGui::SameLine(ImGui::GetWindowWidth() - delta); }
 
   inline bool gui_tree(const std::string& label) {
     ImGui::AlignTextToFramePadding();
@@ -152,12 +152,23 @@ namespace {
     static auto open_debug      = false;
     static auto open_style      = false;
     if (ImGui::BeginMenu("File")) {
-      open_morph_read = gui_menu_item("Load morphology", icon_load);
+      ImGui::Text("%s Morphology", icon_branch);
+      {
+        with_indent indent;
+        open_morph_read = gui_menu_item("Load", icon_load);
+      }
       ImGui::Separator();
-      open_decor_read = gui_menu_item("Load decoration", icon_load);
-      open_decor_save = gui_menu_item("Save decoration", icon_save);
+      ImGui::Text("%s Cable cell", icon_cell);
+      {
+        with_indent indent;
+        open_decor_read = gui_menu_item("Load", icon_load);
+        open_decor_save = gui_menu_item("Save", icon_save);
+      }
+      ImGui::Separator();
+      state.shutdown_requested = gui_menu_item("Quit", "");
       ImGui::EndMenu();
     }
+    gui_right_margin(60.0f);
     if (ImGui::BeginMenu("Help")) {
       open_debug = gui_menu_item("Metrics", icon_bug);
       open_style = gui_menu_item("Style",   icon_paint);
@@ -180,8 +191,7 @@ namespace {
     // We are using the ImGuiWindowFlags_NoDocking flag to make the parent window
     // not dockable into, because it would be confusing to have two docking
     // targets within each others.
-    ImGuiWindowFlags window_flags =
-      ImGuiWindowFlags_NoDocking;
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
     if (opt_fullscreen) {
       ImGuiViewport *viewport = ImGui::GetMainViewport();
       ImGui::SetNextWindowPos(viewport->GetWorkPos());
@@ -190,7 +200,7 @@ namespace {
       ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
       ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
       window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse             |  ImGuiWindowFlags_NoResize
-        |  ImGuiWindowFlags_NoMove     |  ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+                   |  ImGuiWindowFlags_NoMove     |  ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
     } else {
       dockspace_flags &= ~ImGuiDockNodeFlags_PassthruCentralNode;
     }
@@ -263,8 +273,7 @@ namespace {
       for (const auto &[dn, path]: dirnames) {
         auto lbl = fmt::format("{} {}", icon_folder, dn);
         ImGui::Selectable(lbl.c_str(), false);
-        if (ImGui::IsItemHovered() && (ImGui::IsMouseDoubleClicked(0) ||
-                                       ImGui::IsKeyPressed(GLFW_KEY_ENTER))) {
+        if (ImGui::IsItemHovered() && (ImGui::IsMouseDoubleClicked(0) || ImGui::IsKeyPressed(GLFW_KEY_ENTER))) {
           state.cwd = path;
           state.file.clear();
         }

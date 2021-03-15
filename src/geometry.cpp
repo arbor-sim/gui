@@ -112,7 +112,7 @@ inline void render(unsigned program,
 }
 
 inline auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
-    log_info("Loading shader {}", fn.c_str());
+    log_debug("Loading shader {}", fn.c_str());
     auto src = slurp(fn);
     auto c_src = src.c_str();
 
@@ -127,13 +127,13 @@ inline auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
         glGetShaderInfoLog(shader, sizeof(info), NULL, info);
         log_error("Shader {} failed to compile\n{}", fn.c_str(), info);
     }
-    log_info("Loading shader {}: complete", fn.c_str());
+    log_debug("Loading shader {}: complete", fn.c_str());
     return shader;
 }
 
 inline auto make_vao(unsigned vbo, const std::vector<unsigned>& idx, const std::vector<glm::vec3>& off) {
     ZoneScopedN(__FUNCTION__);
-    log_info("Setting up VAO");
+    log_debug("Setting up VAO");
     unsigned vao = 0;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -160,7 +160,7 @@ inline auto make_vao(unsigned vbo, const std::vector<unsigned>& idx, const std::
 inline auto make_program(const std::string& dn, unsigned& program) {
     ZoneScopedN(__FUNCTION__);
     std::filesystem::path base = ARBORGUI_RESOURCES_BASE;
-    log_info("Setting up shader program");
+    log_info("Setting up shader program {}", dn.c_str());
     auto vertex_shader   = make_shader(base / "glsl" / dn / "vertex.glsl",   GL_VERTEX_SHADER);
     auto fragment_shader = make_shader(base / "glsl" / dn / "fragment.glsl", GL_FRAGMENT_SHADER);
 
@@ -177,7 +177,7 @@ inline auto make_program(const std::string& dn, unsigned& program) {
         glGetProgramInfoLog(program, 512, NULL, info);
         log_error("Shader program failed to link\n{}", info);
     }
-    log_info("Setting up shader program: complete");
+    log_debug("Setting up shader program: complete");
 
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
@@ -190,9 +190,8 @@ void make_fbo(int w, int h, render_ctx& ctx) {
     glViewport(0, 0, w, h);
 
     if ((w == ctx.width) && (h == ctx.height)) return;
-    ctx.width = w;
-    ctx.height = h;
-    log_debug("Resizing {}x{}", w, h);
+    log_debug("Resizing {}x{} --> {}x{}", ctx.width, ctx.height, w, h);
+    ctx.width = w; ctx.height = h;
 
     glDeleteFramebuffers(1, &ctx.fbo);
     glGenFramebuffers(1, &ctx.fbo);
@@ -478,13 +477,6 @@ void geometry::load_geometry(const arb::morphology& morph) {
     log_info("Making geometry: completed");
 }
 
-void clear_ctx(render_ctx& ctx) {
-    glDeleteFramebuffers(1, &ctx.fbo);      ctx.fbo = 0;
-    glDeleteFramebuffers(1, &ctx.post_fbo); ctx.fbo = 0;
-    glDeleteTextures(1, &ctx.tex);          ctx.tex = 0;
-    ctx.width  = -1; ctx.height = -1;
-}
-
 void geometry::clear() {
     ZoneScopedN(__FUNCTION__);
     vertices.clear();
@@ -492,6 +484,4 @@ void geometry::clear() {
     id_to_index.clear();
     id_to_branch.clear();
     rescale = -1;
-    clear_ctx(pick);
-    clear_ctx(cell);
 }

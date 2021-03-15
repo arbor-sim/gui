@@ -10,6 +10,12 @@
 #include "spdlog/spdlog.h"
 #include "Tracy.hpp"
 
+// target time for a frame, locked to 60Hz
+using timer = std::chrono::high_resolution_clock;
+constexpr auto frame_time = std::chrono::seconds(1)/60.0;
+
+inline double to_us(auto dt) { return std::chrono::duration_cast<std::chrono::microseconds>(dt).count(); }
+
 // Logging
 void log_init();
 
