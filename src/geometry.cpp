@@ -335,7 +335,7 @@ std::optional<object_id> geometry::get_id() {
     if (color_at == pick.clear_color) return {};
     if ((color_at.x < 0.0f) || (color_at.y < 0.0f) || (color_at.z < 0.0f)) return {};
     size_t segment = unpack_id(color_at);
-    if (id_to_branch.contains(segment)) return {{segment, id_to_branch[segment]}};
+    if (id_to_branch.contains(segment)) return {{segment, id_to_branch[segment], segments[segment], branch_to_ids[id_to_branch[segment]]}};
     auto c = pack_id(segment);
     return {};
 }
@@ -371,13 +371,13 @@ void geometry::make_region(const std::vector<size_t>& segments, renderable& r) {
 void geometry::load_geometry(const arb::morphology& morph) {
     ZoneScopedN(__FUNCTION__);
     clear();
-    std::vector<arb::msegment> segments;
     {
         ZoneScopedN("look up tables");
         for (auto branch = 0ul; branch < morph.num_branches(); ++branch) {
             for (const auto& segment: morph.branch_segments(branch)) {
                 segments.push_back(segment);
                 id_to_branch[segment.id] = branch;
+                branch_to_ids[branch].push_back(segment.id);
             }
         }
     }
@@ -412,8 +412,8 @@ void geometry::load_geometry(const arb::morphology& morph) {
             // Generate cylinder from n_faces triangles
             const auto rot = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, c_diff));
             glm::vec3 obj = pack_id(id);
-            vertices.push_back({c_prox,  glm::normalize(c_dist), obj});
-            vertices.push_back({c_dist, -glm::normalize(c_dist), obj});
+            vertices.push_back({c_prox, -glm::normalize(c_dist), obj});
+            vertices.push_back({c_dist,  glm::normalize(c_dist), obj});
             for (auto face = 0ul; face < n_faces; ++face) {
                 vertices.push_back({r_prox*normal + c_prox, normal, obj});
                 vertices.push_back({r_dist*normal + c_dist, normal, obj});
@@ -483,5 +483,7 @@ void geometry::clear() {
     indices.clear();
     id_to_index.clear();
     id_to_branch.clear();
+    segments.clear();
+    branch_to_ids.clear();
     rescale = -1;
 }

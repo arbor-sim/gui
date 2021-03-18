@@ -13,6 +13,8 @@
 #include <arborio/neurolucida.hpp>
 #include <arborio/swcio.hpp>
 
+#include <cmath>
+
 #include <imgui.h>
 
 #include <misc/cpp/imgui_stdlib.h>
@@ -451,10 +453,25 @@ namespace {
     if (ImGui::Begin("Info")) {
       ImGui::Text("%s Selection", icon_branch);
       if (state.object) {
-        auto id = state.object.value();
-        ImGui::Text("Segment: %6zu", id.segment);
-        ImGui::Text("Branch:  %6zu", id.branch);
-        ImGui::Text("In Regions");
+        auto& id = state.object.value();
+        ImGui::BulletText("Segment: %6zu", id.segment);
+        {
+          with_indent indent;
+          ImGui::BulletText("Distal:   (%f, %f, %f)", id.data.dist.x, id.data.dist.y, id.data.dist.z);
+          ImGui::BulletText("Proximal: (%f, %f, %f)", id.data.prox.x, id.data.prox.y, id.data.prox.z);
+          auto dx = id.data.prox.x - id.data.dist.x;
+          auto dy = id.data.prox.y - id.data.dist.y;
+          auto dz = id.data.prox.z - id.data.dist.z;
+          ImGui::BulletText("Length:   %f", std::sqrt(dx*dx + dy*dy + dz*dz));
+        }
+        ImGui::BulletText("Branch:  %6zu", id.branch);
+        {
+          with_indent indent;
+          for (const auto& seg: id.segment_ids) {
+            ImGui::BulletText("%6zu", seg);
+          }
+        }
+        ImGui::BulletText("In Regions");
         {
           with_indent indent{};
           for (const auto& region: state.segment_to_regions[id.segment]) {

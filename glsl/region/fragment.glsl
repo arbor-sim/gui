@@ -18,8 +18,9 @@ void main() {
     // diffuse
     vec3 norm      = normalize(normal);
     vec3 light_dir = normalize(light - position);
-    float diff     = max(dot(norm, light_dir), 0.0f);
-    vec3 diffuse   = diff*light_color;
+
+    float d = max(dot(norm, light_dir), 0.0f);
+    vec3 diffuse  = d*light_color;
 
     // specular
     float specular_str = 0.05f;
