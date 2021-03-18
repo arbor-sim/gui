@@ -2,7 +2,6 @@
 
 #include <string>
 
-
 #include "utils.hpp"
 
 struct ion_def {

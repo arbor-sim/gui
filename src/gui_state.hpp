@@ -1,34 +1,20 @@
 #pragma once
 
 #include <string>
-#include <vector>
-#include <array>
 #include <filesystem>
-#include <variant>
 #include <unordered_set>
 #include <unordered_map>
 
 #include <arbor/cable_cell.hpp>
-#include <arbor/morph/place_pwlin.hpp>
-#include <arbor/morph/mprovider.hpp>
-#include <arbor/morph/primitives.hpp>
-#include <arbor/morph/morphexcept.hpp>
-#include <arbor/morph/label_parse.hpp>
-#include <arbor/morph/region.hpp>
-#include <arbor/morph/locset.hpp>
-#include <arbor/mechcat.hpp>
-#include <arbor/mechinfo.hpp>
 
-#include "view_state.hpp"
-#include "id.hpp"
-#include "component.hpp"
-#include "loader.hpp"
-#include "definition.hpp"
-#include "location.hpp"
-#include "geometry.hpp"
 #include "cell_builder.hpp"
-#include "file_chooser.hpp"
+#include "component.hpp"
+#include "definition.hpp"
 #include "events.hpp"
+#include "file_chooser.hpp"
+#include "geometry.hpp"
+#include "loader.hpp"
+#include "location.hpp"
 
 struct gui_state {
     arb::cable_cell_parameter_set   presets = arb::neuron_parameter_defaults;

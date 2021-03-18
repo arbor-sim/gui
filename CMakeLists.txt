@@ -15,6 +15,9 @@ set(resource_path "${CMAKE_INSTALL_PREFIX}/etc/arbor-gui")
 add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
 add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W="ON")
 
+# Generate a .json file with full compilation command for each file.
+set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
+
 # Tweak Arbor
 set(ARB_WITH_NEUROML     ON CACHE BOOL "enable neuroml"    FORCE)
 set(ARB_USE_BUNDLED_LIBS ON CACHE BOOL "use internal deps" FORCE)
@@ -104,7 +107,7 @@ target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples)
 target_include_directories(arbor-gui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
 target_include_directories(arbor-gui PRIVATE src)
 target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS})
-target_link_libraries(arbor-gui PRIVATE arbor arborio arbornml)
+target_link_libraries(arbor-gui PRIVATE arbor arborio)
 target_link_libraries(arbor-gui PRIVATE glfw)
 
 # Set icon on output

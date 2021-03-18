@@ -1,6 +1,20 @@
 #include "gui_state.hpp"
 
+#include <arbor/morph/place_pwlin.hpp>
+#include <arbor/morph/mprovider.hpp>
+#include <arbor/morph/primitives.hpp>
+#include <arbor/morph/morphexcept.hpp>
+#include <arbor/morph/label_parse.hpp>
+#include <arbor/morph/region.hpp>
+#include <arbor/morph/locset.hpp>
+#include <arbor/mechcat.hpp>
+#include <arbor/mechinfo.hpp>
+#include <arborio/arbornml.hpp>
+#include <arborio/neurolucida.hpp>
+#include <arborio/swcio.hpp>
+
 #include <imgui.h>
+
 #include <misc/cpp/imgui_stdlib.h>
 
 #include "utils.hpp"
@@ -333,7 +347,7 @@ namespace {
               open_file = false;
             } catch (const arborio::swc_error &e) {
               loader_error = e.what();
-            } catch (const arbnml::neuroml_exception& e) {
+            } catch (const arborio::neuroml_exception& e) {
               loader_error = e.what();
             }
           }

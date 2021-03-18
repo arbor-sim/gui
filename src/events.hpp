@@ -3,6 +3,8 @@
 #include <variant>
 
 #include "definition.hpp"
+#include "id.hpp"
+#include "location.hpp"
 
 struct evt_add_ion { std::string name; int charge; };
 struct evt_del_ion { id_type id; };
