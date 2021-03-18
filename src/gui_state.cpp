@@ -60,7 +60,7 @@ namespace {
     float px;
   };
 
-  with_indent gui_tree_indent() { ImGui::Unindent(); return {ImGui::GetTreeNodeToLabelSpacing()}; } // fix alignment under trees
+  with_indent gui_tree_indent() { return { 24.0f - ImGui::GetStyle().IndentSpacing }; } // fix alignment under trees
 
   struct with_style {
     template<typename V> with_style(ImGuiStyleVar var, V val) { ImGui::PushStyleVar(var, val); }
