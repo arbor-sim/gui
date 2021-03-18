@@ -62,7 +62,8 @@ make install
 
 * Acknowledgements
 
-This project uses various open source projects
+This project uses various open source projects, licensed under permissive open
+source licenses. See the respective projects for license and copyright details.
   - Arbor: https://github.com/arbor-sim/arbor
   - GLM for OpenGL maths: https://github.com/g-truc/glm
   - GLFW for setting up windows: https://github.com/glfw/glfw
@@ -74,3 +75,7 @@ This project uses various open source projects
   - spdlog logger https://github.com/gabime/spdlog
   - stb image loader https://github.com/nothings/stb
   - Tracy profiler https://github.com/wolfpld/tracy.git
+
+Test and example datasets include:
+  - A morphology model `dend-C060114A2_axon-C060114A5.asc` copyright of the BBP, licensed under
+    the [[https://creativecommons.org/licenses/by-nc-sa/4.0/][CC BY-NC-SA 4.0 license]].
