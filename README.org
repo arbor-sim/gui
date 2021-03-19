@@ -13,6 +13,9 @@ the screenshots below are updated less frequently than the actual project. We ai
 a formal release with Arbor 0.6 at which point the project will stabilise and receive
 regular updates alongside Arbor.
 
+We welcome bug reports and feature requests, please use the issue tracker here on GitHub
+for these purposes.
+
 ** Interactive Definition of Regions and Locsets
 [[images/locations.png]]
 
