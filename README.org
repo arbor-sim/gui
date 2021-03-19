@@ -66,6 +66,14 @@ cmake ..
 make install
 #+end_example
 
+** For MacOS Users
+Please use a recent version of Clang, as installed by brew for example.
+The project has been confirmed to build and run with Clang 11 on BigSur
+and Catalina using this line
+#+begin_example bash
+cmake .. -DCMAKE_CXX_COMPILER=/usr/local/opt/llvm/bin/clang++ -DCMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang -DCMAKE_BUILD_TYPE=release
+#+end_example
+
 * Acknowledgements
 
 This project uses various open source projects, licensed under permissive open
