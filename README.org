@@ -50,6 +50,7 @@ regular updates alongside Arbor.
 * Installation
 
 Please install a OpenGL package confirming to your choice and platform.
+You will also need a recent (as in C++20 supported) C++ compiler.
 
 Then, clone this repository like this
 #+begin_example bash
