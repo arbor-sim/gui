@@ -92,5 +92,5 @@ source licenses. See the respective projects for license and copyright details.
   - Tracy profiler https://github.com/wolfpld/tracy.git
 
 Test and example datasets include:
-  - A morphology model `dend-C060114A2_axon-C060114A5.asc` copyright of the BBP, licensed under
+  - A morphology model ~dend-C060114A2_axon-C060114A5.asc~ copyright of the BBP, licensed under
     the [[https://creativecommons.org/licenses/by-nc-sa/4.0/][CC BY-NC-SA 4.0 license]].
