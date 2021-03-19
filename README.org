@@ -1,14 +1,17 @@
 * Introduction
 
 - Design morphologically detailled cells for simulation in Arbor.
-- Load morphologies from ~.swc~ and ~.nml~ (coming soon: NeuroLucida).
+- Load morphologies from SWC ~.swc~, NeuroML ~.nml~, NeuroLucida ~.asc~.
 - Define and highlight Arbor regions and locsets.
 - Paint ion dynamics and bio-physical properties onto morphologies.
 - Place spike detectors and probes.
 - Soon: export cable cells to Arbor's internal format for direct simulation.
 
 This project is under active development and welcomes early feedback. Currently,
-Arbor 0.5 is supported (and bundled with the project).
+Arbor master as of March 2021 is supported and bundled with the project. Note that
+the screenshots below are updated less frequently than the actual project. We aim for
+a formal release with Arbor 0.6 at which point the project will stabilise and receive
+regular updates alongside Arbor.
 
 ** Interactive Definition of Regions and Locsets
 [[images/locations.png]]
@@ -40,6 +43,9 @@ Arbor 0.5 is supported (and bundled with the project).
 
 - Set per-region parameters like temperature, resisitivities, and more.
 - Set global and cell level defaults.
+
+* Notes
+- You can adjust the GUI layout by dragging and dropping windows and tabs.
 
 * Installation
 
