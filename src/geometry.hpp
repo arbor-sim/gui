@@ -36,7 +36,7 @@ struct object_id {
   size_t segment = 0;
   size_t branch  = 0;
   arb::msegment data;
-  std::vector<size_t> segment_ids;
+  std::vector<std::pair<size_t, size_t>> segment_ids;
 };
 
 struct render_ctx {
@@ -66,7 +66,7 @@ struct geometry {
   std::vector<unsigned> indices;
   std::unordered_map<size_t, size_t> id_to_index;   // map segment id to cylinder index
   std::unordered_map<size_t, size_t> id_to_branch;  // map segment id to branch id
-  std::unordered_map<size_t, std::vector<size_t>> branch_to_ids; // map branch to segment ids
+  std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> branch_to_ids; // map branch to segment ids
 
   glm::vec2 pick_pos;
 

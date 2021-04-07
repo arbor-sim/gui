@@ -374,10 +374,29 @@ void geometry::load_geometry(const arb::morphology& morph) {
     {
         ZoneScopedN("look up tables");
         for (auto branch = 0ul; branch < morph.num_branches(); ++branch) {
+            std::vector<size_t> tmp;
             for (const auto& segment: morph.branch_segments(branch)) {
                 segments.push_back(segment);
                 id_to_branch[segment.id] = branch;
-                branch_to_ids[branch].push_back(segment.id);
+                tmp.push_back(segment.id);
+            }
+            if (!tmp.empty()) { // this should be never empty
+                std::sort(tmp.begin(), tmp.end());
+                auto it = tmp.begin();
+                auto lo = *it;
+                auto hi = *it;
+                it++;
+                while (it != tmp.end()) {
+                    if (*it <= hi) log_error("Duplicate in branch -> id map");
+                    if (*it == hi + 1) {
+                        hi = *it++;
+                    } else {
+                        branch_to_ids[branch].emplace_back(lo, hi);
+                        it++;
+                        lo = hi = *it++;
+                    }
+                }
+                branch_to_ids[branch].emplace_back(lo, hi);
             }
         }
     }

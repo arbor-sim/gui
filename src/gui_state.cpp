@@ -1,22 +1,16 @@
 #include "gui_state.hpp"
 
-#include <arbor/morph/place_pwlin.hpp>
-#include <arbor/morph/mprovider.hpp>
+#include <cmath>
+
 #include <arbor/morph/primitives.hpp>
 #include <arbor/morph/morphexcept.hpp>
-#include <arbor/morph/label_parse.hpp>
-#include <arbor/morph/region.hpp>
-#include <arbor/morph/locset.hpp>
 #include <arbor/mechcat.hpp>
 #include <arbor/mechinfo.hpp>
 #include <arborio/arbornml.hpp>
 #include <arborio/neurolucida.hpp>
 #include <arborio/swcio.hpp>
 
-#include <cmath>
-
 #include <imgui.h>
-
 #include <misc/cpp/imgui_stdlib.h>
 
 #include "utils.hpp"
@@ -32,10 +26,10 @@ extern float mouse_y;
 extern glm::vec2 delta_pos;
 
 namespace {
-  inline void gui_read_morphology(gui_state &state, bool &open);
-  inline void gui_tooltip(const std::string &);
-  inline void gui_debug(bool &);
-  inline void gui_style(bool &);
+  inline void gui_read_morphology(gui_state& state, bool& open);
+  inline void gui_tooltip(const std::string&);
+  inline void gui_debug(bool&);
+  inline void gui_style(bool&);
 
   inline void gui_right_margin(float delta=40.0f) { ImGui::SameLine(ImGui::GetWindowWidth() - delta); }
 
@@ -88,15 +82,15 @@ namespace {
   template<typename Container>
   inline void gui_choose(const std::string& lbl, std::string& current, const Container& items) {
     if (ImGui::BeginCombo(lbl.c_str(), current.c_str())) {
-      for (const auto &item: items) gui_select(item, current);
+      for (const auto& item: items) gui_select(item, current);
       ImGui::EndCombo();
     }
   }
 
-  inline bool gui_input_double(const std::string& lbl, double& v, const std::string& unit="", const std::string& fmt="% 8.3f") {
+  inline bool gui_input_double(const std::string& lbl, double& v, const std::string& unit="", const std::string& fmt="%8g") {
     auto format = fmt;
     if (!unit.empty()) format += " " + unit;
-    return ImGui::InputDouble(lbl.c_str(), &v, 0.0, 0.0, format.c_str(), ImGuiInputTextFlags_CharsScientific);
+    return ImGui::InputDouble(lbl.c_str(),& v, 0.0, 0.0, format.c_str(), ImGuiInputTextFlags_CharsScientific);
   }
 
   inline void gui_defaulted_double(const std::string& label, const std::string& unit, std::optional<double>& value, const double fallback) {
@@ -125,7 +119,7 @@ namespace {
     throw std::runtime_error{""};
   }
 
-  inline void gui_tooltip(const std::string &message) {
+  inline void gui_tooltip(const std::string& message) {
     if (ImGui::IsItemHovered()) {
       ImGui::BeginTooltip();
       ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
@@ -136,7 +130,7 @@ namespace {
   }
 
   template<typename T>
-  inline void gui_check_state(const loc_def<T> &def) {
+  inline void gui_check_state(const loc_def<T>& def) {
     static std::unordered_map<def_state, const char*> tags{{def_state::empty, icon_question},
                                                            {def_state::error, icon_error},
                                                            {def_state::good,  icon_ok}};
@@ -145,21 +139,27 @@ namespace {
   }
 
 
-  inline bool gui_toggle(const char *on, const char *off, bool &flag) { if (ImGui::Button(flag ? on : off)) {flag = !flag; return true; } return false; }
+  inline bool gui_toggle(const char *on, const char *off, bool& flag) {
+    if (ImGui::Button(flag ? on : off)) {
+      flag = !flag;
+      return true;
+    }
+    return false;
+  }
 
   inline bool gui_menu_item(const char* text, const char* icon) { return ImGui::MenuItem(fmt::format("{} {}", icon, text).c_str()); }
 
-  inline void gui_save_decoration(gui_state &state, bool &open) {
+  inline void gui_save_decoration(gui_state& state, bool& open) {
     state.serialize("test");
     open = false;
   }
 
-  inline void gui_read_decoration(gui_state &state, bool &open) {
+  inline void gui_read_decoration(gui_state& state, bool& open) {
     state.deserialize("test");
     open = false;
   }
 
-  inline void gui_menu_bar(gui_state &state) {
+  inline void gui_menu_bar(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     ImGui::BeginMainMenuBar();
     static auto open_morph_read = false;
@@ -198,7 +198,7 @@ namespace {
     if (open_style)      gui_style(open_style);
   }
 
-  inline void gui_main(gui_state &state) {
+  inline void gui_main(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     static bool opt_fullscreen = true;
     static bool opt_padding = false;
@@ -224,7 +224,7 @@ namespace {
     // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will render
     // our background and handle the pass-thru hole, so we ask Begin() to not
     // render a background.
-    if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode) window_flags |= ImGuiWindowFlags_NoBackground;
+    if (dockspace_flags&  ImGuiDockNodeFlags_PassthruCentralNode) window_flags |= ImGuiWindowFlags_NoBackground;
 
     // Important: note that we proceed even if Begin() returns false (aka window
     // is collapsed). This is because we want to keep our DockSpace() active. If a
@@ -239,9 +239,9 @@ namespace {
     if (opt_fullscreen) ImGui::PopStyleVar(2);
 
     // DockSpace
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
 
-    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
+    if (io.ConfigFlags&  ImGuiConfigFlags_DockingEnable) {
       ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
       ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
     }
@@ -249,12 +249,12 @@ namespace {
     ImGui::End();
   }
 
-  inline void gui_dir_view(file_chooser_state &state) {
+  inline void gui_dir_view(file_chooser_state& state) {
     // Draw the current path + show hidden
     {
       auto acc = std::filesystem::path{};
       if (ImGui::Button(icon_open_dir)) state.cwd = "/";
-      for (const auto &part: state.cwd) {
+      for (const auto& part: state.cwd) {
         acc /= part;
         if ("/" == part) continue;
         ImGui::SameLine(0.0f, 0.0f);
@@ -273,9 +273,9 @@ namespace {
       std::vector<std::tuple<std::string, std::filesystem::path>> dirnames;
       std::vector<std::tuple<std::string, std::filesystem::path>> filenames;
 
-      for (const auto &it: std::filesystem::directory_iterator(state.cwd)) {
-        const auto &path = it.path();
-        const auto &ext = path.extension();
+      for (const auto& it: std::filesystem::directory_iterator(state.cwd)) {
+        const auto& path = it.path();
+        const auto& ext = path.extension();
         std::string fn = path.filename();
         if (fn.empty() || (!state.show_hidden && (fn.front() == '.'))) continue;
         if (it.is_directory()) dirnames.push_back({fn, path});
@@ -286,7 +286,7 @@ namespace {
       std::sort(filenames.begin(), filenames.end());
       std::sort(dirnames.begin(), dirnames.end());
 
-      for (const auto &[dn, path]: dirnames) {
+      for (const auto& [dn, path]: dirnames) {
         auto lbl = fmt::format("{} {}", icon_folder, dn);
         ImGui::Selectable(lbl.c_str(), false);
         if (ImGui::IsItemHovered() && (ImGui::IsMouseDoubleClicked(0) || ImGui::IsKeyPressed(GLFW_KEY_ENTER))) {
@@ -294,14 +294,14 @@ namespace {
           state.file.clear();
         }
       }
-      for (const auto &[fn, path]: filenames) {
+      for (const auto& [fn, path]: filenames) {
         if (ImGui::Selectable(fn.c_str(), path == state.file)) state.file = path;
       }
       ImGui::EndChild();
     }
   }
 
-  inline void gui_read_morphology(gui_state &state, bool &open_file) {
+  inline void gui_read_morphology(gui_state& state, bool& open_file) {
     ZoneScopedN(__FUNCTION__);
     with_id id{"reading morphology"};
     ImGui::OpenPopup("Open");
@@ -316,7 +316,7 @@ namespace {
         auto lbl = state.file_chooser.filter.value_or("all");
         if (ImGui::BeginCombo("Filter", lbl.c_str())) {
           if (ImGui::Selectable("all", "all" == lbl)) state.file_chooser.filter = {};
-          for (const auto &k: suffixes) {
+          for (const auto& k: suffixes) {
             if (ImGui::Selectable(k.c_str(), k == lbl)) state.file_chooser.filter = {k};
           }
           ImGui::EndCombo();
@@ -347,7 +347,7 @@ namespace {
               auto result = loader.load.value()(state.file_chooser.file);
               state.reload(result);
               open_file = false;
-            } catch (const arborio::swc_error &e) {
+            } catch (const arborio::swc_error& e) {
               loader_error = e.what();
             } catch (const arborio::neuroml_exception& e) {
               loader_error = e.what();
@@ -373,7 +373,7 @@ namespace {
     }
   }
 
-  inline void gui_cell(gui_state &state) {
+  inline void gui_cell(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin("Cell")) {
       ImGui::BeginChild("Cell Render");
@@ -407,14 +407,14 @@ namespace {
             state.view.target = {0.0f, 0.0f, 0.0f};
             state.renderer.cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
           }
-          ImGui::ColorEdit3("Background", &(state.renderer.cell.clear_color.x), ImGuiColorEditFlags_NoInputs);
+          ImGui::ColorEdit3("Background",& (state.renderer.cell.clear_color.x), ImGuiColorEditFlags_NoInputs);
           if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {
-            for (const auto &id: state.locsets) {
+            for (const auto& id: state.locsets) {
               const auto& ls = state.locset_defs[id];
               if (ls.state != def_state::good) continue;
               if (ImGui::BeginMenu(fmt::format("{} {}", icon_locset, ls.name).c_str())) {
                 auto points = state.builder.make_points(ls.data.value());
-                for (const auto &point: points) {
+                for (const auto& point: points) {
                   const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
                   if (ImGui::MenuItem(lbl.c_str())) {
                     state.view.offset = {0.0, 0.0};
@@ -435,12 +435,12 @@ namespace {
             state.view.theta = 0.0f;
             state.view.gamma = 0.0f;
           }
-          ImGui::SliderFloat("Theta", &state.view.theta, -PI, PI);
-          ImGui::SliderFloat("Gamma", &state.view.gamma, -PI, PI);
+          ImGui::SliderFloat("Theta",& state.view.theta, -PI, PI);
+          ImGui::SliderFloat("Gamma",& state.view.gamma, -PI, PI);
         }
         ImGui::Separator();
         if (gui_menu_item("Snapshot", icon_paint)) state.store_snapshot();
-        ImGui::InputText("Output", &state.snapshot_path);
+        ImGui::InputText("Output",& state.snapshot_path);
         ImGui::EndPopup();
       }
       ImGui::EndChild();
@@ -454,27 +454,37 @@ namespace {
       ImGui::Text("%s Selection", icon_branch);
       if (state.object) {
         auto& id = state.object.value();
-        ImGui::BulletText("Segment: %6zu", id.segment);
+        ImGui::BulletText("Segment %zu", id.segment);
         {
           with_indent indent;
-          ImGui::BulletText("Distal:   (%f, %f, %f)", id.data.dist.x, id.data.dist.y, id.data.dist.z);
-          ImGui::BulletText("Proximal: (%f, %f, %f)", id.data.prox.x, id.data.prox.y, id.data.prox.z);
+          ImGui::BulletText("Extent (%.1f, %.1f, %.1f) -- (%.1f, %.1f, %.1f)",
+                            id.data.prox.x, id.data.prox.y, id.data.prox.z,
+                            id.data.dist.x, id.data.dist.y, id.data.dist.z);
           auto dx = id.data.prox.x - id.data.dist.x;
           auto dy = id.data.prox.y - id.data.dist.y;
           auto dz = id.data.prox.z - id.data.dist.z;
-          ImGui::BulletText("Length:   %f", std::sqrt(dx*dx + dy*dy + dz*dz));
+          ImGui::BulletText("Length %g µm", std::sqrt(dx*dx + dy*dy + dz*dz));
         }
-        ImGui::BulletText("Branch:  %6zu", id.branch);
+        ImGui::BulletText("Branch %zu", id.branch);
         {
           with_indent indent;
-          for (const auto& seg: id.segment_ids) {
-            ImGui::BulletText("%6zu", seg);
+          ImGui::BulletText("Segments");
+          auto count = 0ul;
+          for (const auto& [lo, hi]: id.segment_ids) {
+            ImGui::SameLine();
+            if (lo == hi) {
+              ImGui::Text("%zu", lo);
+            } else {
+              ImGui::Text("%zu-%zu", lo, hi);
+            }
+            count += hi - lo + 1;
           }
+          ImGui::BulletText("Count %zu", count);
         }
-        ImGui::BulletText("In Regions");
+        ImGui::BulletText("Regions");
         {
-          with_indent indent{};
           for (const auto& region: state.segment_to_regions[id.segment]) {
+            ImGui::SameLine();
             ImGui::ColorButton("", to_imvec(state.render_regions[region].color));
             ImGui::SameLine();
             ImGui::AlignTextToFramePadding();
@@ -503,9 +513,9 @@ namespace {
         auto& item   = items[id];
         auto open = gui_tree("");
         ImGui::SameLine();
-        if (ImGui::InputText("##locdef-name", &item.name, ImGuiInputTextFlags_AutoSelectAll)) events.push_back(evt_upd_locdef<Item>{id});
+        if (ImGui::InputText("##locdef-name",& item.name, ImGuiInputTextFlags_AutoSelectAll)) events.push_back(evt_upd_locdef<Item>{id});
         ImGui::SameLine();
-        ImGui::ColorEdit3("##locdef-color", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+        ImGui::ColorEdit3("##locdef-color",& render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
         ImGui::SameLine();
         gui_toggle(icon_show, icon_hide, render.active);
         ImGui::SameLine();
@@ -517,7 +527,7 @@ namespace {
           with_item_width iw(-50.0f);
           auto indent = gui_tree_indent();
           ImGui::PushTextWrapPos(ImGui::GetFontSize() * 50.0f);
-          if (ImGui::InputTextMultiline("##locdef-definition", &item.definition)) events.push_back(evt_upd_locdef<Item>{id});
+          if (ImGui::InputTextMultiline("##locdef-definition",& item.definition)) events.push_back(evt_upd_locdef<Item>{id});
           ImGui::PopTextWrapPos();
           ImGui::TreePop();
         }
@@ -526,7 +536,7 @@ namespace {
     }
   }
 
-  inline void gui_locations(gui_state &state) {
+  inline void gui_locations(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin(fmt::format("{} Locations", icon_location).c_str())) {
       gui_locdefs(fmt::format("{} Regions", icon_region), state.regions, state.region_defs, state.render_regions, state.events);
@@ -576,19 +586,19 @@ namespace {
     with_id guard{"ion-defaults"};
     auto open = gui_tree_add(fmt::format("{} Default", icon_default), [&]() { state.add_ion(); });
     if (open) {
-      for (const auto &ion: state.ions) {
+      for (const auto& ion: state.ions) {
         with_id guard{ion.value};
         with_item_width item_width{120.0f};
         auto& definition = state.ion_defs[ion];
         auto open = gui_tree("##ion-tree");
         ImGui::SameLine();
-        ImGui::InputText("##ion-name",  &definition.name, ImGuiInputTextFlags_AutoSelectAll);
+        ImGui::InputText("##ion-name", & definition.name, ImGuiInputTextFlags_AutoSelectAll);
         gui_right_margin();
         if (ImGui::Button(icon_delete)) state.remove_ion(ion);
         if (open) {
           auto indent = gui_tree_indent();
           auto& defaults = state.ion_defaults[ion];
-          ImGui::InputInt("Charge", &definition.charge);
+          ImGui::InputInt("Charge",& definition.charge);
           gui_input_double("Int. Concentration", defaults.Xi, "mM");
           gui_input_double("Ext. Concentration", defaults.Xo, "mM");
           {
@@ -599,7 +609,7 @@ namespace {
             ImGui::SameLine();
             {
               with_item_width width{40.0f};
-              gui_input_double("Reversal Potential", defaults.Er, "mV", "%.0f");
+              gui_input_double("Reversal Potential", defaults.Er, "mV");
             }
           }
           ImGui::TreePop();
@@ -669,16 +679,16 @@ namespace {
     auto open = gui_tree("##mechanism-tree");
     ImGui::SameLine();
     if (ImGui::BeginCombo("##mechanism-choice", data.name.c_str())) {
-      for (const auto &[cat_name, cat]: catalogues) {
+      for (const auto& [cat_name, cat]: catalogues) {
         ImGui::Selectable(cat_name.c_str(), false);
         with_indent ind{};
-        for (const auto &name: cat.mechanism_names()) {
+        for (const auto& name: cat.mechanism_names()) {
           if (gui_select(name, data.name)) {
             auto info = cat[data.name];
             data.global_vars.clear();
-            for (const auto &[k, v]: info.globals) data.global_vars[k] = v.default_value;
+            for (const auto& [k, v]: info.globals) data.global_vars[k] = v.default_value;
             data.parameters.clear();
-            for (const auto &[k, v]: info.parameters) data.parameters[k] = v.default_value;
+            for (const auto& [k, v]: info.parameters) data.parameters[k] = v.default_value;
           }
         }
       }
@@ -690,19 +700,19 @@ namespace {
       if (!data.global_vars.empty()) {
         ImGui::BulletText("Global Values");
         with_indent ind{};
-        for (auto &[k, v]: data.global_vars) gui_input_double(k, v);
+        for (auto& [k, v]: data.global_vars) gui_input_double(k, v);
       }
       if (!data.parameters.empty()) {
         ImGui::BulletText("Parameters");
         with_indent ind{};
-        for (auto &[k, v]: data.parameters) gui_input_double(k, v);
+        for (auto& [k, v]: data.parameters) gui_input_double(k, v);
       }
       ImGui::TreePop();
     }
     return remove;
   }
 
-  inline void gui_mechanisms(gui_state &state) {
+  inline void gui_mechanisms(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin(fmt::format("{} Mechanisms", icon_gears).c_str())) {
       for (const auto& region: state.regions) {
@@ -786,11 +796,11 @@ namespace {
     ImGui::End();
   }
 
-  inline void gui_debug(bool &open) { ZoneScopedN(__FUNCTION__); ImGui::ShowMetricsWindow(&open); }
+  inline void gui_debug(bool& open) { ZoneScopedN(__FUNCTION__); ImGui::ShowMetricsWindow(&open); }
 
-  inline void gui_style(bool &open) {
+  inline void gui_style(bool& open) {
     ZoneScopedN(__FUNCTION__);
-    if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
+    if (ImGui::Begin("Style",& open)) ImGui::ShowStyleEditor();
     ImGui::End();
   }
 }
@@ -806,8 +816,8 @@ void gui_state::gui() {
   gui_measurements(*this);
 }
 
-void gui_state::serialize(const std::string &dn) {}
-void gui_state::deserialize(const std::string &dn) {}
+void gui_state::serialize(const std::string& dn) {}
+void gui_state::deserialize(const std::string& dn) {}
 gui_state::gui_state(): builder{} { reset(); }
 
 void gui_state::reset() {
@@ -827,7 +837,7 @@ void gui_state::reset() {
   segment_to_regions.clear();
 
   const static std::vector<std::pair<std::string, int>> species{{"na", 1}, {"k", 1}, {"ca", 2}};
-  for (const auto &[k, v]: species) add_ion(k, v);
+  for (const auto& [k, v]: species) add_ion(k, v);
 }
 
 void gui_state::reload(const io::loaded_morphology& result) {
@@ -863,7 +873,7 @@ void gui_state::update() {
       try {
         auto points = state->builder.make_points(def.data.value());
         state->renderer.make_marker(points, rnd);
-      } catch (const arb::arbor_exception &e) {
+      } catch (const arb::arbor_exception& e) {
         def.set_error(e.what()); rnd.active = false;
       }
     }
@@ -890,14 +900,20 @@ void gui_state::update() {
       ZoneScopedN(__FUNCTION__);
       auto& def = state->region_defs[c.id];
       auto& rnd = state->render_regions[c.id];
+      for(auto& [segment, regions]: state->segment_to_regions) {
+        regions.erase(c.id);
+      }
       def.update();
       if (def.state == def_state::good) {
         log_info("Making frustrums for region {} '{}'", def.name, def.definition);
         try {
           auto ids = state->builder.make_segments(def.data.value());
-          for (const auto& id: ids) state->segment_to_regions[id].insert(c.id);
+          for (const auto& id: ids) {
+            log_debug(" * {}", id);
+            state->segment_to_regions[id].insert(c.id);
+          }
           state->renderer.make_region(ids, rnd);
-        } catch (const arb::arbor_exception &e) {
+        } catch (const arb::arbor_exception& e) {
           def.set_error(e.what()); rnd.active = false;
         }
       }
@@ -917,6 +933,7 @@ void gui_state::update() {
     void operator()(const evt_add_ion& c) {
       ZoneScopedN(__FUNCTION__);
       auto id = state->ions.add();
+      log_debug("Adding ion {}", id.value);
       state->ion_defs.add(id, {c.name.empty() ? fmt::format("Ion {}", id.value) : c.name, c.charge});
       state->ion_defaults.add(id);
       for (const auto& region: state->regions) state->ion_par_defs.add(region, id);

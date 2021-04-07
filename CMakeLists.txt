@@ -19,8 +19,9 @@ add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W="ON")
 set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
 
 # Tweak Arbor
-set(ARB_WITH_NEUROML     ON CACHE BOOL "enable neuroml"    FORCE)
-set(ARB_USE_BUNDLED_LIBS ON CACHE BOOL "use internal deps" FORCE)
+set(ARB_WITH_NEUROML     ON  CACHE BOOL "enable neuroml"    FORCE)
+set(ARB_WITH_PYTHON      OFF CACHE BOOL "disable pyarb"     FORCE)
+set(ARB_USE_BUNDLED_LIBS ON  CACHE BOOL "use internal deps" FORCE)
 
 # Tweak GLFW
 set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
@@ -94,7 +95,6 @@ if(NOT CMAKE_BUILD_TYPE STREQUAL "release")
   add_compile_definitions(TRACY_ONLY_LOCALHOST PUBLIC TRACY_ONLY_LOCALHOST=1)
 endif()
 
-target_link_options(arbor-gui PUBLIC "-flto")
 target_include_directories(arbor-gui PRIVATE 3rd-party/fmt/include)
 target_include_directories(arbor-gui PRIVATE 3rd-party/icons)
 target_include_directories(arbor-gui PRIVATE 3rd-party/spdlog/include)
@@ -109,6 +109,58 @@ target_include_directories(arbor-gui PRIVATE src)
 target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS})
 target_link_libraries(arbor-gui PRIVATE arbor arborio)
 target_link_libraries(arbor-gui PRIVATE glfw)
+
+list(APPEND CMAKE_CONFIGURATION_TYPES asan)
+list(APPEND CMAKE_CONFIGURATION_TYPES msan)
+list(APPEND CMAKE_CONFIGURATION_TYPES ubsan)
+
+set(CMAKE_C_FLAGS_ASAN
+  "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer" CACHE STRING
+  "Flags used by the C compiler for Asan build type or configuration." FORCE)
+
+set(CMAKE_CXX_FLAGS_ASAN
+  "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer" CACHE STRING
+  "Flags used by the C++ compiler for Asan build type or configuration." FORCE)
+
+set(CMAKE_EXE_LINKER_FLAGS_ASAN
+  "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address" CACHE STRING
+  "Linker flags to be used to create executables for Asan build type." FORCE)
+
+set(CMAKE_SHARED_LINKER_FLAGS_ASAN
+  "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=address" CACHE STRING
+  "Linker lags to be used to create shared libraries for Asan build type." FORCE)
+
+set(CMAKE_C_FLAGS_MSAN
+  "${CMAKE_C_FLAGS_DEBUG} -fsanitize=memory -fno-omit-frame-pointer" CACHE STRING
+  "Flags used by the C compiler for Msan build type or configuration." FORCE)
+
+set(CMAKE_CXX_FLAGS_MSAN
+  "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=memory -fno-omit-frame-pointer" CACHE STRING
+  "Flags used by the C++ compiler for Msan build type or configuration." FORCE)
+
+set(CMAKE_EXE_LINKER_FLAGS_MSAN
+  "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=memory" CACHE STRING
+  "Linker flags to be used to create executables for Msan build type." FORCE)
+
+set(CMAKE_SHARED_LINKER_FLAGS_MSAN
+  "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=memory" CACHE STRING
+  "Linker lags to be used to create shared libraries for Msan build type." FORCE)
+
+set(CMAKE_C_FLAGS_UBSAN
+  "${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined -fno-omit-frame-pointer" CACHE STRING
+  "Flags used by the C compiler for Ubsan build type or configuration." FORCE)
+
+set(CMAKE_CXX_FLAGS_UBSAN
+  "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=undefined -fno-omit-frame-pointer" CACHE STRING
+  "Flags used by the C++ compiler for Ubsan build type or configuration." FORCE)
+
+set(CMAKE_EXE_LINKER_FLAGS_UBSAN
+  "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=undefined" CACHE STRING
+  "Linker flags to be used to create executables for Ubsan build type." FORCE)
+
+set(CMAKE_SHARED_LINKER_FLAGS_UBSAN
+  "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} -fsanitize=undefined" CACHE STRING
+  "Linker lags to be used to create shared libraries for Ubsan build type." FORCE)
 
 # Set icon on output
 if (APPLE)

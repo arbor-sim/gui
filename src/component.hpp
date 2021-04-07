@@ -1,16 +1,19 @@
 #pragma once
 
-#include <cassert>
-
 #include "id.hpp"
-
-constexpr size_t max_entities = 1024;
+#include "utils.hpp"
 
 struct entity {
     std::vector<id_type> ids;
 
-    id_type add() { id_type result{id++}; ids.push_back(result); return result; }
-    void del(const id_type& id) { std::erase_if(ids, [&] (const auto& it){ return id == it; });}
+    id_type add() {
+        id_type result{id++};
+        ids.push_back(result);
+        return result;
+    }
+    void del(const id_type& id) {
+        std::erase_if(ids, [&] (const auto& it){ return id == it; });
+    }
 
     size_t id = 0;
 
@@ -23,23 +26,18 @@ struct entity {
 
 template<typename C>
 struct component_unique {
-    std::vector<C> items;
-    std::unordered_map<id_type, size_t> parents;
-    std::vector<id_type> idx_to_parent;
+    std::vector<C> items;                           // List of items
+    std::unordered_map<id_type, size_t> parents;    // Given the parent ID, get back the ID
+    std::vector<id_type> idx_to_parent;             // Given the ID, get back the parent ID
 
     auto clear() { items.clear(); parents.clear(); idx_to_parent.clear();}
 
     void add(const id_type& parent, const C& c={}) {
         auto idx = items.size();
         items.push_back(c);
-        parents[parent]    = idx;
+        parents[parent] = idx;
         idx_to_parent.push_back(parent);
-
-        assert(parents.size() == idx_to_parent.size());
-        assert(items.size()   == idx_to_parent.size());
-        assert(parents.contains(parent));
-        assert(items.size() > parents[parent]);
-        assert(idx_to_parent[parents[parent]] == parent);
+        check();
     }
 
     C& operator[](const id_type& parent) {
@@ -50,11 +48,22 @@ struct component_unique {
         auto idx = parents[id];
         auto end = items.size() - 1;
         auto old = idx_to_parent[end];
+        log_debug("[CU] Deleting {}: {} -> {}", id.value, parents[id], idx_to_parent[parents[id]].value);
         std::swap(items[idx], items[end]);
+        std::swap(idx_to_parent[idx], idx_to_parent[end]);
         items.pop_back();
         idx_to_parent.pop_back();
         parents[old] = idx;
         parents.erase(id);
+        check();
+    }
+
+    void check() {
+        if(items.size() != parents.size()) log_error("Size mismatch parents {} ./. {}", items.size(), parents.size());
+        if(items.size() != idx_to_parent.size()) log_error("Size mismatch indices {} ./. {}", items.size(), idx_to_parent.size());
+        for (auto idx = 0; idx < items.size(); ++idx) {
+            if(parents[idx_to_parent[idx]] != idx) log_error("Round trip broken {}", idx);
+        }
     }
 };
 
@@ -151,6 +160,7 @@ struct component_join {
         auto end = items.size() - 1;
         auto old = idx_to_parent[end];
         std::swap(items[idx], items[end]);
+        std::swap(idx_to_parent[idx], idx_to_parent[end]);
         items.pop_back();
         idx_to_parent.pop_back();
         parents[old] = idx;
