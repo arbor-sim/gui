@@ -470,7 +470,7 @@ namespace {
           with_indent indent;
           ImGui::BulletText("Segments");
           auto count = 0ul;
-          for (const auto& [lo, hi]: id.segment_ids) {
+          for (const auto& [lo, hi]: *id.segment_ids) {
             ImGui::SameLine();
             if (lo == hi) {
               ImGui::Text("%zu", lo);

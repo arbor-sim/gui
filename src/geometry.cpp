@@ -94,11 +94,15 @@ inline void render(unsigned program,
     ZoneScopedN(__FUNCTION__);
     gl_check_error("render init");
     glUseProgram(program);
-    set_uniform(program, "model",       model);
-    set_uniform(program, "view",        view);
-    set_uniform(program, "camera",      camera);
-    set_uniform(program, "light",       light);
-    set_uniform(program, "light_color", light_color);
+    set_uniform(program, "model",      model);
+    set_uniform(program, "view",       view);
+    set_uniform(program, "camera",     camera);
+    set_uniform(program, "key",        light);
+    set_uniform(program, "key_color",  light_color);
+    set_uniform(program, "back",       glm::vec3(glm::rotate(glm::mat4(1.0f),      PI, glm::vec3{0.0f, 1.0f, 0.0f})*glm::vec4(light, 1.0f)));
+    set_uniform(program, "back_color", light_color*0.2f);
+    set_uniform(program, "fill",       glm::vec3(glm::rotate(glm::mat4(1.0f), 0.5f*PI, glm::vec3{0.0f, 1.0f, 0.0f})*glm::vec4(light, 1.0f)));
+    set_uniform(program, "fill_color", light_color*0.5f);
     for (const auto& v: render) {
         if (v.active) {
             set_uniform(program, "object_color", v.color);
@@ -293,7 +297,7 @@ void geometry::render(const view_state& vs, const glm::vec2& size,
     // Render main scene
     {
         ZoneScopedN("render-cell");
-        auto light = camera;
+        auto light = camera + glm::vec3{0.0f, 1.0f, 0.0f};
         auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
         glBindFramebuffer(GL_FRAMEBUFFER, cell.fbo);
         glClearColor(cell.clear_color.x, cell.clear_color.y, cell.clear_color.z, 1.0f);
@@ -331,13 +335,11 @@ size_t    unpack_id(glm::vec3 id) { return (id.x*256.0f*256.0f*256.0f) + (id.y*2
 
 std::optional<object_id> geometry::get_id() {
     ZoneScopedN(__FUNCTION__);
-    auto color_at = get_value_pixel_buffer(pbo);
-    if (color_at == pick.clear_color) return {};
-    if ((color_at.x < 0.0f) || (color_at.y < 0.0f) || (color_at.z < 0.0f)) return {};
-    size_t segment = unpack_id(color_at);
-    if (id_to_branch.contains(segment)) return {{segment, id_to_branch[segment], segments[segment], branch_to_ids[id_to_branch[segment]]}};
-    auto c = pack_id(segment);
-    return {};
+    auto color = get_value_pixel_buffer(pbo);
+    if ((color == pick.clear_color) || (color.x < 0.0f) || (color.y < 0.0f) || (color.z < 0.0f)) return {};
+    size_t segment = unpack_id(color);
+    if (!id_to_branch.contains(segment)) return {};
+    return {{segment, id_to_branch[segment], segments[segment], &branch_to_ids[id_to_branch[segment]]}};
 }
 
 void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) {
@@ -435,11 +437,15 @@ void geometry::load_geometry(const arb::morphology& morph) {
             // Generate cylinder from n_faces triangles
             const auto rot = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, c_diff));
             glm::vec3 obj = pack_id(id);
-            vertices.push_back({c_prox, -glm::normalize(c_dist), obj});
-            vertices.push_back({c_dist,  glm::normalize(c_dist), obj});
+            auto up   =  glm::normalize(c_dist);
+            auto down = -up;
+            vertices.push_back({c_prox, down, obj});
+            vertices.push_back({c_dist, up,   obj});
             for (auto face = 0ul; face < n_faces; ++face) {
                 vertices.push_back({r_prox*normal + c_prox, normal, obj});
+                vertices.push_back({r_prox*normal + c_prox, down,   obj});
                 vertices.push_back({r_dist*normal + c_dist, normal, obj});
+                vertices.push_back({r_dist*normal + c_dist, up,     obj});
                 normal = rot*normal;
             }
 
@@ -454,29 +460,37 @@ void geometry::load_geometry(const arb::morphology& morph) {
             auto c0  = base;
             auto c1  = base + 1;
             for (auto face = 0ul; face < n_faces - 1; ++face) {
-                auto p00 = base + 2*face + 2;
-                auto p01 = base + 2*face + 3;
-                auto p10 = base + 2*face + 4;
-                auto p11 = base + 2*face + 5;
+                auto f00 = base + 4*face + 2;
+                auto p0  = base + 4*face + 3;
+                auto f01 = base + 4*face + 4;
+                auto d0  = base + 4*face + 5;
+                auto f10 = base + 4*face + 6;
+                auto p1  = base + 4*face + 7;
+                auto f11 = base + 4*face + 8;
+                auto d1  = base + 4*face + 9;
                 // Face
-                indices.push_back(p00); indices.push_back(p10); indices.push_back(p01);
-                indices.push_back(p01); indices.push_back(p10); indices.push_back(p11);
+                indices.push_back(f00); indices.push_back(f10); indices.push_back(f01);
+                indices.push_back(f01); indices.push_back(f10); indices.push_back(f11);
                 // Proximal cap
-                indices.push_back(c0);  indices.push_back(p10); indices.push_back(p00);
+                indices.push_back(c0);  indices.push_back(p1); indices.push_back(p0);
                 // Distal cap
-                indices.push_back(c1);  indices.push_back(p01); indices.push_back(p11);
+                indices.push_back(c1);  indices.push_back(d0); indices.push_back(d1);
             }
-            auto p00 = base + 2*(n_faces - 1) + 2;
-            auto p01 = base + 2*(n_faces - 1) + 3;
-            auto p10 = base + 4;
-            auto p11 = base + 3;
+            auto f00 = base + 4*(n_faces - 1) + 2;
+            auto p0  = base + 4*(n_faces - 1) + 3;
+            auto f01 = base + 4*(n_faces - 1) + 4;
+            auto d0  = base + 4*(n_faces - 1) + 5;
+            auto f10 = base + 2;
+            auto p1  = base + 3;
+            auto f11 = base + 4;
+            auto d1  = base + 5;
             // Face
-            indices.push_back(p00); indices.push_back(p10); indices.push_back(p01);
-            indices.push_back(p01); indices.push_back(p10); indices.push_back(p11);
+            indices.push_back(f00); indices.push_back(f10); indices.push_back(f01);
+            indices.push_back(f01); indices.push_back(f10); indices.push_back(f11);
             // Proximal cap
-            indices.push_back(c0);  indices.push_back(p10); indices.push_back(p00);
+            indices.push_back(c0);  indices.push_back(p1); indices.push_back(p0);
             // Distal cap
-            indices.push_back(c1);  indices.push_back(p01); indices.push_back(p11);
+            indices.push_back(c1);  indices.push_back(d0); indices.push_back(d1);
 
             // Next
             id_to_index[id] = index++;
@@ -488,6 +502,7 @@ void geometry::load_geometry(const arb::morphology& morph) {
 
     // Re-scale into [-1, 1]^3 box
     log_debug("Cylinders generated: {} ({} points)", indices.size()/n_indices, vertices.size());
+    float rescale = -1;
     for (auto& tri: vertices) {
         rescale = std::max(rescale, std::abs(tri.position.x));
         rescale = std::max(rescale, std::abs(tri.position.y));

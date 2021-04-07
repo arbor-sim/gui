@@ -36,7 +36,7 @@ struct object_id {
   size_t segment = 0;
   size_t branch  = 0;
   arb::msegment data;
-  std::vector<std::pair<size_t, size_t>> segment_ids;
+  std::vector<std::pair<size_t, size_t>>* segment_ids;
 };
 
 struct render_ctx {
@@ -82,8 +82,8 @@ struct geometry {
 
   // Geometry
   size_t n_faces     = 64;             // Faces on frustrum mantle
-  size_t n_vertices  = n_faces*2 + 2;  // Faces needs 4 vertices, but 2 are shared w/ the next. Caps need three per face,
-                                       // but center is shared for all, and two are shared with the faces
+  size_t n_vertices  = n_faces*4 + 2;  // Faces needs 4 vertices, but 2 are shared w/ the next. Caps need three per face,
+                                       // but center is shared for all
   size_t n_triangles = n_faces*4;      // Each face is a quad made from 2 tris, caps have one tri per face
   size_t n_indices   = n_triangles*3;  // Three indices (reference to vertex) per tri
 
