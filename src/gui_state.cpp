@@ -907,12 +907,14 @@ void gui_state::update() {
       if (def.state == def_state::good) {
         log_info("Making frustrums for region {} '{}'", def.name, def.definition);
         try {
-          auto ids = state->builder.make_segments(def.data.value());
-          for (const auto& id: ids) {
-            log_debug(" * {}", id);
-            state->segment_to_regions[id].insert(c.id);
+          auto segments = state->builder.make_segments(def.data.value());
+          for (const auto& segment: segments) {
+            const auto cached = state->renderer.segments[segment.id];
+            if ((cached.dist != segment.prox) && (cached.prox != segment.dist)) {
+              state->segment_to_regions[segment.id].insert(c.id);
+            }
           }
-          state->renderer.make_region(ids, rnd);
+          state->renderer.make_region(segments, rnd);
         } catch (const arb::arbor_exception& e) {
           def.set_error(e.what()); rnd.active = false;
         }

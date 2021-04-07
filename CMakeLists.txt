@@ -97,14 +97,7 @@ set_source_files_properties("${gui_srcs}" PROPERTIES COMPILE_FLAGS "-Wall -Wextr
 add_executable(arbor-gui ${gui_srcs} $<TARGET_OBJECTS:imgui>)
 
 target_include_directories(arbor-gui PRIVATE src)
-target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS})
-target_link_libraries(arbor-gui PRIVATE arbor arborio)
-target_link_libraries(arbor-gui PRIVATE glfw)
-target_link_libraries(arbor-gui PRIVATE arbor-gui-deps)
-
-list(APPEND CMAKE_CONFIGURATION_TYPES asan)
-list(APPEND CMAKE_CONFIGURATION_TYPES msan)
-list(APPEND CMAKE_CONFIGURATION_TYPES ubsan)
+target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glfw arbor-gui-deps)
 
 if(ARBORGUI_USE_TRACY)
   add_library(TracyClient STATIC 3rd-party/tracy/TracyClient.cpp)
@@ -113,6 +106,10 @@ if(ARBORGUI_USE_TRACY)
   add_compile_definitions(TRACY_ENABLE PUBLIC TRACY_ENABLE=1)
   add_compile_definitions(TRACY_ONLY_LOCALHOST PUBLIC TRACY_ONLY_LOCALHOST=1)
 endif()
+
+list(APPEND CMAKE_CONFIGURATION_TYPES asan)
+list(APPEND CMAKE_CONFIGURATION_TYPES msan)
+list(APPEND CMAKE_CONFIGURATION_TYPES ubsan)
 
 set(CMAKE_C_FLAGS_ASAN
   "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer" CACHE STRING
@@ -179,6 +176,8 @@ install(TARGETS arbor-gui RUNTIME DESTINATION bin)
 if (APPLE)
   install(CODE "execute_process(COMMAND sh ${CMAKE_SOURCE_DIR}/scripts/set-osx-icon.sh ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_INSTALL_PREFIX}/bin/arbor-gui)")
 endif()
+
+# install resources
 install(DIRECTORY glsl    DESTINATION ${resource_path})
 install(DIRECTORY fonts   DESTINATION ${resource_path})
 install(FILES default.ini DESTINATION ${resource_path} RENAME imgui.ini)

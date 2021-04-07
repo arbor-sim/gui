@@ -7,10 +7,10 @@ cell_builder::cell_builder()
 cell_builder::cell_builder(const arb::morphology &t)
     : morph{t}, pwlin{morph}, labels{}, provider{morph, labels} {};
 
-std::vector<size_t> cell_builder::make_segments(const arb::region &region) {
+std::vector<arb::msegment> cell_builder::make_segments(const arb::region &region) {
   auto concrete = thingify(region, provider);
-  std::vector<size_t> result;
-  for (const auto& segment: pwlin.all_segments(concrete)) result.push_back(segment.id);
+  auto result = pwlin.all_segments(concrete);
+  std::remove_if(result.begin(), result.end(), [](const auto& s) { return s.dist == s.prox; });
   return result;
 }
 

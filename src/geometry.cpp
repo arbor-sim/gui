@@ -354,14 +354,18 @@ void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) 
     r.active = true;
 }
 
-void geometry::make_region(const std::vector<size_t>& segments, renderable& r) {
+void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r) {
     ZoneScopedN(__FUNCTION__);
     std::vector<unsigned> idcs{};
-    for (const auto& seg: segments) {
-        const auto idx = id_to_index[seg];
-        for (auto idy = 0; idy < n_indices; ++idy) idcs.push_back(indices[idy + n_indices*idx]);
+    for (const auto& seg: segs) {
+        const auto idx = id_to_index[seg.id];
+        const auto cached = segments[idx];
+        if ((cached.dist != seg.prox) && (cached.prox != seg.dist)) {
+            for (auto idy = 0; idy < n_indices; ++idy) {
+                idcs.push_back(indices[idy + n_indices*idx]);
+            }
+        }
     }
-    assert(idcs.size() == n_indices*segments.size());
     r.vao = make_vao(vbo, idcs, {{0.0f, 0.0f, 0.0f}});
     r.count = idcs.size();
     r.instances = 1;
