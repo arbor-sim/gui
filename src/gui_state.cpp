@@ -6,8 +6,8 @@
 #include <arbor/morph/morphexcept.hpp>
 #include <arbor/mechcat.hpp>
 #include <arbor/mechinfo.hpp>
-#include <arborio/arbornml.hpp>
 #include <arborio/neurolucida.hpp>
+#include <arborio/neuroml.hpp>
 #include <arborio/swcio.hpp>
 
 #include <imgui.h>

@@ -3,8 +3,8 @@
 #include <tuple>
 #include <filesystem>
 
-#include <arborio/arbornml.hpp>
 #include <arborio/neurolucida.hpp>
+#include <arborio/neuroml.hpp>
 #include <arborio/swcio.hpp>
 #include <arbor/morph/morphology.hpp>
 
@@ -22,9 +22,6 @@ loaded_morphology load_swc(const std::filesystem::path &fn,
              {{"center", "(location 0 0)"}}};
 }
 
-loaded_morphology load_allen_swc(const std::filesystem::path &fn) {
-    return load_swc(fn, [](const auto &d) { return arborio::load_swc_allen(d);  });
-}
 loaded_morphology load_neuron_swc(const std::filesystem::path &fn) {
     return load_swc(fn, [](const auto &d) { return arborio::load_swc_neuron(d); });
 }
