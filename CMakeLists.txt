@@ -61,15 +61,17 @@ target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/glm)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/stb)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/tracy)
-target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui/examples)
+target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui/backends)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui/examples/libs/gl3w)
 
 add_library(imgui OBJECT
   3rd-party/imgui/examples/libs/gl3w/GL/gl3w.c
-  3rd-party/imgui/examples/imgui_impl_opengl3.cpp
-  3rd-party/imgui/examples/imgui_impl_glfw.cpp
-  3rd-party/imgui/imgui.cpp 3rd-party/imgui/imgui_draw.cpp
+  3rd-party/imgui/backends/imgui_impl_opengl3.cpp
+  3rd-party/imgui/backends/imgui_impl_glfw.cpp
+  3rd-party/imgui/imgui.cpp
+  3rd-party/imgui/imgui_draw.cpp
   3rd-party/imgui/imgui_widgets.cpp
+  3rd-party/imgui/imgui_tables.cpp
   3rd-party/imgui/imgui_demo.cpp
   3rd-party/imgui/misc/cpp/imgui_stdlib.cpp)
 target_include_directories(imgui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
