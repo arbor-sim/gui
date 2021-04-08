@@ -377,25 +377,18 @@ namespace {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin("Cell")) {
       ImGui::BeginChild("Cell Render");
-      auto size = ImGui::GetWindowSize();
-      auto window_position = ImGui::GetWindowPos();
-
-      auto pos = glm::vec2{mouse_x, mouse_y - size.y} - to_glmvec(window_position);
-      pos.y = -pos.y; // Flip to UL -> LR coords
-      state.renderer.pick_pos = pos;
-
+      auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
+      state.renderer.pick_pos = glm::vec2{mouse_x - win_pos.x, size.y + win_pos.y - mouse_y };
       state.renderer.render(state.view, to_glmvec(size), state.render_regions.items, state.render_locsets.items);
-
       ImGui::Image((ImTextureID) state.renderer.cell.tex, size, ImVec2(0, 1), ImVec2(1, 0));
 
       if (ImGui::IsItemHovered()) {
-        // log_debug("Cell hovered");
         state.view.offset -= delta_pos;
         state.view.zoom    = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
-        state.view.phi     = std::fmod(state.view.phi + delta_phi + 2*PI, 2*PI);        // cyclic in [0, 2pi)
-        state.view.gamma   = std::fmod(state.view.gamma + delta_gamma + 2*PI, 2*PI);    // cyclic in [0, 2pi)
-        state.object       = state.renderer.get_id();
+        state.view.phi     = std::fmod(state.view.phi   + delta_phi   + 2*PI, 2*PI); // cyclic in [0, 2pi)
+        state.view.gamma   = std::fmod(state.view.gamma + delta_gamma + 2*PI, 2*PI); // cyclic in [0, 2pi)
       }
+      state.object = state.renderer.get_id();
 
       if (ImGui::BeginPopupContextWindow()) {
         ImGui::Text("%s Camera", icon_camera);
@@ -850,7 +843,7 @@ void gui_state::reload(const io::loaded_morphology& result) {
 }
 
 void gui_state::update() {
-  ZoneScopedN(__FUNCTION__);
+  ZoneScopedN("gui_state::update()");
   struct event_visitor {
     gui_state* state;
 
@@ -868,6 +861,7 @@ void gui_state::update() {
       auto& def = state->locset_defs[c.id];
       auto& rnd = state->render_locsets[c.id];
       def.update();
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
       if (def.state != def_state::good) return;
       log_info("Making markers for locset {} '{}'", def.name, def.definition);
       try {
@@ -886,6 +880,7 @@ void gui_state::update() {
       state->probes.del_children(id);
       state->detectors.del_children(id);
       state->locsets.del(id);
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_add_locdef<rg_def>& c) {
       ZoneScopedN(__FUNCTION__);
@@ -904,6 +899,7 @@ void gui_state::update() {
         regions.erase(c.id);
       }
       def.update();
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
       if (def.state == def_state::good) {
         log_info("Making frustrums for region {} '{}'", def.name, def.definition);
         try {
@@ -928,6 +924,7 @@ void gui_state::update() {
       state->parameter_defs.del(id);
       state->ion_par_defs.del_by_1st(id);
       state->mechanisms.del_children(id);
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
       // TODO This is quite expensive ... see if we can keep it this way
       for(auto& [segment, regions]: state->segment_to_regions) regions.erase(id);
       state->regions.del(id);
@@ -935,7 +932,6 @@ void gui_state::update() {
     void operator()(const evt_add_ion& c) {
       ZoneScopedN(__FUNCTION__);
       auto id = state->ions.add();
-      log_debug("Adding ion {}", id.value);
       state->ion_defs.add(id, {c.name.empty() ? fmt::format("Ion {}", id.value) : c.name, c.charge});
       state->ion_defaults.add(id);
       for (const auto& region: state->regions) state->ion_par_defs.add(region, id);

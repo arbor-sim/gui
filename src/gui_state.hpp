@@ -43,6 +43,7 @@ struct gui_state {
     std::unordered_map<size_t, std::unordered_set<id_type>> segment_to_regions;
 
     bool shutdown_requested = false;
+    bool pick = true;
 
     file_chooser_state file_chooser;
     view_state view;

@@ -21,7 +21,7 @@
 struct point {
   glm::vec3 position = {0.0f, 0.0f, 0.0f};
   glm::vec3 normal   = {0.0f, 0.0f, 0.0f};
-  glm::vec3 id       = {0.0f, 0.0f, 0.0f};
+  glm::vec3 id       = {1.0f, 1.0f, 1.0f};
 };
 
 struct renderable {
@@ -68,7 +68,7 @@ struct geometry {
   std::unordered_map<size_t, size_t> id_to_branch;  // map segment id to branch id
   std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> branch_to_ids; // map branch to segment ids
 
-  glm::vec2 pick_pos;
+  glm::vec2 pick_pos = {-1, -1};
 
   render_ctx pick;
   render_ctx cell;

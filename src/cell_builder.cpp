@@ -7,6 +7,32 @@ cell_builder::cell_builder()
 cell_builder::cell_builder(const arb::morphology &t)
     : morph{t}, pwlin{morph}, labels{}, provider{morph, labels} {};
 
+void cell_builder::make_label_dict(std::vector<ls_def>& locsets, std::vector<rg_def>& regions) {
+  ZoneScopedN(__FUNCTION__);
+  labels = {};
+  for (auto& item: locsets) {
+    if (item.data) {
+      if (labels.locset(item.name)) {
+        item.state   = def_state::error;
+        item.message = "Duplicate name; ignored.";
+      } else {
+        labels.set(item.name, item.data.value());
+      }
+    }
+  }
+  for (auto& item: regions) {
+    if (item.data) {
+      if (labels.region(item.name)) {
+        item.state   = def_state::error;
+        item.message = "Duplicate name; ignored.";
+      } else {
+        labels.set(item.name, item.data.value());
+      }
+    }
+  }
+  provider = {morph, labels};
+}
+
 std::vector<arb::msegment> cell_builder::make_segments(const arb::region &region) {
   auto concrete = thingify(region, provider);
   auto result = pwlin.all_segments(concrete);

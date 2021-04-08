@@ -4,14 +4,12 @@
 #include <arbor/morph/place_pwlin.hpp>
 #include <arbor/morph/mprovider.hpp>
 #include <arbor/morph/primitives.hpp>
-#include <arbor/morph/morphexcept.hpp>
-#include <arbor/morph/label_parse.hpp>
 #include <arbor/morph/region.hpp>
 #include <arbor/morph/locset.hpp>
-#include <arbor/mechcat.hpp>
-#include <arbor/mechinfo.hpp>
 
 #include <glm/glm.hpp>
+
+#include "location.hpp"
 
 struct cell_builder {
     arb::morphology   morph;
@@ -24,6 +22,7 @@ struct cell_builder {
 
     std::vector<arb::msegment> make_segments(const arb::region&);
     std::vector<glm::vec3> make_points(const arb::locset&);
+    void make_label_dict(std::vector<ls_def>& locsets, std::vector<rg_def>& regions);
 
     arb::cable_cell make_cell();
 };

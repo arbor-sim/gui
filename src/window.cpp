@@ -80,7 +80,7 @@ Window::Window() {
     log_info("Set up on Linux: OpenGL 3.0 GLSL v130");
 #endif
     // glEnable(GL_MULTISAMPLE);
-    glfwWindowHint(GLFW_SAMPLES, 4);
+    // glfwWindowHint(GLFW_SAMPLES, 4);
     // Create window with graphics context
     handle = glfwCreateWindow(1280, 720, "arbor-gui", NULL, NULL);
     if (handle == nullptr) log_fatal("Failed to obtain window");
@@ -174,6 +174,7 @@ Window::~Window() {
 bool Window::running() { return !glfwWindowShouldClose(handle); }
 
 void Window::begin_frame() {
+    ZoneScopedN(__FUNCTION__);
     // Poll and handle events (inputs, window resize, etc.)
     // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
     // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -187,11 +188,18 @@ void Window::begin_frame() {
 }
 
 void Window::end_frame() {
-    ImGui::PopFont();
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    glfwSwapBuffers(handle);
+    ZoneScopedN(__FUNCTION__);
+    {
+        ImGui::PopFont();
+        ZoneScopedN("ImGui::Render");
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    }
+    {
+        ZoneScopedN("GLFW::Swap");
+        glfwSwapBuffers(handle);
+    }
     delta_pos = {0.0f, 0.0f};
     delta_phi = 0.0f;
     delta_gamma = 0.0f;

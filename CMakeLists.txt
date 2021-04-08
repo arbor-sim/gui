@@ -100,6 +100,7 @@ target_include_directories(arbor-gui PRIVATE src)
 target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glfw arbor-gui-deps)
 
 if(ARBORGUI_USE_TRACY)
+  find_package(Threads REQUIRED)
   add_library(TracyClient STATIC 3rd-party/tracy/TracyClient.cpp)
   target_link_libraries(arbor-gui PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
   target_link_libraries(arbor-gui PUBLIC TracyClient)

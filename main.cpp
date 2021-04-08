@@ -24,10 +24,14 @@ int main(int, char**) {
         window.begin_frame();
         state.gui();
         window.end_frame();
-        auto t1 = timer::now();
-        auto dt = t1 - t0;
-        if (dt < frame_time) std::this_thread::sleep_for(frame_time - dt);
-        auto t2 = timer::now();
+        {
+            ZoneScopedN("Sleep");
+            auto t1 = timer::now();
+            auto dt = t1 - t0;
+            log_info("Frame took {} us", to_us(dt));
+            if (dt < frame_time) std::this_thread::sleep_for(frame_time - dt);
+            auto t2 = timer::now();
+        }
         FrameMark;
     }
 }
