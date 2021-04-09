@@ -399,6 +399,9 @@ void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r
 void geometry::load_geometry(const arb::morphology& morph) {
     ZoneScopedN(__FUNCTION__);
     clear();
+    n_vertices  = n_faces*4 + 2;  // Faces: 4 vertices 2 are shared. Caps: three per face, center is shared
+    n_triangles = n_faces*4;      // Each face is a quad made from 2 tris, caps have one tri per face
+    n_indices   = n_triangles*3;  // Three indices (reference to vertex) per tri
     {
         ZoneScopedN("look up tables");
         for (auto branch = 0ul; branch < morph.num_branches(); ++branch) {

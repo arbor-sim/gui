@@ -82,8 +82,7 @@ struct geometry {
 
   // Geometry
   size_t n_faces     = 16;             // Faces on frustrum mantle
-  size_t n_vertices  = n_faces*4 + 2;  // Faces needs 4 vertices, but 2 are shared w/ the next. Caps need three per face,
-                                       // but center is shared for all
+  size_t n_vertices  = n_faces*4 + 2;  // Faces: 4 vertices 2 are shared. Caps: three per face, center is shared
   size_t n_triangles = n_faces*4;      // Each face is a quad made from 2 tris, caps have one tri per face
   size_t n_indices   = n_triangles*3;  // Three indices (reference to vertex) per tri
 

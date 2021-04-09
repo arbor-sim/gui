@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <compare>
 
 #include "utils.hpp"
 
@@ -25,15 +26,16 @@ struct ion_default {
 };
 
 struct probe_def {
-    double frequency = 1000; // [Hz]
-    std::string variable = variables.front();
-    constexpr static std::array<const char*, 2> variables{"Voltage", "Current"};
+    double frequency     = 1000.0; // [Hz]
+    std::string kind     = kinds.front();
+    std::string variable = "";
+    constexpr static std::array kinds{"Voltage", "Axial Current", "Membrane Current", "Internal Concentration", "External Concentration", "Mechanism State"};
 };
 
 struct stimulus_def {
-    double delay     = 0;  // [ms]
-    double duration  = 0;  // [ms]
-    double amplitude = 0;  // [nA]
+    double frequency = 0.0; // Hz
+    double phase     = 0.0; // Radians
+    std::vector<std::pair<double, double>> envelope = {{0.0, 0.0}}; // [(t_start, current)]
 };
 
 struct detector_def {
@@ -45,7 +47,19 @@ struct parameter_def {
 };
 
 struct mechanism_def {
-    std::string name = "";
-    std::unordered_map<std::string, double> parameters  = {};
-    std::unordered_map<std::string, double> global_vars = {};
+    std::string name      = "";
+    std::string catalogue = "";
+    std::unordered_map<std::string, double> parameters = {};
+    std::unordered_map<std::string, double> states     = {};
+    std::unordered_map<std::string, double> globals    = {};
 };
+
+inline std::strong_ordering operator<=>(const mechanism_def& l, const mechanism_def& r) {
+    auto a = (l.name.c_str() <=> r.name.c_str()), b = (l.catalogue.c_str() <=> r.catalogue.c_str());
+    if (a == std::strong_ordering::equal) return b;
+    return a;
+}
+
+inline bool operator==(const mechanism_def& l, const mechanism_def& r) {
+    return (l <=> r) == std::strong_ordering::equal;
+}

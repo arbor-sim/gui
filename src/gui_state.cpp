@@ -6,9 +6,12 @@
 #include <arbor/morph/morphexcept.hpp>
 #include <arbor/mechcat.hpp>
 #include <arbor/mechinfo.hpp>
+#include <arbor/cable_cell.hpp>
+#include <arbor/cable_cell_param.hpp>
 #include <arborio/neurolucida.hpp>
 #include <arborio/neuroml.hpp>
 #include <arborio/swcio.hpp>
+#include <arborio/cableio.hpp>
 
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -28,6 +31,7 @@ extern glm::vec2 delta_pos;
 namespace {
   inline void gui_read_morphology(gui_state& state, bool& open);
   inline void gui_tooltip(const std::string&);
+  inline void gui_dir_view(file_chooser_state& state);
   inline void gui_debug(bool&);
   inline void gui_style(bool&);
 
@@ -149,13 +153,75 @@ namespace {
 
   inline bool gui_menu_item(const char* text, const char* icon) { return ImGui::MenuItem(fmt::format("{} {}", icon, text).c_str()); }
 
-  inline void gui_save_decoration(gui_state& state, bool& open) {
-    state.serialize("test");
-    open = false;
+  inline void gui_save_acc(gui_state& state, bool& open) {
+    ZoneScopedN(__FUNCTION__);
+    with_id id{"writing acc"};
+    ImGui::OpenPopup("Save");
+    static std::vector<std::string> suffixes{"acc"};
+    if (ImGui::BeginPopupModal("Save")) {
+      gui_dir_view(state.acc_chooser);
+      {
+        with_item_width id{-210.0f};
+        auto file = state.acc_chooser.file.filename().string();
+        if (ImGui::InputText("File", &file)) state.acc_chooser.file = state.acc_chooser.file.replace_filename(file);
+      }
+      ImGui::SameLine();
+      {
+        with_item_width id{120.0f};
+        auto lbl = state.acc_chooser.filter.value_or("all");
+        if (ImGui::BeginCombo("Filter", lbl.c_str())) {
+          if (ImGui::Selectable("all", "all" == lbl)) state.acc_chooser.filter = {};
+          for (const auto& k: suffixes) {
+            if (ImGui::Selectable(k.c_str(), k == lbl)) state.acc_chooser.filter = {k};
+          }
+          ImGui::EndCombo();
+        }
+      }
+      auto ok = ImGui::Button("Save");
+      ImGui::SameLine();
+      auto ko = ImGui::Button("Cancel");
+
+      if (ok) {
+        std::ofstream fd(state.acc_chooser.file);
+        // arborio::write_component(fd, state.builder.labels);
+        // arborio::write_component(fd, state.builder.morph);
+        arb::decor decor{};
+        for (const auto& id: state.locsets) {
+          auto ls = state.locset_defs[id];
+          if (!ls.data) continue;
+          for (const auto child: state.detectors.get_children(id)) {
+            auto item = state.detectors[child];
+            decor.place(fmt::format("(locset \"{}\")", ls.name), arb::threshold_detector{item.threshold});
+          }
+        }
+        for (const auto& id: state.regions) {
+          auto rg = state.region_defs[id];
+          if (!rg.data) continue;
+          auto region = fmt::format("(region \"{}\")",  rg.name);
+          auto param  = state.parameter_defs[id];
+          // if (param.RL) decor.paint(region, arb::axial_resistivity{param.RL.value()});
+          // if (param.Cm) decor.paint(region, arb::membrane_capacitance{param.Cm.value()});
+          // if (param.TK) decor.paint(region, arb::temperature_K{param.TK.value()});
+          // if (param.Vm) decor.paint(region, arb::init_membrane_potential{param.Vm.value()});
+
+          for (const auto child: state.mechanisms.get_children(id)) {
+            auto item = state.mechanisms[child];
+            auto mech = arb::mechanism_desc(item.name);
+            for(const auto& [k, v]: item.parameters)  mech.set(k, v);
+            for(const auto& [k, v]: item.globals)     mech.set(k, v);
+            for(const auto& [k, v]: item.states)      mech.set(k, v);
+            decor.paint(region, mech);
+          }
+        }
+        arborio::write_component(fd, decor);
+      }
+
+      if (ok || ko) open = false;
+      ImGui::EndPopup();
+    }
   }
 
-  inline void gui_read_decoration(gui_state& state, bool& open) {
-    state.deserialize("test");
+  inline void gui_read_acc(gui_state& state, bool& open) {
     open = false;
   }
 
@@ -163,8 +229,8 @@ namespace {
     ZoneScopedN(__FUNCTION__);
     ImGui::BeginMainMenuBar();
     static auto open_morph_read = false;
-    static auto open_decor_read = false;
-    static auto open_decor_save = false;
+    static auto open_acc_read = false;
+    static auto open_acc_save = false;
     static auto open_debug      = false;
     static auto open_style      = false;
     if (ImGui::BeginMenu("File")) {
@@ -177,8 +243,8 @@ namespace {
       ImGui::Text("%s Cable cell", icon_cell);
       {
         with_indent indent;
-        open_decor_read = gui_menu_item("Load", icon_load);
-        open_decor_save = gui_menu_item("Save", icon_save);
+        open_acc_read = gui_menu_item("Load", icon_load);
+        open_acc_save = gui_menu_item("Save", icon_save);
       }
       ImGui::Separator();
       state.shutdown_requested = gui_menu_item("Quit", "");
@@ -192,8 +258,8 @@ namespace {
     }
     ImGui::EndMainMenuBar();
     if (open_morph_read) gui_read_morphology(state, open_morph_read);
-    if (open_decor_read) gui_read_decoration(state, open_decor_read);
-    if (open_decor_save) gui_save_decoration(state, open_decor_save);
+    if (open_acc_read) gui_read_acc(state, open_acc_read);
+    if (open_acc_save) gui_save_acc(state, open_acc_save);
     if (open_debug)      gui_debug(open_debug);
     if (open_style)      gui_style(open_style);
   }
@@ -428,8 +494,14 @@ namespace {
             state.view.theta = 0.0f;
             state.view.gamma = 0.0f;
           }
-          ImGui::SliderFloat("Theta",& state.view.theta, -PI, PI);
-          ImGui::SliderFloat("Gamma",& state.view.gamma, -PI, PI);
+          ImGui::SliderFloat("Theta", &state.view.theta, -PI, PI);
+          ImGui::SliderFloat("Gamma", &state.view.gamma, -PI, PI);
+          int tmp = state.renderer.n_faces;
+          if (ImGui::DragInt("Frustrum Resolution", &tmp, 1.0f, 8, 64, "%d", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp)) {
+            state.renderer.n_faces = tmp;
+            state.renderer.load_geometry(state.builder.morph);
+            for (const auto& rg: state.regions) state.update_region(rg);
+          }
         }
         ImGui::Separator();
         if (gui_menu_item("Snapshot", icon_paint)) state.store_snapshot();
@@ -678,10 +750,13 @@ namespace {
         for (const auto& name: cat.mechanism_names()) {
           if (gui_select(name, data.name)) {
             auto info = cat[data.name];
-            data.global_vars.clear();
-            for (const auto& [k, v]: info.globals) data.global_vars[k] = v.default_value;
+            data.catalogue = cat_name;
+            data.globals.clear();
+            for (const auto& [k, v]: info.globals) data.globals[k] = v.default_value;
             data.parameters.clear();
             for (const auto& [k, v]: info.parameters) data.parameters[k] = v.default_value;
+            data.states.clear();
+            for (const auto& [k, v]: info.state) data.states[k] = v.default_value;
           }
         }
       }
@@ -690,10 +765,15 @@ namespace {
     gui_right_margin();
     auto remove = ImGui::Button(icon_delete);
     if (open) {
-      if (!data.global_vars.empty()) {
+      if (!data.globals.empty()) {
         ImGui::BulletText("Global Values");
         with_indent ind{};
-        for (auto& [k, v]: data.global_vars) gui_input_double(k, v);
+        for (auto& [k, v]: data.globals) gui_input_double(k, v);
+      }
+      if (!data.states.empty()) {
+        ImGui::BulletText("State Variables");
+        with_indent ind{};
+        for (auto& [k, v]: data.states) gui_input_double(k, v);
       }
       if (!data.parameters.empty()) {
         ImGui::BulletText("Parameters");
@@ -726,16 +806,55 @@ namespace {
     ImGui::End();
   }
 
-  inline bool gui_measurement(probe_def& data) {
-    ImGui::Bullet();
-    ImGui::SameLine();
-    with_item_width width {120.f};
-    gui_input_double("Frequency", data.frequency, "Hz");
-    gui_right_margin();
-    auto remove = ImGui::Button(icon_delete);
-    with_indent indent{ImGui::GetTreeNodeToLabelSpacing()};
-    gui_choose("Variable", data.variable, probe_def::variables);
-    return remove;
+  inline void gui_probes(gui_state& state) {
+    auto open = gui_tree(fmt::format("{} Probes", icon_probe));
+    if (open) {
+      for (const auto& locset: state.locsets) {
+        with_id id{locset};
+        auto name = state.locset_defs[locset].name;
+        auto open = gui_tree_add(fmt::format("{} {}", icon_locset, name), [&](){ state.add_probe(locset); });
+        if (open) {
+          for (const auto& probe: state.probes.get_children(locset)) {
+            with_id id{probe};
+            ImGui::Bullet();
+            ImGui::SameLine();
+            with_item_width width {180.f};
+            auto& data = state.probes[probe];
+            gui_input_double("Frequency", data.frequency, "Hz");
+            gui_right_margin();
+            if (ImGui::Button(icon_delete)) state.remove_probe(probe);
+            with_indent indent{ImGui::GetTreeNodeToLabelSpacing()};
+            gui_choose("Kind", data.kind, probe_def::kinds);
+            if ((data.kind == "Membrane Current") || (data.kind == "Internal Concentration") || (data.kind == "External Concentration")) {
+              if (ImGui::BeginCombo("Ion Species", data.variable.c_str())) {
+                for (const auto& ion: state.ions) {
+                  auto& name = state.ion_defs[ion].name;
+                  if (ImGui::Selectable(name.c_str(), name == data.variable)) data.variable = name;
+                }
+                ImGui::EndCombo();
+              }
+            } if (data.kind == "Mechanism State") {
+              if (ImGui::BeginCombo("State Variable", data.variable.c_str())) {
+                std::vector<mechanism_def> mechs = state.mechanisms.items;
+                std::sort(mechs.begin(), mechs.end());
+                std::unique(mechs.begin(), mechs.end());
+                for (const auto& mech: mechs) {
+                  for (const auto& [k, v]: mech.states) {
+                    auto label = fmt::format("{}/{}/{}", mech.catalogue, mech.name, k);
+                    if (ImGui::Selectable(label.c_str(), label == data.variable)) data.variable = label;
+                  }
+                }
+                ImGui::EndCombo();
+              }
+            } else {
+              // data.variable = "";
+            }
+          }
+          ImGui::TreePop();
+        }
+      }
+      ImGui::TreePop();
+    }
   }
 
   inline bool gui_measurement(detector_def& data) {
@@ -751,23 +870,7 @@ namespace {
   inline void gui_measurements(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin(fmt::format("{} Measurements", icon_meter).c_str())) {
-      auto open = gui_tree(fmt::format("{} Probes", icon_probe));
-      if (open) {
-        for (const auto& locset: state.locsets) {
-          with_id id{locset};
-          auto name = state.locset_defs[locset].name;
-          auto open = gui_tree_add(fmt::format("{} {}", icon_locset, name), [&](){ state.add_probe(locset); });
-          if (open) {
-            for (const auto& probe: state.probes.get_children(locset)) {
-              with_id id{probe};
-              auto rem = gui_measurement(state.probes[probe]);
-              if (rem) state.remove_probe(probe);
-            }
-            ImGui::TreePop();
-          }
-        }
-        ImGui::TreePop();
-      }
+      gui_probes(state);
       ImGui::Separator();
       if (gui_tree(fmt::format("{} Spike Detectors", icon_detector))) {
         for (const auto& locset: state.locsets) {
@@ -796,6 +899,74 @@ namespace {
     if (ImGui::Begin("Style",& open)) ImGui::ShowStyleEditor();
     ImGui::End();
   }
+
+  inline void gui_stimuli(gui_state& state) {
+    ZoneScopedN(__FUNCTION__);
+    if (gui_tree(fmt::format("{} Stimuli", icon_stimulus))) {
+      for (const auto& locset: state.locsets) {
+        with_id id{locset};
+        auto name = state.locset_defs[locset].name;
+        auto open = gui_tree_add(fmt::format("{} {}", icon_locset, name), [&](){ state.add_stimulus(locset); });
+        if (open) {
+          for (const auto& stim: state.stimuli.get_children(locset)) {
+            with_id id{stim};
+            ImGui::Bullet();
+            with_indent ind;
+            with_item_width iw{160.0f};
+            auto& data = state.stimuli[stim];
+            double z = 0.0, pi2 = 2*PI;
+            ImGui::SliderScalar("Phase", ImGuiDataType_Double, &data.phase, &z, &pi2, "%.3f");
+            gui_right_margin();
+            if (ImGui::Button(icon_delete)) state.remove_stimulus(stim);
+            gui_input_double("Frequency", data.frequency, "Hz");
+            ImGui::Text("Envelope");
+            gui_right_margin();
+            if (ImGui::Button(icon_add)) data.envelope.emplace_back();
+            {
+              with_item_width iw{80.0f};
+              auto idx = 0ul;
+              auto del = -1;
+              for (auto& [t, u]: data.envelope) {
+                with_id id{idx};
+                ImGui::Bullet();
+                gui_input_double("##t", t, "ms");
+                ImGui::SameLine();
+                gui_input_double("##u", u, "nA");
+                ImGui::SameLine();
+                if (ImGui::Button(icon_delete)) del = idx;
+                idx++;
+              }
+              if (del >= 0) data.envelope.erase(data.envelope.begin() + del);
+            }
+            auto u = 0;
+            auto idx = 0;
+            std::vector<float> values;
+            for (auto t = 0;; ++t) {
+              if (idx >= data.envelope.size()) break;
+              if (t > data.envelope[idx].first) {
+                u = data.envelope[idx].second;
+                idx++;
+              }
+              if (data.frequency) values.push_back(u*std::sin(t*1e-3*data.frequency + data.phase));
+              else                values.push_back(u);
+            }
+            ImGui::Text("Preview");
+            ImGui::PlotLines("", values.data(), values.size());
+          }
+          ImGui::TreePop();
+        }
+      }
+      ImGui::TreePop();
+    }
+  }
+
+  inline void gui_simulation(gui_state& state) {
+    ZoneScopedN(__FUNCTION__);
+    if (ImGui::Begin("Simulation")) {
+      gui_stimuli(state);
+    }
+    ImGui::End();
+  }
 }
 
 void gui_state::gui() {
@@ -807,6 +978,7 @@ void gui_state::gui() {
   gui_mechanisms(*this);
   gui_parameters(*this);
   gui_measurements(*this);
+  gui_simulation(*this);
 }
 
 void gui_state::serialize(const std::string& dn) {}
@@ -950,6 +1122,8 @@ void gui_state::update() {
     void operator()(const evt_del_detector& c)  { ZoneScopedN(__FUNCTION__); state->detectors.del(c.id); }
     void operator()(const evt_add_probe& c)     { ZoneScopedN(__FUNCTION__); state->probes.add(c.locset); }
     void operator()(const evt_del_probe& c)     { ZoneScopedN(__FUNCTION__); state->probes.del(c.id); }
+    void operator()(const evt_add_stimulus& c)  { ZoneScopedN(__FUNCTION__); state->stimuli.add(c.locset); }
+    void operator()(const evt_del_stimulus& c)  { ZoneScopedN(__FUNCTION__); state->stimuli.del(c.id); }
   };
 
   while (!events.empty()) {
