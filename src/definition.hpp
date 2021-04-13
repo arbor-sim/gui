@@ -46,18 +46,20 @@ struct parameter_def {
     std::optional<double> TK, Cm, Vm, RL;
 };
 
+struct simulation {
+    double until = 1000;
+    double dt    = 0.05;
+};
+
 struct mechanism_def {
-    std::string name      = "";
-    std::string catalogue = "";
+    std::string name = "";
     std::unordered_map<std::string, double> parameters = {};
     std::unordered_map<std::string, double> states     = {};
     std::unordered_map<std::string, double> globals    = {};
 };
 
 inline std::strong_ordering operator<=>(const mechanism_def& l, const mechanism_def& r) {
-    auto a = (l.name.c_str() <=> r.name.c_str()), b = (l.catalogue.c_str() <=> r.catalogue.c_str());
-    if (a == std::strong_ordering::equal) return b;
-    return a;
+    return (l.name.c_str() <=> r.name.c_str());
 }
 
 inline bool operator==(const mechanism_def& l, const mechanism_def& r) {

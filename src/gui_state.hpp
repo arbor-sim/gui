@@ -38,10 +38,13 @@ struct gui_state {
     entity                          ions;
     component_unique<ion_def>       ion_defs;
     component_unique<ion_default>   ion_defaults;
-
     component_join<ion_parameter>   ion_par_defs;
 
+    simulation sim;
+
+    // TODO This probably belongs into geometry, but that does not know about regions (yet).
     std::unordered_map<size_t, std::unordered_set<id_type>> segment_to_regions;
+    std::optional<object_id> object;
 
     bool shutdown_requested = false;
     bool pick = true;
@@ -53,16 +56,14 @@ struct gui_state {
     gui_state(const gui_state&) = delete;
     gui_state();
 
-    std::optional<object_id> object;
-
     event_queue events;
 
     std::string snapshot_path = std::filesystem::current_path() / "snapshot.png";
 
     void reload(const io::loaded_morphology&);
 
-    void serialize(const std::string& fn);
-    void deserialize(const std::string& fn);
+    void serialize(const std::filesystem::path& fn);
+    void deserialize(const std::filesystem::path& fn);
 
     void add_ion(const std::string& lbl="", int charge=0) { events.push_back(evt_add_ion{lbl, charge}); }
     template<typename Item> void add_locdef(const std::string& lbl="", const std::string& def="") { events.push_back(evt_add_locdef<Item>{lbl, def}); }
