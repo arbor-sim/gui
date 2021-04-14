@@ -1,0 +1,141 @@
+(arbor-component 
+  (meta-data 
+    (version "0.1-dev"))
+  (cable-cell 
+    (morphology 
+      (branch 0 -1 
+        (segment 0 
+          (point 0.000000 0.000000 0.000000 10.000000)
+          (point 20.000000 0.000000 0.000000 10.000000)
+          0)
+        (segment 1 
+          (point 20.000000 0.000000 0.000000 4.000000)
+          (point 60.000000 0.000000 0.000000 4.000000)
+          0)
+        (segment 2 
+          (point 60.000000 0.000000 0.000000 2.750000)
+          (point 100.000000 0.000000 0.000000 2.750000)
+          0)
+        (segment 3 
+          (point 100.000000 0.000000 0.000000 2.333333)
+          (point 140.000000 0.000000 0.000000 2.333333)
+          0)
+        (segment 4 
+          (point 140.000000 0.000000 0.000000 2.125000)
+          (point 180.000000 0.000000 0.000000 2.125000)
+          0)
+        (segment 5 
+          (point 180.000000 0.000000 0.000000 2.000000)
+          (point 220.000000 0.000000 0.000000 2.000000)
+          0)
+        (segment 6 
+          (point 220.000000 0.000000 0.000000 1.916667)
+          (point 260.000000 0.000000 0.000000 1.916667)
+          0)
+        (segment 7 
+          (point 260.000000 0.000000 0.000000 1.857143)
+          (point 300.000000 0.000000 0.000000 1.857143)
+          0)
+        (segment 8 
+          (point 300.000000 0.000000 0.000000 1.812500)
+          (point 340.000000 0.000000 0.000000 1.812500)
+          0)
+        (segment 9 
+          (point 340.000000 0.000000 0.000000 1.777778)
+          (point 380.000000 0.000000 0.000000 1.777778)
+          0)
+        (segment 10 
+          (point 380.000000 0.000000 0.000000 1.750000)
+          (point 420.000000 0.000000 0.000000 1.750000)
+          0)))
+    (label-dict 
+      (region-def "all" 
+        (join 
+          (join 
+            (join 
+              (join 
+                (join 
+                  (join 
+                    (join 
+                      (join 
+                        (join 
+                          (join 
+                            (join nil 
+                              (join nil 
+                                (segment 0)))
+                            (join nil 
+                              (segment 1)))
+                          (join nil 
+                            (segment 2)))
+                        (join nil 
+                          (segment 3)))
+                      (join nil 
+                        (segment 4)))
+                    (join nil 
+                      (segment 5)))
+                  (join nil 
+                    (segment 6)))
+                (join nil 
+                  (segment 7)))
+              (join nil 
+                (segment 8)))
+            (join nil 
+              (segment 9)))
+          (join nil 
+            (segment 10))))
+      (region-def "soma_group" 
+        (join nil 
+          (join nil 
+            (segment 0))))
+      (region-def "dendrite_group" 
+        (join 
+          (join 
+            (join 
+              (join 
+                (join 
+                  (join 
+                    (join 
+                      (join 
+                        (join 
+                          (join nil 
+                            (join nil 
+                              (segment 1)))
+                          (join nil 
+                            (segment 2)))
+                        (join nil 
+                          (segment 3)))
+                      (join nil 
+                        (segment 4)))
+                    (join nil 
+                      (segment 5)))
+                  (join nil 
+                    (segment 6)))
+                (join nil 
+                  (segment 7)))
+              (join nil 
+                (segment 8)))
+            (join nil 
+              (segment 9)))
+          (join nil 
+            (segment 10))))
+      (locset-def "soma" 
+        (root)))
+    (decor 
+      (paint 
+        (region "soma_group")
+        (mechanism "default/hh" 
+          ("n" 0.000000)
+          ("h" 0.000000)
+          ("gnabar" 0.120000)
+          ("gl" 0.000300)
+          ("gkbar" 0.036000)
+          ("m" 0.000000)
+          ("el" -54.300000)))
+      (paint 
+        (region "all")
+        (mechanism "default/pas" 
+          ("e" -70.000000)
+          ("g" 0.001000)))
+      (place 
+        (locset "soma")
+        (threshold-detector 0.000000)))))
