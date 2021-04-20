@@ -1,14 +1,6 @@
 #version 330 core
 
-in vec3 position;
-in vec3 normal;
-in vec3 id;
-
-uniform vec3 light;
-uniform vec3 camera;
-uniform vec3 light_color;
-uniform vec4 object_color;
-
+in  vec3 id;
 out vec4 color;
 
 void main() {

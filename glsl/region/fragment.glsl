@@ -1,7 +1,8 @@
 #version 330 core
 
-in vec3  position;
-in vec3  normal;
+in vec3 position;
+in vec3 normal;
+in vec3 id;
 
 uniform vec3 key;
 uniform vec3 key_color;

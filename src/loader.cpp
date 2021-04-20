@@ -19,21 +19,14 @@ loaded_morphology load_swc(const std::filesystem::path &fn,
               {"axon",   "(tag 2)"},
               {"dend",   "(tag 3)"},
               {"apic",   "(tag 4)"}},
-             {{"center", "(location 0 0)"}}};
+             {}};
 }
 
-loaded_morphology load_neuron_swc(const std::filesystem::path &fn) {
-    return load_swc(fn, [](const auto &d) { return arborio::load_swc_neuron(d); });
-}
-loaded_morphology load_arbor_swc(const std::string &fn) {
-    return load_swc(fn, [](const auto &d) { return arborio::load_swc_arbor(d);  });
-}
+loaded_morphology load_neuron_swc(const std::filesystem::path &fn) { return load_swc(fn, arborio::load_swc_neuron); }
+loaded_morphology load_arbor_swc(const std::filesystem::path &fn)  { return load_swc(fn, arborio::load_swc_arbor); }
 
 loaded_morphology load_neuroml(const std::filesystem::path &fn) {
-    // Read in morph
-    auto xml = slurp(fn);
-    arborio::neuroml nml(xml);
-    // Extract segment tree
+    arborio::neuroml nml(slurp(fn));
     auto id         = nml.cell_ids().front();
     auto morph_data = nml.cell_morphology(id).value();
     loaded_morphology result{.morph=morph_data.morphology};
@@ -50,6 +43,13 @@ loaded_morphology load_asc(const std::filesystem::path &fn) {
     return result;
 }
 
+static std::unordered_map<std::string,
+                          std::unordered_map<std::string,
+                                             std::function<loaded_morphology(const std::filesystem::path &fn)>>>
+loaders{{".swc", {{"Arbor",   load_arbor_swc},
+                  {"Neuron",  load_neuron_swc}}},
+        {".nml", {{"Default", load_neuroml}}},
+        {".asc", {{"Default", load_asc}}}};
 
 const std::vector<std::string>& get_suffixes() {
     static std::vector<std::string> result;

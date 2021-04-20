@@ -47,7 +47,6 @@ struct gui_state {
     std::optional<object_id> object;
 
     bool shutdown_requested = false;
-    bool pick = true;
 
     file_chooser_state file_chooser;
     file_chooser_state acc_chooser;

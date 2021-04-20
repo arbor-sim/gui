@@ -33,7 +33,6 @@ struct renderable {
 };
 
 struct object_id {
-  size_t segment = 0;
   size_t branch  = 0;
   arb::msegment data;
   std::vector<std::pair<size_t, size_t>>* segment_ids;
@@ -54,7 +53,7 @@ struct render_ctx {
 struct geometry {
   geometry();
 
-  void render(const view_state& view, const glm::vec2& size, const std::vector<renderable>&, const std::vector<renderable>&);
+  void render(const view_state& view, const std::vector<renderable>&, const std::vector<renderable>&, const glm::vec2&);
   void make_marker(const std::vector<glm::vec3>& points, renderable&);
   void make_region(const std::vector<arb::msegment>& segments, renderable&);
   std::optional<object_id> get_id();
@@ -62,9 +61,9 @@ struct geometry {
   void load_geometry(const arb::morphology&);
 
   std::vector<arb::msegment> segments;
-  std::vector<point>    vertices;
-  std::vector<unsigned> indices;
-  std::unordered_map<size_t, size_t> id_to_index;   // map segment id to cylinder index
+  std::vector<point>         vertices;
+  std::vector<unsigned>      indices;
+  std::unordered_map<size_t, size_t> id_to_index;   // map segment id to index in segments
   std::unordered_map<size_t, size_t> id_to_branch;  // map segment id to branch id
   std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> branch_to_ids; // map branch to segment ids
 

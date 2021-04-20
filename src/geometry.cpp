@@ -1,6 +1,8 @@
 #include "geometry.hpp"
 
 #include <filesystem>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -32,7 +34,6 @@ unsigned make_pixel_buffer() {
 // intiate transfer
 void fetch_pixel_buffer(unsigned pbo, const glm::vec2& pos) {
     ZoneScopedN(__FUNCTION__);
-    int iTexFormat = -1;
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
     glReadPixels(pos.x, pos.y, 1, 1, GL_RGBA, GL_FLOAT, 0); // where, size, format, type, offset
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
@@ -171,11 +172,11 @@ inline auto make_vao(unsigned vbo, const std::vector<unsigned>& idx, const std::
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, position))); glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, normal)));   glEnableVertexAttribArray(1);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, id)));       glEnableVertexAttribArray(3);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, id)));       glEnableVertexAttribArray(2);
 
     unsigned ivbo = make_buffer_object(off, GL_ARRAY_BUFFER);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr); glEnableVertexAttribArray(2);
-    glVertexAttribDivisor(2, 1);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr); glEnableVertexAttribArray(3);
+    glVertexAttribDivisor(3, 1);
 
     unsigned int ebo = make_buffer_object(idx, GL_ELEMENT_ARRAY_BUFFER);
 
@@ -276,19 +277,20 @@ geometry::geometry() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void geometry::render(const view_state& vs, const glm::vec2& size,
-                      const std::vector<renderable>& regions, const std::vector<renderable>& markers) {
+void geometry::render(const view_state& vs,
+                      const std::vector<renderable>& regions, const std::vector<renderable>& markers,
+                      const glm::vec2& pick_pos) {
     ZoneScopedN(__FUNCTION__);
-    make_fbo(size.x, size.y, cell);
-    make_fbo(size.x, size.y, pick);
+    make_fbo(vs.size.x, vs.size.y, cell);
+    make_fbo(vs.size.x, vs.size.y, pick);
 
-    float distance   = 2.5f;
-    auto camera      = distance*glm::vec3{0.0f, 0.0f, 1.0f};
-    glm::vec3 up     = {0.0f, 1.0f, 0.0f};
-    glm::vec3 shift  = {vs.offset.x/size.x, vs.offset.y/size.y, 0.0f};
-    glm::mat4 view   = glm::lookAt(camera, vs.target + shift, up);
-    glm::mat4 proj   = glm::perspective(glm::radians(vs.zoom), size.x/size.y, 0.1f, 100.0f);
-    view = proj*view;
+    float distance  = 2.5f;
+    auto camera     = distance*glm::vec3{0.0f, 0.0f, 1.0f};
+    glm::vec3 up    = {0.0f, 1.0f, 0.0f};
+    glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
+    glm::mat4 view  = glm::lookAt(camera, vs.target + shift, up);
+    glm::mat4 proj  = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
+    view = proj*view; // pre-multiply view matrices
 
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::rotate(model, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
@@ -311,7 +313,7 @@ void geometry::render(const view_state& vs, const glm::vec2& size,
             glDisable(GL_CULL_FACE);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        finalise_msaa_fbo(pick, size);
+        finalise_msaa_fbo(pick, vs.size);
         // Initialise pixel read
         glBindFramebuffer(GL_FRAMEBUFFER, pick.post_fbo);
         fetch_pixel_buffer(pbo, pick_pos);
@@ -350,22 +352,37 @@ void geometry::render(const view_state& vs, const glm::vec2& size,
             glEnable(GL_DEPTH_TEST);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        finalise_msaa_fbo(cell, size);
+        finalise_msaa_fbo(cell, vs.size);
     }
 }
 
 constexpr size_t id_scale = 256.0f;
-glm::vec3 pack_id(size_t id)      { return {((id/id_scale/id_scale)%id_scale)/float{id_scale}, ((id/id_scale)%id_scale)/float{id_scale}, (id%id_scale)/float{id_scale}}; }
-size_t    unpack_id(glm::vec3 id) { return (id.x*float{id_scale}*float{id_scale}*float{id_scale}) + (id.y*float{id_scale}*float{id_scale}) + (id.z*float{id_scale}); }
+
+glm::vec3 pack_id(size_t id) {
+    glm::vec3 result;
+    result.x = ((id/id_scale/id_scale)%id_scale)/float{id_scale - 1};
+    result.y =          ((id/id_scale)%id_scale)/float{id_scale - 1};
+    result.z =                     (id%id_scale)/float{id_scale - 1};
+    return result;
+}
+
+size_t unpack_id(const glm::vec3& id) {
+    size_t result = 0;
+    result += id.x*float{id_scale - 1}*id_scale*id_scale;
+    result += id.y*float{id_scale - 1}*id_scale;
+    result += id.z*float{id_scale - 1};
+    return result;
+}
 
 std::optional<object_id> geometry::get_id() {
     ZoneScopedN(__FUNCTION__);
     auto color = get_value_pixel_buffer(pbo);
-    if ((pick_pos.x < 0) || (pick_pos.x >= pick.width) || (pick_pos.y < 0) || (pick_pos.y >= pick.height)) return {};
     if ((color == pick.clear_color) || (color.x < 0.0f) || (color.y < 0.0f) || (color.z < 0.0f)) return {};
-    size_t segment = unpack_id(color);
-    if (!id_to_branch.contains(segment)) return {};
-    return {{segment, id_to_branch[segment], segments[segment], &branch_to_ids[id_to_branch[segment]]}};
+    auto id = unpack_id(color);
+    if (!id_to_branch.contains(id) || !id_to_index.contains(id)) return {};
+    auto branch  = id_to_branch[id];
+    auto segment = id_to_index[id];
+    return {{branch, segments[segment], &branch_to_ids[branch]}};
 }
 
 void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) {
@@ -383,11 +400,8 @@ void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r
     std::vector<unsigned> idcs{};
     for (const auto& seg: segs) {
         const auto idx = id_to_index[seg.id];
-        const auto cached = segments[idx];
-        if ((cached.dist != seg.prox) && (cached.prox != seg.dist)) {
-            for (auto idy = 0; idy < n_indices; ++idy) {
-                idcs.push_back(indices[idy + n_indices*idx]);
-            }
+        for (auto idy = n_indices*idx; idy < n_indices*(idx + 1); ++idy) {
+            idcs.push_back(indices[idy]);
         }
     }
     r.vao       = make_vao(vbo, idcs, {{0.0f, 0.0f, 0.0f}});
@@ -404,19 +418,23 @@ void geometry::load_geometry(const arb::morphology& morph) {
     n_indices   = n_triangles*3;  // Three indices (reference to vertex) per tri
     {
         ZoneScopedN("look up tables");
+        auto index = 0ul;
         for (auto branch = 0ul; branch < morph.num_branches(); ++branch) {
             std::vector<size_t> tmp;
             for (const auto& segment: morph.branch_segments(branch)) {
+                auto id = segment.id;
                 segments.push_back(segment);
-                id_to_branch[segment.id] = branch;
-                tmp.push_back(segment.id);
-            }
-            if (tmp.empty()) {
-                log_info("Empty branch {}", branch);
-                continue;
+                id_to_branch[id] = branch;
+                id_to_index[id]  = index;
+                tmp.push_back(id);
+                index++;
             }
             std::sort(tmp.begin(), tmp.end());
             auto it = tmp.begin();
+            if (it == tmp.end()) {
+                log_info("Empty branch {}", branch);
+                continue;
+            }
             auto lo = *it, hi = *it;
             it++;
             while (it != tmp.end()) {
@@ -432,22 +450,21 @@ void geometry::load_geometry(const arb::morphology& morph) {
             branch_to_ids[branch].emplace_back(lo, hi);
         }
     }
+
     log_info("Making geometry");
     if (segments.empty()) {
         log_info("Empty geometry");
         return;
     }
-    log_info("Got {} segments", segments.size());
-    auto tmp = segments[0].prox; // is always the root
-    root = {(float) tmp.x, (float) tmp.y, (float) tmp.z};
+    root = {(float) segments[0].prox.x, (float) segments[0].prox.y, (float) segments[0].prox.z};
     {
         vertices.reserve(segments.size()*n_vertices);
         ZoneScopedN("Vertices");
-        auto index = 0ul;
-        for (const auto& [id, prox, dist, tag]: segments) {
+        for (auto ix = 0ul; ix < segments.size(); ++ix) {
+            const auto& [id, prox, dist, tag] = segments[ix];
             // Shift to root and find vector along the segment
-            auto c_prox = glm::vec3{(prox.x - root.x), (prox.y - root.y), (prox.z - root.z)};
-            auto c_dist = glm::vec3{(dist.x - root.x), (dist.y - root.y), (dist.z - root.z)};
+            auto c_prox = glm::vec3{prox.x, prox.y, prox.z} - root;
+            auto c_dist = glm::vec3{dist.x, dist.y, dist.z} - root;
             auto c_diff = c_prox - c_dist;
             auto r_prox = (float) prox.radius;
             auto r_dist = (float) dist.radius;
@@ -458,9 +475,10 @@ void geometry::load_geometry(const arb::morphology& morph) {
                 normal = glm::cross(c_diff, t);
                 normal = glm::normalize(normal);
             }
+            // Very special debug
             // Generate cylinder from n_faces triangles
-            auto rot = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, c_diff));
-            auto obj = pack_id(id);
+            auto rot  = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, c_diff));
+            auto obj  = pack_id(id);
             auto up   =  glm::normalize(c_dist);
             auto down = -up;
             vertices.push_back({c_prox, down, obj});
@@ -472,16 +490,13 @@ void geometry::load_geometry(const arb::morphology& morph) {
                 vertices.push_back({r_dist*normal + c_dist, up,     obj});
                 normal = rot*normal;
             }
-            id_to_index[id] = index++;
         }
-        if (vertices.size() != segments.size()*n_vertices) {
-            log_error("Size mismatch: vertices ./. segments");
-        }
+        if (vertices.size() != segments.size()*n_vertices) log_error("Size mismatch: vertices ./. segments");
     }
     {
         ZoneScopedN("Indices");
         indices.reserve(segments.size()*n_indices);
-        for (auto base = 0ul; base < segments.size()*n_vertices; base += n_vertices) {
+        for (auto idx = 0ul; idx < segments.size(); ++idx) {
             // A frustrum is generated from triangles like this:
             //        *   c0
             //       / \
@@ -494,6 +509,7 @@ void geometry::load_geometry(const arb::morphology& morph) {
             // d0   *---*  d1
             //       \ /
             //        *   c1
+            auto base = idx*n_vertices;
             auto c0 = base, c1 = c0 + 1;
             for (auto face = 0ul; face < n_faces - 1; ++face) {
                 auto
@@ -516,11 +532,10 @@ void geometry::load_geometry(const arb::morphology& morph) {
             indices.push_back(c0);  indices.push_back(p1);  indices.push_back(p0);  // Proximal cap
             indices.push_back(c1);  indices.push_back(d0);  indices.push_back(d1);  // Distal cap
         }
-        if (indices.size() != segments.size()*n_indices) {
-            log_error("Size mismatch: indices ./. segments");
-        }
+        if (indices.size() != segments.size()*n_indices) log_error("Size mismatch: indices ./. segments");
     }
     log_debug("Cylinders generated: {} ({} points)", indices.size()/n_indices, vertices.size());
+
     {
         ZoneScopedN("Rescaling");
         // Re-scale into [-1, 1]^3 box

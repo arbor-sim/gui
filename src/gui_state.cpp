@@ -434,9 +434,11 @@ namespace {
     if (ImGui::Begin("Cell")) {
       ImGui::BeginChild("Cell Render");
       auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
-      state.renderer.pick_pos = glm::vec2{mouse_x - win_pos.x, size.y + win_pos.y - mouse_y };
-      state.renderer.render(state.view, to_glmvec(size), state.render_regions.items, state.render_locsets.items);
-      ImGui::Image((ImTextureID) state.renderer.cell.tex, size, ImVec2(0, 1), ImVec2(1, 0));
+      state.view.size = to_glmvec(size);
+      state.renderer.render(state.view,
+                            state.render_regions.items, state.render_locsets.items,
+                            {mouse_x - win_pos.x, size.y + win_pos.y - mouse_y});
+      ImGui::Image(reinterpret_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
 
       if (ImGui::IsItemHovered()) {
         state.view.offset -= delta_pos;
@@ -450,12 +452,7 @@ namespace {
         ImGui::Text("%s Camera", icon_camera);
         {
           with_indent indent{};
-          if (gui_menu_item("Reset##camera", icon_refresh)) {
-            state.view.offset = {0.0f, 0.0f};
-            state.view.phi    = 0.0f;
-            state.view.target = {0.0f, 0.0f, 0.0f};
-            state.renderer.cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
-          }
+          ImGui::InputFloat3("Target", &state.view.target[0]);
           ImGui::ColorEdit3("Background",& (state.renderer.cell.clear_color.x), ImGuiColorEditFlags_NoInputs);
           if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {
             for (const auto& id: state.locsets) {
@@ -467,13 +464,21 @@ namespace {
                   const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
                   if (ImGui::MenuItem(lbl.c_str())) {
                     state.view.offset = {0.0, 0.0};
-                    state.view.target = point - state.renderer.root;
+                    state.view.target = (point - state.renderer.root)/state.renderer.rescale;
                   }
                 }
                 ImGui::EndMenu();
               }
             }
+
             ImGui::EndMenu();
+          }
+
+          if (gui_menu_item("Reset##camera", icon_refresh)) {
+            state.view.offset = {0.0f, 0.0f};
+            state.view.phi    = 0.0f;
+            state.view.target = {0.0f, 0.0f, 0.0f};
+            state.renderer.cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
           }
         }
         ImGui::Separator();
@@ -508,25 +513,24 @@ namespace {
     if (ImGui::Begin("Info")) {
       ImGui::Text("%s Selection", icon_branch);
       if (state.object) {
-        auto& id = state.object.value();
-        ImGui::BulletText("Segment %zu", id.segment);
+        auto& object = state.object.value();
+        ImGui::BulletText("Segment %u", object.data.id);
         {
           with_indent indent;
-          ImGui::BulletText("Extent (%.1f, %.1f, %.1f) -- (%.1f, %.1f, %.1f)",
-                            id.data.prox.x, id.data.prox.y, id.data.prox.z,
-                            id.data.dist.x, id.data.dist.y, id.data.dist.z);
-          auto dx = id.data.prox.x - id.data.dist.x;
-          auto dy = id.data.prox.y - id.data.dist.y;
-          auto dz = id.data.prox.z - id.data.dist.z;
-          ImGui::BulletText("Radii  %g µm %g µm", id.data.prox.radius, id.data.dist.radius);
-          ImGui::BulletText("Length %g µm", std::sqrt(dx*dx + dy*dy + dz*dz));
+          auto
+            px = object.data.prox.x, dx = object.data.dist.x, lx = dx - px,
+            py = object.data.prox.y, dy = object.data.dist.y, ly = dy - py,
+            pz = object.data.prox.z, dz = object.data.dist.z, lz = dz - pz;
+          ImGui::BulletText("Extent (%.1f, %.1f, %.1f) -- (%.1f, %.1f, %.1f)", px, py, pz, dx, dy, dz);
+          ImGui::BulletText("Radii  %g µm %g µm", object.data.prox.radius, object.data.dist.radius);
+          ImGui::BulletText("Length %g µm", std::sqrt(lx*lx + ly*ly + lz*lz));
         }
-        ImGui::BulletText("Branch %zu", id.branch);
+        ImGui::BulletText("Branch %zu", object.branch);
         {
           with_indent indent;
           ImGui::BulletText("Segments");
           auto count = 0ul;
-          for (const auto& [lo, hi]: *id.segment_ids) {
+          for (const auto& [lo, hi]: *object.segment_ids) {
             ImGui::SameLine();
             if (lo == hi) {
               ImGui::Text("%zu", lo);
@@ -539,7 +543,7 @@ namespace {
         }
         ImGui::BulletText("Regions");
         {
-          for (const auto& region: state.segment_to_regions[id.segment]) {
+          for (const auto& region: state.segment_to_regions[object.data.id]) {
             ImGui::SameLine();
             ImGui::ColorButton("", to_imvec(state.render_regions[region].color));
             ImGui::SameLine();
@@ -1320,7 +1324,7 @@ void gui_state::update() {
         try {
           auto segments = state->builder.make_segments(def.data.value());
           for (const auto& segment: segments) {
-            const auto cached = state->renderer.segments[segment.id];
+            const auto cached = state->renderer.segments[state->renderer.id_to_index[segment.id]];
             if ((cached.dist != segment.prox) && (cached.prox != segment.dist)) {
               state->segment_to_regions[segment.id].insert(c.id);
             }
