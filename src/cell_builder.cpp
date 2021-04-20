@@ -16,7 +16,12 @@ void cell_builder::make_label_dict(std::vector<ls_def>& locsets, std::vector<rg_
         item.state   = def_state::error;
         item.message = "Duplicate name; ignored.";
       } else {
-        labels.set(item.name, item.data.value());
+        try {
+          labels.set(item.name, item.data.value());
+        } catch (const arb::arbor_exception& e) {
+          item.state   = def_state::error;
+          item.message = e.what();
+        }
       }
     }
   }
@@ -26,7 +31,12 @@ void cell_builder::make_label_dict(std::vector<ls_def>& locsets, std::vector<rg_
         item.state   = def_state::error;
         item.message = "Duplicate name; ignored.";
       } else {
-        labels.set(item.name, item.data.value());
+        try {
+          labels.set(item.name, item.data.value());
+        } catch (const arb::arbor_exception& e) {
+          item.state   = def_state::error;
+          item.message = e.what();
+        }
       }
     }
   }

@@ -1280,15 +1280,16 @@ void gui_state::update() {
       auto& def = state->locset_defs[c.id];
       auto& rnd = state->render_locsets[c.id];
       def.update();
-      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
-      if (def.state != def_state::good) return;
-      log_info("Making markers for locset {} '{}'", def.name, def.definition);
-      try {
-        auto points = state->builder.make_points(def.data.value());
-        state->renderer.make_marker(points, rnd);
-      } catch (const arb::arbor_exception& e) {
-        def.set_error(e.what()); rnd.active = false;
+      if (def.state == def_state::good) {
+        log_info("Making markers for locset {} '{}'", def.name, def.definition);
+        try {
+          auto points = state->builder.make_points(def.data.value());
+          state->renderer.make_marker(points, rnd);
+        } catch (const arb::arbor_exception& e) {
+          def.set_error(e.what()); rnd.active = false;
+        }
       }
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_del_locdef<ls_def>& c) {
       ZoneScopedN(__FUNCTION__);
@@ -1318,7 +1319,6 @@ void gui_state::update() {
         regions.erase(c.id);
       }
       def.update();
-      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
       if (def.state == def_state::good) {
         log_info("Making frustrums for region {} '{}'", def.name, def.definition);
         try {
@@ -1334,6 +1334,7 @@ void gui_state::update() {
           def.set_error(e.what()); rnd.active = false;
         }
       }
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_del_locdef<rg_def>& c) {
       ZoneScopedN(__FUNCTION__);
@@ -1343,10 +1344,10 @@ void gui_state::update() {
       state->parameter_defs.del(id);
       state->ion_par_defs.del_by_1st(id);
       state->mechanisms.del_children(id);
-      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
       // TODO This is quite expensive ... see if we can keep it this way
       for(auto& [segment, regions]: state->segment_to_regions) regions.erase(id);
       state->regions.del(id);
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_add_ion& c) {
       ZoneScopedN(__FUNCTION__);
