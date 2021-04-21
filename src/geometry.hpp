@@ -29,7 +29,7 @@ struct renderable {
   size_t    instances = 0;
   unsigned  vao       = 0;
   bool      active    = false;
-  glm::vec4 color     = next_color();
+  glm::vec4 color     = {0,0,0,1};
 };
 
 struct object_id {
@@ -56,6 +56,7 @@ struct geometry {
   void render(const view_state& view, const std::vector<renderable>&, const std::vector<renderable>&, const glm::vec2&);
   void make_marker(const std::vector<glm::vec3>& points, renderable&);
   void make_region(const std::vector<arb::msegment>& segments, renderable&);
+  void make_ruler(const glm::vec3& point, float scale);
   std::optional<object_id> get_id();
   void clear();
   void load_geometry(const arb::morphology&);
@@ -69,12 +70,17 @@ struct geometry {
 
   glm::vec2 pick_pos = {-1, -1};
 
+  std::vector<point>         ax_vertices;
+  std::vector<unsigned>      x_ax_indices, y_ax_indices, z_ax_indices;
+  std::vector<renderable>    axes;
+
   render_ctx pick;
   render_ctx cell;
 
   unsigned pbo            = 0;
   unsigned vbo            = 0;
   unsigned marker_vbo     = 0;
+  unsigned ax_vbo         = 0;
   unsigned region_program = 0;
   unsigned object_program = 0;
   unsigned marker_program = 0;

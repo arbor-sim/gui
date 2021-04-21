@@ -482,13 +482,23 @@ namespace {
           }
         }
         ImGui::Separator();
+        ImGui::Text("%s Axes", icon_axes);
+        static bool show_axes = state.renderer.axes.back().active;
+        gui_toggle(icon_on, icon_off, show_axes);
+        for (auto& ax: state.renderer.axes) ax.active = show_axes;
+        static glm::vec3 axes_pos = {0, 0, 0};
+        static float axes_ext = 0.1f;
+        if (ImGui::InputFloat3("Position", &axes_pos[0])) {
+          state.renderer.make_ruler(axes_pos, axes_ext);
+        }
+        if (ImGui::InputFloat("Size", &axes_ext, 0, 0, "%f µm")) {
+          state.renderer.make_ruler(axes_pos, axes_ext);
+        }
+
+        ImGui::Separator();
         ImGui::Text("%s Model", icon_cell);
         {
           with_indent indent{};
-          if (gui_menu_item("Reset##model", icon_refresh)) {
-            state.view.theta = 0.0f;
-            state.view.gamma = 0.0f;
-          }
           ImGui::SliderFloat("Theta", &state.view.theta, -PI, PI);
           ImGui::SliderFloat("Gamma", &state.view.gamma, -PI, PI);
           int tmp = state.renderer.n_faces;
@@ -1273,6 +1283,7 @@ void gui_state::update() {
       auto ls = state->locsets.add();
       state->locset_defs.add(ls, {c.name.empty() ? fmt::format("Locset {}", ls.value) : c.name, c.definition});
       state->render_locsets.add(ls);
+      state->render_locsets[ls].color = next_color();
       state->update_locset(ls);
     }
     void operator()(const evt_upd_locdef<ls_def>& c) {
@@ -1308,6 +1319,7 @@ void gui_state::update() {
       state->region_defs.add(id, {c.name.empty() ? fmt::format("Region {}", id.value) : c.name, c.definition});
       state->parameter_defs.add(id);
       state->render_regions.add(id);
+      state->render_regions[id].color = next_color();
       for (const auto& ion: state->ions) state->ion_par_defs.add(id, ion);
       state->update_region(id);
     }

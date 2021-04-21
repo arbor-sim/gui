@@ -38,3 +38,4 @@ const char * icon_stimulus = (const char *)ICON_FK_BOLT;
 const char * icon_cell     = (const char *)ICON_FK_CIRCLE_O_NOTCH;
 const char * icon_clean    = (const char *)ICON_FK_RECYCLE;
 const char * icon_sim      = (const char *)ICON_FK_ROCKET;
+const char * icon_axes     = (const char *)ICON_FK_ARROWS;
