@@ -568,41 +568,73 @@ namespace {
 
   template<typename Item>
   inline void gui_locdefs(const std::string& name,
-                   const entity& ids,
-                   component_unique<Item>& items,
-                   component_unique<renderable>& renderables,
-                   std::vector<event>& events) {
+                          entity& ids,
+                          component_unique<Item>& items,
+                          component_unique<renderable>& renderables,
+                          std::vector<event>& events) {
     ZoneScopedN(__FUNCTION__);
     with_id guard{name};
+    auto from = -1, to = -1;
     auto open = gui_tree_add(name, [&](){ events.emplace_back(evt_add_locdef<Item>{}); });
     if (open) {
       with_item_width iw(120.0f);
+      auto ix = 0;
       for (const auto& id: ids) {
         with_id guard{id};
         auto& render = renderables[id];
         auto& item   = items[id];
         auto open = gui_tree("");
+
+        if (ImGui::BeginDragDropTarget()) {
+          auto data = ImGui::AcceptDragDropPayload(name.c_str());
+          if (data) {
+            from = *((int*) data->Data);
+            to   = ix;
+          }
+          ImGui::EndDragDropTarget();
+        }
+
+        if (!ImGui::GetDragDropPayload() && ImGui::BeginDragDropSource()) {
+          ImGui::Text("%s", item.name.c_str());
+          ImGui::SetDragDropPayload(name.c_str(), &ix, sizeof(ix));
+          ImGui::EndDragDropSource();
+        }
+
+
         ImGui::SameLine();
-        if (ImGui::InputText("##locdef-name",& item.name, ImGuiInputTextFlags_AutoSelectAll)) events.push_back(evt_upd_locdef<Item>{id});
+        if (ImGui::InputText("##locdef-name", &item.name, ImGuiInputTextFlags_AutoSelectAll)) events.push_back(evt_upd_locdef<Item>{id});
         ImGui::SameLine();
-        ImGui::ColorEdit3("##locdef-color",& render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+        ImGui::ColorEdit3("##locdef-color", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
         ImGui::SameLine();
         gui_toggle(icon_show, icon_hide, render.active);
         ImGui::SameLine();
         gui_check_state(item);
-
         gui_right_margin();
         if (ImGui::Button(icon_delete)) events.push_back(evt_del_locdef<Item>{id});
+
         if (open) {
           with_item_width iw(-50.0f);
           auto indent = gui_tree_indent();
           ImGui::PushTextWrapPos(ImGui::GetFontSize() * 50.0f);
-          if (ImGui::InputTextMultiline("##locdef-definition",& item.definition)) events.push_back(evt_upd_locdef<Item>{id});
+          if (ImGui::InputTextMultiline("##locdef-definition", &item.definition)) events.push_back(evt_upd_locdef<Item>{id});
           ImGui::PopTextWrapPos();
           ImGui::TreePop();
         }
+        ix++;
       }
       ImGui::TreePop();
+    }
+
+    if ((from >= 0) && (to >= 0)) {
+      if (from == to) return;
+      ids.ids.insert(ids.ids.begin() + to, ids.ids[from]);
+      ids.ids.erase(ids.ids.begin() + from + (from > to));
+    }
+
+    float z = 0.01f;
+    for (const auto& id: ids) {
+      renderables[id].zorder = z;
+      z += 0.01f;
     }
   }
 
@@ -900,7 +932,8 @@ namespace {
 
   inline void gui_style(bool& open) {
     ZoneScopedN(__FUNCTION__);
-    if (ImGui::Begin("Style",& open)) ImGui::ShowStyleEditor();
+    // if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
+    if (ImGui::Begin("Demo", &open)) ImGui::ShowDemoWindow();
     ImGui::End();
   }
 

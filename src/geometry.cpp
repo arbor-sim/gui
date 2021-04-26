@@ -71,6 +71,12 @@ inline void finalise_msaa_fbo(render_ctx& ctx, const glm::vec2& size) {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
+inline void set_uniform(unsigned program, const std::string& name, const float& data) {
+    auto loc = glGetUniformLocation(program, name.c_str());
+    glUniform1f(loc, data);
+    gl_check_error(fmt::format("setting uniform scalar: {}", name));
+}
+
 inline void set_uniform(unsigned program, const std::string& name, const glm::vec3& data) {
     auto loc = glGetUniformLocation(program, name.c_str());
     glUniform3fv(loc, 1, glm::value_ptr(data));
@@ -112,6 +118,7 @@ inline void render(unsigned program,
     for (const auto& v: render) {
         if (v.active) {
             set_uniform(program, "object_color", v.color);
+            set_uniform(program, "zorder", v.zorder*0.01f);
             glBindVertexArray(v.vao);
             glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);
             glBindVertexArray(0);

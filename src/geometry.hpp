@@ -29,7 +29,8 @@ struct renderable {
   size_t    instances = 0;
   unsigned  vao       = 0;
   bool      active    = false;
-  glm::vec4 color     = {0,0,0,1};
+  float     zorder    = 0.0f;
+  glm::vec4 color     = {0.0f, 0.0f, 0.0f, 1.0f};
 };
 
 struct object_id {
