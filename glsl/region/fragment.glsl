@@ -2,7 +2,6 @@
 
 in vec3 position;
 in vec3 normal;
-in float z;
 
 uniform vec3 key;
 uniform vec3 key_color;

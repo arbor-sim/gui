@@ -595,11 +595,11 @@ namespace {
         }
 
         if (!ImGui::GetDragDropPayload() && ImGui::BeginDragDropSource()) {
+          open = !open;
           ImGui::Text("%s", item.name.c_str());
           ImGui::SetDragDropPayload(name.c_str(), &ix, sizeof(ix));
           ImGui::EndDragDropSource();
         }
-
 
         ImGui::SameLine();
         if (ImGui::InputText("##locdef-name", &item.name, ImGuiInputTextFlags_AutoSelectAll)) events.push_back(evt_upd_locdef<Item>{id});
