@@ -21,6 +21,24 @@ void gl_check_error(const std::string&) {}
 #endif
 
 namespace {
+constexpr size_t id_scale = 256.0f;
+
+inline glm::vec3 pack_id(size_t id) {
+    glm::vec3 result;
+    result.x = ((id/id_scale/id_scale)%id_scale)/float{id_scale - 1};
+    result.y =          ((id/id_scale)%id_scale)/float{id_scale - 1};
+    result.z =                     (id%id_scale)/float{id_scale - 1};
+    return result;
+}
+
+inline size_t unpack_id(const glm::vec3& id) {
+    size_t result = 0;
+    result += id.x*float{id_scale - 1}*id_scale*id_scale;
+    result += id.y*float{id_scale - 1}*id_scale;
+    result += id.z*float{id_scale - 1};
+    return result;
+}
+
 unsigned make_pixel_buffer() {
     ZoneScopedN(__FUNCTION__);
     unsigned pbo = 0;
@@ -332,10 +350,13 @@ void make_frustrum_indices(size_t base, std::vector<unsigned>& indices, size_t n
     indices.push_back(c1);  indices.push_back(d0);  indices.push_back(d1);  // Distal cap
 }
 
-void make_axes(axes& ax) {
+void make_axes(axes& ax, float rescale) {
     ZoneScopedN(__FUNCTION__);
 
     glDeleteBuffers(1, &ax.vbo);
+
+    auto o = ax.origin / (rescale > 0.0f ? rescale : 1.0f);
+    auto s = ax.scale  / (rescale > 0.0f ? rescale : 1.0f);
 
     ax.vertices.clear();
     ax.x_indices.clear();
@@ -345,31 +366,34 @@ void make_axes(axes& ax) {
     constexpr auto f = 0.001f;
     constexpr auto N = 64, V = N*4 + 2;
 
-    make_frustrum_vertices(p + glm::vec3{0,0,d}, f, p + glm::vec3{0,0,-d}, f, 0, ax.vertices, N); make_frustrum_indices(0*V, ax.x_indices, N);
-    make_frustrum_vertices(p + glm::vec3{0,d,0}, f, p + glm::vec3{0,-d,0}, f, 0, ax.vertices, N); make_frustrum_indices(1*V, ax.y_indices, N);
-    make_frustrum_vertices(p + glm::vec3{d,0,0}, f, p + glm::vec3{-d,0,0}, f, 0, ax.vertices, N); make_frustrum_indices(2*V, ax.z_indices, N);
+    make_frustrum_vertices(o + glm::vec3{0,0,s}, f, o + glm::vec3{0,0,-s}, f, 0, ax.vertices, N);
+    make_frustrum_vertices(o + glm::vec3{0,s,0}, f, o + glm::vec3{0,-s,0}, f, 0, ax.vertices, N);
+    make_frustrum_vertices(o + glm::vec3{s,0,0}, f, o + glm::vec3{-s,0,0}, f, 0, ax.vertices, N);
 
-    ax.vbo = make_buffer_object(ax_vertices, GL_ARRAY_BUFFER);
+    make_frustrum_indices(0*V, ax.x_indices, N);
+    make_frustrum_indices(1*V, ax.y_indices, N);
+    make_frustrum_indices(2*V, ax.z_indices, N);
 
-    for (auto& r: axes) glDeleteVertexArrays(1, &r.vao);
-    axes.clear();
+    ax.vbo = make_buffer_object(ax.vertices, GL_ARRAY_BUFFER);
 
-    auto x = renderable {.vao       = make_vao(ax.vbo, ax.x_indices, {{0,0,0}}),
-                         .count     = ax.x_indices.size(),
+    for (auto& r: ax.renderables) glDeleteVertexArrays(1, &r.vao);
+
+    auto x = renderable {.count     = ax.x_indices.size(),
                          .instances = 1,
+                         .vao       = make_vao(ax.vbo, ax.x_indices, {{0,0,0}}),
                          .active    = true,
                          .color     = {1, 0, 0, 1}},
-        y = renderable {.vao       = make_vao(ax.vbo, ax.y_indices, {{0,0,0}}),
-                        .count     = ax.y_indices.size(),
+        y = renderable {.count     = ax.y_indices.size(),
                         .instances = 1,
+                        .vao       = make_vao(ax.vbo, ax.y_indices, {{0,0,0}}),
                         .active    = true,
                         .color     = {0, 1, 0, 1}},
-        z = renderable {.vao       = make_vao(ax.vbo, ax.z_indices, {{0,0,0}}),
-                        .count     = ax.z_indices.size(),
+        z = renderable {.count     = ax.z_indices.size(),
                         .instances = 1,
+                        .vao       = make_vao(ax.vbo, ax.z_indices, {{0,0,0}}),
                         .active    = true,
                         .color     = {0, 0, 1, 1}};
-    ax.axes = {{x, y, z}};
+    ax.renderables = {{x, y, z}};
 };
 
 }
@@ -389,7 +413,7 @@ geometry::geometry() {
         marker_vbo = make_buffer_object(tris, GL_ARRAY_BUFFER);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
-    make_ruler({0,0,0}, 0.1f);
+    make_ruler();
 }
 
 void geometry::render(const view_state& vs,
@@ -403,7 +427,7 @@ void geometry::render(const view_state& vs,
     auto camera     = distance*glm::vec3{0.0f, 0.0f, 1.0f};
     glm::vec3 up    = {0.0f, 1.0f, 0.0f};
     glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
-    glm::mat4 view  = glm::lookAt(camera, vs.target + shift, up);
+    glm::mat4 view  = glm::lookAt(camera, (vs.target - root)/rescale + shift, up);
     glm::mat4 proj  = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
     view = proj*view; // pre-multiply view matrices
 
@@ -477,24 +501,6 @@ void geometry::render(const view_state& vs,
     }
 }
 
-constexpr size_t id_scale = 256.0f;
-
-glm::vec3 pack_id(size_t id) {
-    glm::vec3 result;
-    result.x = ((id/id_scale/id_scale)%id_scale)/float{id_scale - 1};
-    result.y =          ((id/id_scale)%id_scale)/float{id_scale - 1};
-    result.z =                     (id%id_scale)/float{id_scale - 1};
-    return result;
-}
-
-size_t unpack_id(const glm::vec3& id) {
-    size_t result = 0;
-    result += id.x*float{id_scale - 1}*id_scale*id_scale;
-    result += id.y*float{id_scale - 1}*id_scale;
-    result += id.z*float{id_scale - 1};
-    return result;
-}
-
 std::optional<object_id> geometry::get_id() {
     ZoneScopedN(__FUNCTION__);
     auto color = get_value_pixel_buffer(pbo);
@@ -534,9 +540,7 @@ void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r
 }
 
 void geometry::make_ruler() {
-    ax.point /= (rescale > 0.0f ? rescale : 1.0f);
-    ax.scale /= (rescale > 0.0f ? rescale : 1.0f);
-    make_axes(ax);
+    make_axes(ax, rescale);
 }
 
 void geometry::load_geometry(const arb::morphology& morph) {

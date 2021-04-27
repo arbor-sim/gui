@@ -442,7 +442,7 @@ namespace {
     ImGui::Text("%s Axes", icon_axes);
     gui_toggle(icon_on, icon_off, ax.active);
     auto mv = ImGui::InputFloat3("Position", &ax.origin[0]);
-    auto sz  ImGui::InputFloat("Size", &ax.scale, 0, 0, "%f µm");
+    auto sz = ImGui::InputFloat("Size", &ax.scale, 0, 0, "%f µm");
     return mv || sz;
   }
 
@@ -481,7 +481,7 @@ namespace {
                   const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
                   if (ImGui::MenuItem(lbl.c_str())) {
                     state.view.offset = {0.0, 0.0};
-                    state.view.target = (point - state.renderer.root)/state.renderer.rescale;
+                    state.view.target = point;
                   }
                 }
                 ImGui::EndMenu();
@@ -590,23 +590,7 @@ namespace {
         auto& item   = items[id];
         auto open    = gui_tree("");
         ImGui::SameLine();
-        ImGui::Selectable("");
-        if (ImGui::BeginDragDropTarget()) {
-          auto data = ImGui::AcceptDragDropPayload(name.c_str(), ImGuiDragDropFlags_SourceNoHoldToOpenOthers);
-          if (data) {
-            from = *((int*) data->Data);
-            to   = ix;
-          }
-          ImGui::EndDragDropTarget();
-        }
-
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoHoldToOpenOthers)) {
-          ImGui::Text("%s", item.name.c_str());
-          ImGui::SetDragDropPayload(name.c_str(), &ix, sizeof(ix));
-          ImGui::EndDragDropSource();
-        }
-
-        ImGui::SameLine();
+        auto beg = ImGui::GetCursorPos();
         if (ImGui::InputText("##locdef-name", &item.name, ImGuiInputTextFlags_AutoSelectAll)) events.push_back(evt_upd_locdef<Item>{id});
         ImGui::SameLine();
         ImGui::ColorEdit3("##locdef-color", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
@@ -614,6 +598,7 @@ namespace {
         gui_toggle(icon_show, icon_hide, render.active);
         ImGui::SameLine();
         gui_check_state(item);
+
         gui_right_margin();
         if (ImGui::Button(icon_delete)) events.push_back(evt_del_locdef<Item>{id});
 
@@ -625,6 +610,23 @@ namespace {
           ImGui::PopTextWrapPos();
           ImGui::TreePop();
         }
+        auto end = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(beg);
+        ImGui::InvisibleButton("drag area", ImVec2(ImGui::GetContentRegionAvailWidth(), end.y - beg.y));
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoHoldToOpenOthers)) {
+          ImGui::Text("%s", item.name.c_str());
+          ImGui::SetDragDropPayload(name.c_str(), &ix, sizeof(ix));
+          ImGui::EndDragDropSource();
+        }
+        if (ImGui::BeginDragDropTarget()) {
+          auto data = ImGui::AcceptDragDropPayload(name.c_str(), ImGuiDragDropFlags_SourceNoHoldToOpenOthers);
+          if (data) {
+            from = *((int*) data->Data);
+            to   = ix;
+          }
+          ImGui::EndDragDropTarget();
+        }
+        ImGui::SetCursorPos(end);
         ix++;
       }
       ImGui::TreePop();
@@ -642,10 +644,11 @@ namespace {
       }
     }
 
-    float z = 0.01f;
+    float dz = 0.00001f;
+    float z = dz;
     for (const auto& id: ids) {
       renderables[id].zorder = z;
-      z += 0.01f;
+      z += dz;
     }
   }
 

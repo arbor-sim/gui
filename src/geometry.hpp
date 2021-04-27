@@ -99,6 +99,6 @@ struct geometry {
   size_t n_triangles = n_faces*4;      // Each face is a quad made from 2 tris, caps have one tri per face
   size_t n_indices   = n_triangles*3;  // Three indices (reference to vertex) per tri
 
-  float rescale = -1;
+  float rescale = 100.0f;              // Start with 100um ^ 3 box
   glm::vec3 root = {0.0f, 0.0f, 0.0f};
 };
