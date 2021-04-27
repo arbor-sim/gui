@@ -40,3 +40,4 @@ const char * icon_clean    = (const char *)ICON_FK_RECYCLE;
 const char * icon_sim      = (const char *)ICON_FK_ROCKET;
 const char * icon_axes     = (const char *)ICON_FK_ARROWS;
 const char * icon_anchor   = (const char *)ICON_FK_ANCHOR;
+const char * icon_about    = (const char *)ICON_FK_INFO;

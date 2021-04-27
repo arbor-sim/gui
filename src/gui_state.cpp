@@ -8,6 +8,7 @@
 #include <arbor/mechinfo.hpp>
 #include <arbor/cable_cell.hpp>
 #include <arbor/cable_cell_param.hpp>
+#include <arbor/version.hpp>
 #include <arborio/neurolucida.hpp>
 #include <arborio/neuroml.hpp>
 #include <arborio/swcio.hpp>
@@ -20,6 +21,7 @@
 #include "icons.hpp"
 #include "events.hpp"
 #include "loader.hpp"
+#include "config.hpp"
 
 extern float delta_phi;
 extern float delta_gamma;
@@ -34,6 +36,7 @@ namespace {
   inline void gui_dir_view(file_chooser_state& state);
   inline void gui_debug(bool&);
   inline void gui_style(bool&);
+  inline void gui_about(bool&);
   inline void gui_demo(bool&);
 
   inline void gui_right_margin(float delta=40.0f) { ImGui::SameLine(ImGui::GetWindowWidth() - delta); }
@@ -225,6 +228,7 @@ namespace {
     static auto open_debug      = false;
     static auto open_style      = false;
     static auto open_demo       = false;
+    static auto open_about      = false;
     if (ImGui::BeginMenu("File")) {
       ImGui::Text("%s Morphology", icon_branch);
       {
@@ -244,17 +248,18 @@ namespace {
     }
     gui_right_margin(60.0f);
     if (ImGui::BeginMenu("Help")) {
+      open_about = gui_menu_item("About",   icon_about);
       open_debug = gui_menu_item("Metrics", icon_bug);
       open_style = gui_menu_item("Style",   icon_paint);
       ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
     if (open_morph_read) gui_read_morphology(state, open_morph_read);
-    if (open_acc_read) gui_read_acc(state, open_acc_read);
-    if (open_acc_save) gui_save_acc(state, open_acc_save);
+    if (open_acc_read)   gui_read_acc(state, open_acc_read);
+    if (open_acc_save)   gui_save_acc(state, open_acc_save);
     if (open_debug)      gui_debug(open_debug);
     if (open_style)      gui_style(open_style);
-    if (open_demo)       gui_style(open_demo);
+    if (open_about)      gui_about(open_about);
   }
 
   inline void gui_main(gui_state& state) {
@@ -944,6 +949,17 @@ namespace {
     if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
     ImGui::End();
   }
+
+  inline void gui_about(bool& open) {
+    ZoneScopedN(__FUNCTION__);
+    if (ImGui::Begin("About", &open)) {
+      ImGui::Text("Version: %s", gui_git_commit);
+      ImGui::Text("Webpage: %s", gui_web_page);
+      ImGui::Text("Arbor:   %s (%s)", arb::version, arb::source_id);
+    }
+    ImGui::End();
+  }
+
 
   inline void gui_demo(bool& open) {
     ZoneScopedN(__FUNCTION__);

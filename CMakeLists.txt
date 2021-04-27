@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
+find_package(Git)
+
 project(the-arbor-gui
   VERSION 0.0.1
   LANGUAGES C CXX)
@@ -63,7 +65,6 @@ target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/stb)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/tracy)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui/backends)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui/examples/libs/gl3w)
-
 add_library(imgui OBJECT
   3rd-party/imgui/examples/libs/gl3w/GL/gl3w.c
   3rd-party/imgui/backends/imgui_impl_opengl3.cpp
@@ -78,8 +79,16 @@ target_include_directories(imgui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
 target_include_directories(imgui PRIVATE 3rd-party/imgui)
 target_link_libraries(imgui PRIVATE glfw)
 
+execute_process(COMMAND ${GIT_EXECUTABLE} -C ${PROJECT_SOURCE_DIR} describe --always --dirty --abbrev=0
+                COMMAND xargs echo -n
+                COMMAND_ECHO STDOUT
+                OUTPUT_VARIABLE ARBORGUI_GIT_COMMIT
+                ERROR_VARIABLE  ARBORGUI_GIT_COMMIT)
+
+configure_file(src/config.hpp.in config.hpp @ONLY)
+
 set(gui_srcs
-  main.cpp
+  src/main.cpp
   src/definition.hpp
   src/cell_builder.hpp src/cell_builder.cpp
   src/gui_state.hpp src/gui_state.cpp
@@ -98,7 +107,7 @@ set_source_files_properties("${gui_srcs}" PROPERTIES COMPILE_FLAGS "-Wall -Wextr
 
 add_executable(arbor-gui ${gui_srcs} $<TARGET_OBJECTS:imgui>)
 
-target_include_directories(arbor-gui PRIVATE src)
+target_include_directories(arbor-gui PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glfw arbor-gui-deps)
 
 if(ARBORGUI_USE_TRACY)
