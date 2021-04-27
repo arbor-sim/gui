@@ -583,10 +583,11 @@ namespace {
         with_id guard{id};
         auto& render = renderables[id];
         auto& item   = items[id];
-        auto open = gui_tree("");
-
+        auto open    = gui_tree("");
+        ImGui::SameLine();
+        ImGui::Selectable("");
         if (ImGui::BeginDragDropTarget()) {
-          auto data = ImGui::AcceptDragDropPayload(name.c_str());
+          auto data = ImGui::AcceptDragDropPayload(name.c_str(), ImGuiDragDropFlags_SourceNoHoldToOpenOthers);
           if (data) {
             from = *((int*) data->Data);
             to   = ix;
@@ -594,8 +595,7 @@ namespace {
           ImGui::EndDragDropTarget();
         }
 
-        if (!ImGui::GetDragDropPayload() && ImGui::BeginDragDropSource()) {
-          open = !open;
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoHoldToOpenOthers)) {
           ImGui::Text("%s", item.name.c_str());
           ImGui::SetDragDropPayload(name.c_str(), &ix, sizeof(ix));
           ImGui::EndDragDropSource();
@@ -627,8 +627,14 @@ namespace {
 
     if ((from >= 0) && (to >= 0)) {
       if (from == to) return;
-      ids.ids.insert(ids.ids.begin() + to, ids.ids[from]);
-      ids.ids.erase(ids.ids.begin() + from + (from > to));
+      if (from < to) {
+        ids.ids.insert(ids.ids.begin() + to + 1, ids.ids[from]);
+        ids.ids.erase(ids.ids.begin() + from);
+      }
+      if (from > to) {
+        ids.ids.insert(ids.ids.begin() + to, ids.ids[from]);
+        ids.ids.erase(ids.ids.begin() + from + 1);
+      }
     }
 
     float z = 0.01f;
