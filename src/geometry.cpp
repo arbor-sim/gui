@@ -620,6 +620,7 @@ void geometry::load_geometry(const arb::morphology& morph) {
     }
     vbo = make_buffer_object(vertices, GL_ARRAY_BUFFER);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    make_ruler();
 }
 
 void geometry::clear() {
