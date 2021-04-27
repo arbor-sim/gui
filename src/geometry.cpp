@@ -267,6 +267,111 @@ void make_fbo(int w, int h, render_ctx& ctx) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+void make_frustrum_vertices(const glm::vec3& p, float rp,
+                            const glm::vec3& d, float rd,
+                            size_t id,
+                            std::vector<point>& vertices,
+                            size_t n_faces) {
+    auto diff = p - d;
+    // Make a normal to segment vector
+    auto normal = glm::vec3{0.0f, 0.0f, 0.0f};
+    while (normal == glm::vec3{0.0f, 0.0f, 0.0f}) {
+        auto t = glm::vec3{randf(), randf(), randf()};
+        normal = glm::cross(diff, t);
+        normal = glm::normalize(normal);
+    }
+    // Generate cylinder from n_faces triangles
+    auto rot  = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, diff));
+    auto obj  = pack_id(id);
+    auto up   =  glm::normalize(d);
+    auto down = -up;
+    vertices.push_back({p, down, obj});
+    vertices.push_back({d, up,   obj});
+    for (auto face = 0ul; face < n_faces; ++face) {
+        vertices.push_back({rp*normal + p, normal, obj});
+        vertices.push_back({rp*normal + p, down,   obj});
+        vertices.push_back({rd*normal + d, normal, obj});
+        vertices.push_back({rd*normal + d, up,     obj});
+        normal = rot*normal;
+    }
+}
+
+void make_frustrum_indices(size_t base, std::vector<unsigned>& indices, size_t n_faces) {
+    // A frustrum is generated from triangles like this:
+    //        *   c0
+    //       / \
+    // p0   *---*  p1
+    // f00  *---*  f10    proximal
+    //      |  /|
+    //      | / |         rotation ->
+    //      |/  |
+    // f01  *---*  f11    distal
+    // d0   *---*  d1
+    //       \ /
+    //        *   c1
+    auto c0 = base, c1 = c0 + 1;
+    for (auto face = 0ul; face < n_faces - 1; ++face) {
+        auto
+            p0  = base + 4*face + 3, p1  = p0  + 4,
+            f00 = base + 4*face + 2, f10 = f00 + 4,
+            f01 = base + 4*face + 4, f11 = f01 + 4,
+            d0  = base + 4*face + 5, d1  = d0  + 4;
+        indices.push_back(f00); indices.push_back(f10); indices.push_back(f01); // Face 0
+        indices.push_back(f01); indices.push_back(f10); indices.push_back(f11); // Face 1
+        indices.push_back(c0);  indices.push_back(p1);  indices.push_back(p0);  // Proximal cap
+        indices.push_back(c1);  indices.push_back(d0);  indices.push_back(d1);  // Distal cap
+    }
+    auto
+        p0  = base + 4*(n_faces - 1) + 3, p1  = base + 3,
+        f00 = base + 4*(n_faces - 1) + 2, f10 = base + 2,
+        f01 = base + 4*(n_faces - 1) + 4, f11 = base + 4,
+        d0  = base + 4*(n_faces - 1) + 5, d1  = base + 5;
+    indices.push_back(f00); indices.push_back(f10); indices.push_back(f01); // Face 0
+    indices.push_back(f01); indices.push_back(f10); indices.push_back(f11); // Face 1
+    indices.push_back(c0);  indices.push_back(p1);  indices.push_back(p0);  // Proximal cap
+    indices.push_back(c1);  indices.push_back(d0);  indices.push_back(d1);  // Distal cap
+}
+
+void make_axes(axes& ax) {
+    ZoneScopedN(__FUNCTION__);
+
+    glDeleteBuffers(1, &ax.vbo);
+
+    ax.vertices.clear();
+    ax.x_indices.clear();
+    ax.y_indices.clear();
+    ax.z_indices.clear();
+
+    constexpr auto f = 0.001f;
+    constexpr auto N = 64, V = N*4 + 2;
+
+    make_frustrum_vertices(p + glm::vec3{0,0,d}, f, p + glm::vec3{0,0,-d}, f, 0, ax.vertices, N); make_frustrum_indices(0*V, ax.x_indices, N);
+    make_frustrum_vertices(p + glm::vec3{0,d,0}, f, p + glm::vec3{0,-d,0}, f, 0, ax.vertices, N); make_frustrum_indices(1*V, ax.y_indices, N);
+    make_frustrum_vertices(p + glm::vec3{d,0,0}, f, p + glm::vec3{-d,0,0}, f, 0, ax.vertices, N); make_frustrum_indices(2*V, ax.z_indices, N);
+
+    ax.vbo = make_buffer_object(ax_vertices, GL_ARRAY_BUFFER);
+
+    for (auto& r: axes) glDeleteVertexArrays(1, &r.vao);
+    axes.clear();
+
+    auto x = renderable {.vao       = make_vao(ax.vbo, ax.x_indices, {{0,0,0}}),
+                         .count     = ax.x_indices.size(),
+                         .instances = 1,
+                         .active    = true,
+                         .color     = {1, 0, 0, 1}},
+        y = renderable {.vao       = make_vao(ax.vbo, ax.y_indices, {{0,0,0}}),
+                        .count     = ax.y_indices.size(),
+                        .instances = 1,
+                        .active    = true,
+                        .color     = {0, 1, 0, 1}},
+        z = renderable {.vao       = make_vao(ax.vbo, ax.z_indices, {{0,0,0}}),
+                        .count     = ax.z_indices.size(),
+                        .instances = 1,
+                        .active    = true,
+                        .color     = {0, 0, 1, 1}};
+    ax.axes = {{x, y, z}};
+};
+
 }
 
 geometry::geometry() {
@@ -364,7 +469,7 @@ void geometry::render(const view_state& vs,
         {
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
-            ::render(region_program, model, view, camera, light_color, axes);
+            if (ax.active) ::render(region_program, model, view, camera, light_color, ax.renderables);
             glDisable(GL_CULL_FACE);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -428,118 +533,11 @@ void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r
     r.active    = true;
 }
 
-void make_frustrum_vertices(const glm::vec3& p, float rp,
-                            const glm::vec3& d, float rd,
-                            size_t id,
-                            std::vector<point>& vertices,
-                            size_t n_faces) {
-    auto diff = p - d;
-    // Make a normal to segment vector
-    auto normal = glm::vec3{0.0f, 0.0f, 0.0f};
-    while (normal == glm::vec3{0.0f, 0.0f, 0.0f}) {
-        auto t = glm::vec3{randf(), randf(), randf()};
-        normal = glm::cross(diff, t);
-        normal = glm::normalize(normal);
-    }
-    // Generate cylinder from n_faces triangles
-    auto rot  = glm::mat3(glm::rotate(glm::mat4(1.0f), 2.0f*PI/n_faces, diff));
-    auto obj  = pack_id(id);
-    auto up   =  glm::normalize(d);
-    auto down = -up;
-    vertices.push_back({p, down, obj});
-    vertices.push_back({d, up,   obj});
-    for (auto face = 0ul; face < n_faces; ++face) {
-        vertices.push_back({rp*normal + p, normal, obj});
-        vertices.push_back({rp*normal + p, down,   obj});
-        vertices.push_back({rd*normal + d, normal, obj});
-        vertices.push_back({rd*normal + d, up,     obj});
-        normal = rot*normal;
-    }
+void geometry::make_ruler() {
+    ax.point /= (rescale > 0.0f ? rescale : 1.0f);
+    ax.scale /= (rescale > 0.0f ? rescale : 1.0f);
+    make_axes(ax);
 }
-
-void make_frustrum_indices(size_t base, std::vector<unsigned>& indices, size_t n_faces) {
-    // A frustrum is generated from triangles like this:
-    //        *   c0
-    //       / \
-    // p0   *---*  p1
-    // f00  *---*  f10    proximal
-    //      |  /|
-    //      | / |         rotation ->
-    //      |/  |
-    // f01  *---*  f11    distal
-    // d0   *---*  d1
-    //       \ /
-    //        *   c1
-    auto c0 = base, c1 = c0 + 1;
-    for (auto face = 0ul; face < n_faces - 1; ++face) {
-        auto
-            p0  = base + 4*face + 3, p1  = p0  + 4,
-            f00 = base + 4*face + 2, f10 = f00 + 4,
-            f01 = base + 4*face + 4, f11 = f01 + 4,
-            d0  = base + 4*face + 5, d1  = d0  + 4;
-        indices.push_back(f00); indices.push_back(f10); indices.push_back(f01); // Face 0
-        indices.push_back(f01); indices.push_back(f10); indices.push_back(f11); // Face 1
-        indices.push_back(c0);  indices.push_back(p1);  indices.push_back(p0);  // Proximal cap
-        indices.push_back(c1);  indices.push_back(d0);  indices.push_back(d1);  // Distal cap
-    }
-    auto
-        p0  = base + 4*(n_faces - 1) + 3, p1  = base + 3,
-        f00 = base + 4*(n_faces - 1) + 2, f10 = base + 2,
-        f01 = base + 4*(n_faces - 1) + 4, f11 = base + 4,
-        d0  = base + 4*(n_faces - 1) + 5, d1  = base + 5;
-    indices.push_back(f00); indices.push_back(f10); indices.push_back(f01); // Face 0
-    indices.push_back(f01); indices.push_back(f10); indices.push_back(f11); // Face 1
-    indices.push_back(c0);  indices.push_back(p1);  indices.push_back(p0);  // Proximal cap
-    indices.push_back(c1);  indices.push_back(d0);  indices.push_back(d1);  // Distal cap
-}
-
-
-void geometry::make_ruler(const glm::vec3& point, float scale) {
-    ZoneScopedN(__FUNCTION__);
-
-    glDeleteBuffers(1, &ax_vbo);
-
-    ax_vertices.clear();
-    x_ax_indices.clear();
-    y_ax_indices.clear();
-    z_ax_indices.clear();
-
-    auto f = 0.001f, d = scale;
-    auto N = 64, V = N*4 + 2;
-    auto p = point;
-
-    if (rescale > 0) { d /= rescale; p /= rescale; }
-
-    make_frustrum_vertices(p + glm::vec3{0,0,d}, f, p + glm::vec3{0,0,-d}, f, 0, ax_vertices, N); make_frustrum_indices(0*V, x_ax_indices, N);
-    make_frustrum_vertices(p + glm::vec3{0,d,0}, f, p + glm::vec3{0,-d,0}, f, 0, ax_vertices, N); make_frustrum_indices(1*V, y_ax_indices, N);
-    make_frustrum_vertices(p + glm::vec3{d,0,0}, f, p + glm::vec3{-d,0,0}, f, 0, ax_vertices, N); make_frustrum_indices(2*V, z_ax_indices, N);
-
-    ax_vbo = make_buffer_object(ax_vertices, GL_ARRAY_BUFFER);
-
-    for (auto& r: axes) glDeleteVertexArrays(1, &r.vao);
-    axes.clear();
-    renderable x, y, z;
-
-    x.vao       = make_vao(ax_vbo, x_ax_indices, {{0,0,0}});
-    x.count     = x_ax_indices.size();
-    x.instances = 1;
-    x.active    = true;
-    x.color     = {1, 0, 0, 1};
-
-    y.vao       = make_vao(ax_vbo, y_ax_indices, {{0,0,0}});
-    y.count     = y_ax_indices.size();
-    y.instances = 1;
-    y.active    = true;
-    y.color     = {0, 1, 0, 1};
-
-    z.vao       = make_vao(ax_vbo, z_ax_indices, {{0,0,0}});
-    z.count     = z_ax_indices.size();
-    z.instances = 1;
-    z.active    = true;
-    z.color     = {0, 0, 1, 1};
-
-    axes = {{x, y, z}};
-};
 
 void geometry::load_geometry(const arb::morphology& morph) {
     ZoneScopedN(__FUNCTION__);

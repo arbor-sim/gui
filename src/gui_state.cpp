@@ -437,6 +437,15 @@ namespace {
     }
   }
 
+
+  inline bool gui_axes(axes& ax) {
+    ImGui::Text("%s Axes", icon_axes);
+    gui_toggle(icon_on, icon_off, ax.active);
+    auto mv = ImGui::InputFloat3("Position", &ax.origin[0]);
+    auto sz  ImGui::InputFloat("Size", &ax.scale, 0, 0, "%f µm");
+    return mv || sz;
+  }
+
   inline void gui_cell(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin("Cell")) {
@@ -490,19 +499,7 @@ namespace {
           }
         }
         ImGui::Separator();
-        ImGui::Text("%s Axes", icon_axes);
-        static bool show_axes = state.renderer.axes.back().active;
-        gui_toggle(icon_on, icon_off, show_axes);
-        for (auto& ax: state.renderer.axes) ax.active = show_axes;
-        static glm::vec3 axes_pos = {0, 0, 0};
-        static float axes_ext = 0.1f;
-        if (ImGui::InputFloat3("Position", &axes_pos[0])) {
-          state.renderer.make_ruler(axes_pos, axes_ext);
-        }
-        if (ImGui::InputFloat("Size", &axes_ext, 0, 0, "%f µm")) {
-          state.renderer.make_ruler(axes_pos, axes_ext);
-        }
-
+        if(gui_axes(state.renderer.ax)) state.renderer.make_ruler();
         ImGui::Separator();
         ImGui::Text("%s Model", icon_cell);
         {

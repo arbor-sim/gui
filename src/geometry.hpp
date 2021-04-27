@@ -50,6 +50,16 @@ struct render_ctx {
   glm::vec3 clear_color = {1.0f, 1.0f, 1.0f};
 };
 
+struct axes {
+  glm::vec3               origin = {0.0f, 0.0f, 0.0f};
+  std::vector<point>      vertices;
+  std::vector<unsigned>   x_indices, y_indices, z_indices;
+  std::vector<renderable> renderables;
+  unsigned                vbo = 0;
+  float                   scale = 50.0f; // um
+  bool                    active = true;
+};
+
 // TODO Split this into rendering and actual geometry. ATM these are coupled in `get_object_id` via the `id_to_*` tables.
 struct geometry {
   geometry();
@@ -57,7 +67,7 @@ struct geometry {
   void render(const view_state& view, const std::vector<renderable>&, const std::vector<renderable>&, const glm::vec2&);
   void make_marker(const std::vector<glm::vec3>& points, renderable&);
   void make_region(const std::vector<arb::msegment>& segments, renderable&);
-  void make_ruler(const glm::vec3& point, float scale);
+  void make_ruler();
   std::optional<object_id> get_id();
   void clear();
   void load_geometry(const arb::morphology&);
@@ -69,19 +79,16 @@ struct geometry {
   std::unordered_map<size_t, size_t> id_to_branch;  // map segment id to branch id
   std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> branch_to_ids; // map branch to segment ids
 
+  render_ctx pick;
   glm::vec2 pick_pos = {-1, -1};
 
-  std::vector<point>         ax_vertices;
-  std::vector<unsigned>      x_ax_indices, y_ax_indices, z_ax_indices;
-  std::vector<renderable>    axes;
-
-  render_ctx pick;
   render_ctx cell;
+
+  axes ax;
 
   unsigned pbo            = 0;
   unsigned vbo            = 0;
   unsigned marker_vbo     = 0;
-  unsigned ax_vbo         = 0;
   unsigned region_program = 0;
   unsigned object_program = 0;
   unsigned marker_program = 0;
