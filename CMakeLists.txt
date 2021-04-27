@@ -82,9 +82,7 @@ target_link_libraries(imgui PRIVATE glfw)
 execute_process(COMMAND ${GIT_EXECUTABLE} -C ${PROJECT_SOURCE_DIR} describe --always --dirty --abbrev=0
                 COMMAND_ECHO STDOUT
                 OUTPUT_VARIABLE ARBORGUI_GIT_COMMIT
-                ERROR_VARIABLE  ARBORGUI_GIT_COMMIT)
-
-string(REGEX REPLACE "\n$" "" ARBORGUI_GIT_COMMIT "${ARBORGUI_GIT_COMMIT}")
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 configure_file(src/config.hpp.in config.hpp @ONLY)
 

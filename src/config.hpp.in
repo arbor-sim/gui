@@ -1,0 +1,7 @@
+#pragma once
+
+static const char* gui_git_commit = "@ARBORGUI_GIT_COMMIT@";
+static const char* gui_version    = "@PROJECT_VERSION@";
+static const char* gui_web_page   = "https://github.com/thorstenhater/arbor-gui";
+
+static const char* arb_git_commit = "@ARBOR_GIT_COMMIT@";
