@@ -34,6 +34,7 @@ namespace {
   inline void gui_dir_view(file_chooser_state& state);
   inline void gui_debug(bool&);
   inline void gui_style(bool&);
+  inline void gui_demo(bool&);
 
   inline void gui_right_margin(float delta=40.0f) { ImGui::SameLine(ImGui::GetWindowWidth() - delta); }
 
@@ -219,10 +220,11 @@ namespace {
     ZoneScopedN(__FUNCTION__);
     ImGui::BeginMainMenuBar();
     static auto open_morph_read = false;
-    static auto open_acc_read = false;
-    static auto open_acc_save = false;
+    static auto open_acc_read   = false;
+    static auto open_acc_save   = false;
     static auto open_debug      = false;
     static auto open_style      = false;
+    static auto open_demo       = false;
     if (ImGui::BeginMenu("File")) {
       ImGui::Text("%s Morphology", icon_branch);
       {
@@ -252,6 +254,7 @@ namespace {
     if (open_acc_save) gui_save_acc(state, open_acc_save);
     if (open_debug)      gui_debug(open_debug);
     if (open_style)      gui_style(open_style);
+    if (open_demo)       gui_style(open_demo);
   }
 
   inline void gui_main(gui_state& state) {
@@ -938,7 +941,12 @@ namespace {
 
   inline void gui_style(bool& open) {
     ZoneScopedN(__FUNCTION__);
-    // if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
+    if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
+    ImGui::End();
+  }
+
+  inline void gui_demo(bool& open) {
+    ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin("Demo", &open)) ImGui::ShowDemoWindow();
     ImGui::End();
   }
@@ -1068,21 +1076,21 @@ void gui_state::serialize(const std::filesystem::path& fn) {
   }
 
   auto param = parameter_defaults;
-  // if (param.RL) decor.set_default(arb::axial_resistivity{param.RL.value()});
-  // if (param.Cm) decor.set_default(arb::membrane_capacitance{param.Cm.value()});
-  // if (param.TK) decor.set_default(arb::temperature_K{param.TK.value()});
-  // if (param.Vm) decor.set_default(arb::init_membrane_potential{param.Vm.value()});
+  if (param.RL) decor.set_default(arb::axial_resistivity{param.RL.value()});
+  if (param.Cm) decor.set_default(arb::membrane_capacitance{param.Cm.value()});
+  if (param.TK) decor.set_default(arb::temperature_K{param.TK.value()});
+  if (param.Vm) decor.set_default(arb::init_membrane_potential{param.Vm.value()});
   for (const auto& ion: ions) {
     const auto& data = ion_defaults[ion];
-    const auto& name = ion_defs[ion];
+    const auto& name = ion_defs[ion].name;
     std::string meth;
     if (data.method == "const.") {
     } else if (data.method == "Nernst") {
       decor.set_default(arb::ion_reversal_potential_method{"default/nernst"});
     }
-    // decor.set_default(arb::init_int_concentration{data.Xi});
-    // decor.set_default(arb::init_ext_concentration{data.Xo});
-    // decor.set_default(arb::init_reversal_potential{data.Er});
+    decor.set_default(arb::init_int_concentration{name, data.Xi});
+    decor.set_default(arb::init_ext_concentration{name, data.Xo});
+    decor.set_default(arb::init_reversal_potential{name, data.Er});
   }
 
   for (const auto& id: regions) {
@@ -1090,17 +1098,17 @@ void gui_state::serialize(const std::filesystem::path& fn) {
     if (!rg.data) continue;
     auto region = fmt::format("(region \"{}\")",  rg.name);
     auto param  = parameter_defs[id];
-    // if (param.RL) decor.paint(region, arb::axial_resistivity{param.RL.value()});
-    // if (param.Cm) decor.paint(region, arb::membrane_capacitance{param.Cm.value()});
-    // if (param.TK) decor.paint(region, arb::temperature_K{param.TK.value()});
-    // if (param.Vm) decor.paint(region, arb::init_membrane_potential{param.Vm.value()});
+    if (param.RL) decor.paint(region, arb::axial_resistivity{param.RL.value()});
+    if (param.Cm) decor.paint(region, arb::membrane_capacitance{param.Cm.value()});
+    if (param.TK) decor.paint(region, arb::temperature_K{param.TK.value()});
+    if (param.Vm) decor.paint(region, arb::init_membrane_potential{param.Vm.value()});
 
     for (const auto& ion: ions) {
       const auto& data = ion_par_defs[{id, ion}];
-      const auto& name = ion_defs[ion];
-      // decor.paint(region, arb::init_int_concentration{data.Xi});
-      // decor.paint(region, arb::init_ext_concentration{data.Xo});
-      // decor.paint(region, arb::init_reversal_potential{data.Er});
+      const auto& name = ion_defs[ion].name;
+      if (data.Xi) decor.paint(region, arb::init_int_concentration{name,  data.Xi.value()});
+      if (data.Xo) decor.paint(region, arb::init_ext_concentration{name,  data.Xo.value()});
+      if (data.Er) decor.paint(region, arb::init_reversal_potential{name, data.Er.value()});
     }
 
     for (const auto child: mechanisms.get_children(id)) {
