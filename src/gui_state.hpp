@@ -24,14 +24,13 @@ struct gui_state {
 
     entity                          locsets;
     component_unique<ls_def>        locset_defs;
-    component_unique<renderable>    render_locsets;
     component_many<probe_def>       probes;
     component_many<detector_def>    detectors;
     component_many<stimulus_def>    stimuli;
 
     entity                          regions;
     component_unique<rg_def>        region_defs;
-    component_unique<renderable>    render_regions;
+
     component_unique<parameter_def> parameter_defs;
     component_many<mechanism_def>   mechanisms;
 
@@ -41,6 +40,8 @@ struct gui_state {
     component_join<ion_parameter>   ion_par_defs;
 
     simulation sim;
+
+    cv_def      cv_policy_def;
 
     // TODO This probably belongs into geometry, but that does not know about regions (yet).
     std::unordered_map<size_t, std::unordered_set<id_type>> segment_to_regions;
@@ -85,6 +86,7 @@ struct gui_state {
     template<typename Item> void update_locdef(const id_type& def) { events.push_back(evt_upd_locdef<Item>{def}); }
     void update_region(const id_type& def) { update_locdef<rg_def>(def); }
     void update_locset(const id_type& def) { update_locdef<ls_def>(def); }
+    void update_cv_policy() { events.push_back(evt_upd_cv{}); }
 
     bool store_snapshot();
     void update();

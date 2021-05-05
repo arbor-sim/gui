@@ -12,17 +12,17 @@
 #include "location.hpp"
 
 struct cell_builder {
-    arb::morphology   morph;
-    arb::place_pwlin  pwlin;
-    arb::label_dict   labels;
-    arb::mprovider    provider;
+    arb::morphology  morph;
+    arb::place_pwlin pwlin;
+    arb::label_dict  labels;
+    arb::mprovider   provider;
+    arb::cv_policy   policy = arb::default_cv_policy();
 
     cell_builder();
     cell_builder(const arb::morphology& t);
 
     std::vector<arb::msegment> make_segments(const arb::region&);
-    std::vector<glm::vec3> make_points(const arb::locset&);
-    void make_label_dict(std::vector<ls_def>& locsets, std::vector<rg_def>& regions);
-
-    arb::cable_cell make_cell();
+    std::vector<glm::vec3>     make_points(const arb::locset&);
+    std::vector<glm::vec3>     make_boundary(const arb::cv_policy&);
+    void                       make_label_dict(std::vector<ls_def>& locsets, std::vector<rg_def>& regions);
 };

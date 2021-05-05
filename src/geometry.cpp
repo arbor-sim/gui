@@ -166,7 +166,6 @@ inline void render(unsigned program,
     gl_check_error("render end");
 }
 
-
 inline auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
     log_debug("Loading shader {}", fn.c_str());
     auto src = slurp(fn);
@@ -283,6 +282,17 @@ void make_fbo(int w, int h, render_ctx& ctx) {
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) log_error("Intermediate framebuffer incomplete.");
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void make_marker(marker& m) {
+    auto dx = 0.002f;
+    m.vertices = {{{ -dx, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}},
+                  {{  dx, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}},
+                  {{0.0f,  -dx, 0.0f}, {0.0f, 0.0f, 0.0f}},
+                  {{0.0f,   dx, 0.0f}, {0.0f, 0.0f, 0.0f}}};
+    m.indices = {0, 1, 2, 0, 1, 3};
+    m.vbo = make_buffer_object(m.vertices, GL_ARRAY_BUFFER);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void make_frustrum_vertices(const glm::vec3& p, float rp,
@@ -403,22 +413,12 @@ geometry::geometry() {
     make_program("region", region_program);
     make_program("branch", object_program);
     make_program("marker", marker_program);
-    auto dx = 1.0f/40.0f;
-    auto dy = dx/2.0f;
     cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
-    {
-        std::vector<point> tris{{{0.0f,      0.0f,      0.0f}, {0.0f, 0.0f, 0.0f}},
-                                {{0.0f + dy, 0.0f + dx, 0.0f}, {0.0f, 0.0f, 0.0f}},
-                                {{0.0f + dx, 0.0f + dy, 0.0f}, {0.0f, 0.0f, 0.0f}}};
-        marker_vbo = make_buffer_object(tris, GL_ARRAY_BUFFER);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-    }
+    ::make_marker(mark);
     make_ruler();
 }
 
-void geometry::render(const view_state& vs,
-                      const std::vector<renderable>& regions, const std::vector<renderable>& markers,
-                      const glm::vec2& pick_pos) {
+void geometry::render(const view_state& vs, const glm::vec2& pick_pos) {
     ZoneScopedN(__FUNCTION__);
     make_fbo(vs.size.x, vs.size.y, cell);
     make_fbo(vs.size.x, vs.size.y, pick);
@@ -448,7 +448,7 @@ void geometry::render(const view_state& vs,
             ZoneScopedN("render-pick-opengl");
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
-            ::render(object_program, model, view, regions);
+            ::render(object_program, model, view, regions.items);
             glDisable(GL_CULL_FACE);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -472,7 +472,14 @@ void geometry::render(const view_state& vs,
             ZoneScopedN("render-regions-opengl");
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
-            ::render(region_program, model, view, camera, light_color, regions);
+            ::render(region_program, model, view, camera, light_color, regions.items);
+            glDisable(GL_CULL_FACE);
+        }
+        // ... axes ...
+        {
+            glFrontFace(GL_CW);
+            glEnable(GL_CULL_FACE);
+            if (ax.active) ::render(region_program, model, view, camera, light_color, ax.renderables);
             glDisable(GL_CULL_FACE);
         }
         // ... and markers
@@ -487,14 +494,9 @@ void geometry::render(const view_state& vs,
             iview = glm::rotate(iview, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
             iview = glm::rotate(iview, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
             glDisable(GL_DEPTH_TEST);
-            ::render(marker_program, imodel, iview, markers);
+            ::render(marker_program, imodel, iview, locsets.items);
+            ::render(marker_program, imodel, iview, {cv_boundaries});
             glEnable(GL_DEPTH_TEST);
-        }
-        {
-            glFrontFace(GL_CW);
-            glEnable(GL_CULL_FACE);
-            if (ax.active) ::render(region_program, model, view, camera, light_color, ax.renderables);
-            glDisable(GL_CULL_FACE);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         finalise_msaa_fbo(cell, vs.size);
@@ -515,10 +517,10 @@ std::optional<object_id> geometry::get_id() {
 void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) {
     ZoneScopedN(__FUNCTION__);
     std::vector<glm::vec3> off;
-    for (const auto& marker: points) off.emplace_back((marker - root)/rescale);
+    for (const auto& m: points) off.emplace_back((m - root)/rescale);
     glDeleteVertexArrays(1, &r.vao);
-    r.vao       = make_vao(marker_vbo, {0, 1, 2}, off);
-    r.count     = 3;
+    r.vao       = make_vao(mark.vbo, mark.indices, off);
+    r.count     = mark.indices.size();
     r.instances = off.size();
     r.active    = true;
 }
@@ -632,4 +634,6 @@ void geometry::clear() {
     segments.clear();
     branch_to_ids.clear();
     rescale = -1;
+    locsets.clear();
+    regions.clear();
 }

@@ -16,14 +16,15 @@ struct evt_add_stimulus { id_type locset; };
 struct evt_del_stimulus { id_type id; };
 struct evt_add_detector { id_type locset; };
 struct evt_del_detector { id_type id; };
-struct evt_damage {};
+struct evt_upd_cv {};
 
 
 template <typename Item> struct evt_add_locdef { std::string name, definition; };
 template <typename Item> struct evt_upd_locdef { id_type id; };
 template <typename Item> struct evt_del_locdef { id_type id; };
 
-using event = std::variant<evt_add_mechanism,                                evt_del_mechanism,
+using event = std::variant<evt_upd_cv,
+                           evt_add_mechanism,                                evt_del_mechanism,
                            evt_add_ion,                                      evt_del_ion,
                            evt_add_probe,                                    evt_del_probe,
                            evt_add_stimulus,                                 evt_del_stimulus,

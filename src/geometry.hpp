@@ -17,6 +17,7 @@
 #include "view_state.hpp"
 #include "utils.hpp"
 #include "definition.hpp"
+#include "component.hpp"
 
 struct point {
   glm::vec3 position = {0.0f, 0.0f, 0.0f};
@@ -31,6 +32,12 @@ struct renderable {
   bool      active    = false;
   float     zorder    = 0.0f;
   glm::vec4 color     = {0.0f, 0.0f, 0.0f, 1.0f};
+};
+
+struct marker {
+    unsigned vbo = 0;
+    std::vector<point>    vertices;
+    std::vector<unsigned> indices;
 };
 
 struct object_id {
@@ -64,7 +71,7 @@ struct axes {
 struct geometry {
   geometry();
 
-  void render(const view_state& view, const std::vector<renderable>&, const std::vector<renderable>&, const glm::vec2&);
+  void render(const view_state& view, const glm::vec2&);
   void make_marker(const std::vector<glm::vec3>& points, renderable&);
   void make_region(const std::vector<arb::msegment>& segments, renderable&);
   void make_ruler();
@@ -79,16 +86,21 @@ struct geometry {
   std::unordered_map<size_t, size_t> id_to_branch;  // map segment id to branch id
   std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> branch_to_ids; // map branch to segment ids
 
+
+  component_unique<renderable> locsets;
+  component_unique<renderable> regions;
+  renderable                   cv_boundaries;
+
   render_ctx pick;
   glm::vec2 pick_pos = {-1, -1};
 
   render_ctx cell;
 
+  marker mark;
   axes ax;
 
   unsigned pbo            = 0;
   unsigned vbo            = 0;
-  unsigned marker_vbo     = 0;
   unsigned region_program = 0;
   unsigned object_program = 0;
   unsigned marker_program = 0;

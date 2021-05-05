@@ -138,7 +138,7 @@ namespace {
   }
 
   template<typename T>
-  inline void gui_check_state(const loc_def<T>& def) {
+  inline void gui_check_state(const T& def) {
     static std::unordered_map<def_state, const char*> tags{{def_state::empty, icon_question},
                                                            {def_state::error, icon_error},
                                                            {def_state::good,  icon_ok}};
@@ -440,6 +440,7 @@ namespace {
 
   inline bool gui_axes(axes& ax) {
     ImGui::Text("%s Axes", icon_axes);
+    gui_right_margin();
     gui_toggle(icon_on, icon_off, ax.active);
     auto mv = ImGui::InputFloat3("Position", &ax.origin[0]);
     auto sz = ImGui::InputFloat("Size", &ax.scale, 0, 0, "%f µm");
@@ -452,9 +453,7 @@ namespace {
       ImGui::BeginChild("Cell Render");
       auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
       state.view.size = to_glmvec(size);
-      state.renderer.render(state.view,
-                            state.render_regions.items, state.render_locsets.items,
-                            {mouse_x - win_pos.x, size.y + win_pos.y - mouse_y});
+      state.renderer.render(state.view, {mouse_x - win_pos.x, size.y + win_pos.y - mouse_y});
       ImGui::Image(reinterpret_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
 
       if (ImGui::IsItemHovered()) {
@@ -560,7 +559,7 @@ namespace {
         {
           for (const auto& region: state.segment_to_regions[object.data.id]) {
             ImGui::SameLine();
-            ImGui::ColorButton("", to_imvec(state.render_regions[region].color));
+            ImGui::ColorButton("", to_imvec(state.renderer.regions[region].color));
             ImGui::SameLine();
             ImGui::AlignTextToFramePadding();
             ImGui::Text("%s", state.region_defs[region].name.c_str());
@@ -655,9 +654,9 @@ namespace {
   inline void gui_locations(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin(fmt::format("{} Locations", icon_location).c_str())) {
-      gui_locdefs(fmt::format("{} Regions", icon_region), state.regions, state.region_defs, state.render_regions, state.events);
+      gui_locdefs(fmt::format("{} Regions", icon_region), state.regions, state.region_defs, state.renderer.regions, state.events);
       ImGui::Separator();
-      gui_locdefs(fmt::format("{} Locsets", icon_locset), state.locsets, state.locset_defs, state.render_locsets, state.events);
+      gui_locdefs(fmt::format("{} Locsets", icon_locset), state.locsets, state.locset_defs, state.renderer.locsets, state.events);
     }
     ImGui::End();
   }
@@ -1039,6 +1038,33 @@ namespace {
     }
   }
 
+  inline void gui_cv_policy(gui_state& state) {
+    auto& render = state.renderer.cv_boundaries;
+    auto& item   = state.cv_policy_def;
+    auto  open   = gui_tree("CV policy");
+    ImGui::SameLine();
+    ImGui::ColorEdit3("##cv-bounds-color", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+    ImGui::SameLine();
+    gui_toggle(icon_show, icon_hide, render.active);
+    ImGui::SameLine();
+    gui_check_state(item);
+
+    gui_right_margin();
+    if (ImGui::Button(icon_refresh)) {
+      item.definition = "";
+      state.update_cv_policy();
+    }
+
+    if (open) {
+      with_item_width iw(-50.0f);
+      auto indent = gui_tree_indent();
+      ImGui::PushTextWrapPos(ImGui::GetFontSize() * 50.0f);
+      if (ImGui::InputTextMultiline("##cv-definition", &item.definition)) state.update_cv_policy();
+      ImGui::PopTextWrapPos();
+      ImGui::TreePop();
+    }
+  }
+
   inline void gui_simulation(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin(fmt::format("{} Simulation", icon_sim).c_str())) {
@@ -1049,6 +1075,8 @@ namespace {
         ImGui::TreePop();
       }
       ImGui::Separator();
+      gui_cv_policy(state);
+      ImGui::Separator();
       gui_stimuli(state);
       ImGui::Separator();
       gui_probes(state);
@@ -1057,7 +1085,7 @@ namespace {
     }
     ImGui::End();
   }
-}
+} // namespace
 
 void gui_state::gui() {
   ZoneScopedN(__FUNCTION__);
@@ -1309,8 +1337,6 @@ void gui_state::reset() {
   ZoneScopedN(__FUNCTION__);
   locsets.clear();
   regions.clear();
-  render_regions.clear();
-  render_locsets.clear();
   locset_defs.clear();
   region_defs.clear();
   ions.clear();
@@ -1320,7 +1346,7 @@ void gui_state::reset() {
   ion_defaults.clear();
   mechanisms.clear();
   segment_to_regions.clear();
-
+  renderer.clear();
   const static std::vector<std::pair<std::string, int>> species{{"na", 1}, {"k", 1}, {"ca", 2}};
   for (const auto& [k, v]: species) add_ion(k, v);
 }
@@ -1332,6 +1358,8 @@ void gui_state::reload(const io::loaded_morphology& result) {
   renderer.load_geometry(result.morph);
   for (const auto& [k, v]: result.regions) add_region(k, v);
   for (const auto& [k, v]: result.locsets) add_locset(k, v);
+  cv_policy_def.definition = "";
+  update_cv_policy();
 }
 
 void gui_state::update() {
@@ -1341,18 +1369,31 @@ void gui_state::update() {
 
     event_visitor(gui_state* state_): state{state_} {}
 
+    void operator()(const evt_upd_cv&) {
+      auto& def = state->cv_policy_def;
+      auto& rnd = state->renderer.cv_boundaries;
+      def.update();
+      if (def.state != def_state::error) {
+        try {
+          auto points = state->builder.make_boundary(def.data.value());
+          state->renderer.make_marker(points, rnd);
+        } catch (const arb::arbor_exception& e) {
+          def.set_error(e.what()); rnd.active = false;
+        }
+      }
+    }
     void operator()(const evt_add_locdef<ls_def>& c) {
       ZoneScopedN(__FUNCTION__);
       auto ls = state->locsets.add();
       state->locset_defs.add(ls, {c.name.empty() ? fmt::format("Locset {}", ls.value) : c.name, c.definition});
-      state->render_locsets.add(ls);
-      state->render_locsets[ls].color = next_color();
+      state->renderer.locsets.add(ls);
+      state->renderer.locsets[ls].color = next_color();
       state->update_locset(ls);
     }
     void operator()(const evt_upd_locdef<ls_def>& c) {
       ZoneScopedN(__FUNCTION__);
       auto& def = state->locset_defs[c.id];
-      auto& rnd = state->render_locsets[c.id];
+      auto& rnd = state->renderer.locsets[c.id];
       def.update();
       if (def.state == def_state::good) {
         log_info("Making markers for locset {} '{}'", def.name, def.definition);
@@ -1369,7 +1410,7 @@ void gui_state::update() {
       ZoneScopedN(__FUNCTION__);
       auto id = c.id;
       log_debug("Erasing locset {}", id.value);
-      state->render_locsets.del(id);
+      state->renderer.locsets.del(id);
       state->locset_defs.del(id);
       state->probes.del_children(id);
       state->detectors.del_children(id);
@@ -1381,15 +1422,15 @@ void gui_state::update() {
       auto id = state->regions.add();
       state->region_defs.add(id, {c.name.empty() ? fmt::format("Region {}", id.value) : c.name, c.definition});
       state->parameter_defs.add(id);
-      state->render_regions.add(id);
-      state->render_regions[id].color = next_color();
+      state->renderer.regions.add(id);
+      state->renderer.regions[id].color = next_color();
       for (const auto& ion: state->ions) state->ion_par_defs.add(id, ion);
       state->update_region(id);
     }
     void operator()(const evt_upd_locdef<rg_def>& c) {
       ZoneScopedN(__FUNCTION__);
       auto& def = state->region_defs[c.id];
-      auto& rnd = state->render_regions[c.id];
+      auto& rnd = state->renderer.regions[c.id];
       for(auto& [segment, regions]: state->segment_to_regions) {
         regions.erase(c.id);
       }
@@ -1414,7 +1455,7 @@ void gui_state::update() {
     void operator()(const evt_del_locdef<rg_def>& c) {
       ZoneScopedN(__FUNCTION__);
       auto id = c.id;
-      state->render_regions.del(id);
+      state->renderer.regions.del(id);
       state->region_defs.del(id);
       state->parameter_defs.del(id);
       state->ion_par_defs.del_by_1st(id);
