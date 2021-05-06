@@ -47,6 +47,14 @@ struct gui_state {
     component_unique<ion_default>   ion_defaults;
     component_join<ion_parameter>   ion_par_defs;
 
+    bool open_morph_read = false;
+    bool open_acc_read   = false;
+    bool open_acc_save   = false;
+    bool open_debug      = false;
+    bool open_style      = false;
+    bool open_demo       = false;
+    bool open_about      = false;
+
     simulation sim;
 
     cv_def      cv_policy_def;
@@ -100,4 +108,5 @@ struct gui_state {
     void update();
     void reset();
     void gui();
+    void handle_keys();
 };

@@ -129,3 +129,4 @@ inline bool gui_toggle(const char *on, const char *off, bool& flag) {
 }
 
 inline bool gui_menu_item(const char* text, const char* icon) { return ImGui::MenuItem(fmt::format("{} {}", icon, text).c_str()); }
+inline bool gui_menu_item(const char* text, const char* icon, const char* key) { return ImGui::MenuItem(fmt::format("{} {}", icon, text).c_str(), key); }

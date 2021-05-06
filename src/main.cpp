@@ -20,7 +20,6 @@ int main(int, char**) {
             continue;
         }
         auto t0 = timer::now();
-        state.update();
         window.begin_frame();
         state.gui();
         window.end_frame();

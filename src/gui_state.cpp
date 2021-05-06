@@ -101,25 +101,18 @@ namespace {
   inline void gui_menu_bar(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     ImGui::BeginMainMenuBar();
-    static auto open_morph_read = false;
-    static auto open_acc_read   = false;
-    static auto open_acc_save   = false;
-    static auto open_debug      = false;
-    static auto open_style      = false;
-    static auto open_demo       = false;
-    static auto open_about      = false;
     if (ImGui::BeginMenu("File")) {
       ImGui::Text("%s Morphology", icon_branch);
       {
         with_indent indent;
-        open_morph_read = gui_menu_item("Load", icon_load);
+        state.open_morph_read = gui_menu_item("Load", icon_load, "C-o");
       }
       ImGui::Separator();
       ImGui::Text("%s Cable cell", icon_cell);
       {
         with_indent indent;
-        open_acc_read = gui_menu_item("Load", icon_load);
-        open_acc_save = gui_menu_item("Save", icon_save);
+        state.open_acc_read = gui_menu_item("Load", icon_load);
+        state.open_acc_save = gui_menu_item("Save", icon_save);
       }
       ImGui::Separator();
       state.shutdown_requested = gui_menu_item("Quit", "");
@@ -127,18 +120,18 @@ namespace {
     }
     gui_right_margin(60.0f);
     if (ImGui::BeginMenu("Help")) {
-      open_about = gui_menu_item("About",   icon_about);
-      open_debug = gui_menu_item("Metrics", icon_bug);
-      open_style = gui_menu_item("Style",   icon_paint);
+      state.open_about = gui_menu_item("About",   icon_about);
+      state.open_debug = gui_menu_item("Metrics", icon_bug);
+      state.open_style = gui_menu_item("Style",   icon_paint);
       ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
-    if (open_morph_read) gui_read_morphology(state, open_morph_read);
-    if (open_acc_read)   gui_read_acc(state, open_acc_read);
-    if (open_acc_save)   gui_save_acc(state, open_acc_save);
-    if (open_debug)      gui_debug(open_debug);
-    if (open_style)      gui_style(open_style);
-    if (open_about)      gui_about(open_about);
+    if (state.open_morph_read) gui_read_morphology(state, state.open_morph_read);
+    if (state.open_acc_read)   gui_read_acc(state, state.open_acc_read);
+    if (state.open_acc_save)   gui_save_acc(state, state.open_acc_save);
+    if (state.open_debug)      gui_debug(state.open_debug);
+    if (state.open_style)      gui_style(state.open_style);
+    if (state.open_about)      gui_about(state.open_about);
   }
 
   inline void gui_main(gui_state& state) {
@@ -282,7 +275,7 @@ namespace {
         ImGui::Text("%s", loader.load ? icon_ok : icon_error);
         gui_tooltip(loader.message);
         ImGui::SameLine();
-        open_file = !ImGui::Button("Cancel");
+        if (ImGui::Button("Cancel")) open_file = false;
         {
           static std::string loader_error = "";
           if (do_load && loader.load) {
@@ -315,7 +308,6 @@ namespace {
       ImGui::EndPopup();
     }
   }
-
 
   inline bool gui_axes(axes& ax) {
     ImGui::Text("%s Axes", icon_axes);
@@ -751,12 +743,14 @@ namespace {
 
 void gui_state::gui() {
   ZoneScopedN(__FUNCTION__);
+  update();
   gui_main(*this);
   gui_locations(*this);
   gui_cell(*this);
   gui_cell_info(*this);
   gui_parameters(*this);
   gui_simulation(*this);
+  handle_keys();
 }
 
 void gui_state::serialize(const std::filesystem::path& fn) {
@@ -1170,4 +1164,8 @@ bool gui_state::store_snapshot() {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   auto rc = stbi_write_png(snapshot_path.c_str(), w, h, c, pixels.data() + c*w*(h - 1), -c*w);
   return !!rc;
+}
+
+void gui_state::handle_keys() {
+  if (ImGui::IsKeyPressed('O') && ImGui::GetIO().KeyCtrl) open_morph_read = true;
 }
