@@ -1,5 +1,8 @@
 * Introduction
 
+This project aims to be a comprehensive tool for building single cell models using
+Arbor. It strives to be self-contained, fast, and easy to use.
+
 - Design morphologically detailled cells for simulation in Arbor.
 - Load morphologies from SWC ~.swc~, NeuroML ~.nml~, NeuroLucida ~.asc~.
 - Define and highlight Arbor regions and locsets.
@@ -15,7 +18,8 @@ a formal release with Arbor 0.6 at which point the project will stabilise and re
 regular updates alongside Arbor.
 
 We welcome bug reports and feature requests, please use the issue tracker here on GitHub
-for these purposes.
+for these purposes. Building network simulation is out of scope for this project (we might
+offer a different tool, though).
 
 ** Interactive Definition of Regions and Locsets
 [[images/locations.png]]
