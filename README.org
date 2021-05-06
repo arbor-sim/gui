@@ -19,7 +19,9 @@ regular updates alongside Arbor.
 
 We welcome bug reports and feature requests, please use the issue tracker here on GitHub
 for these purposes. Building network simulation is out of scope for this project (we might
-offer a different tool, though).
+offer a different tool, though). 
+
+_Note_ The screenshots below are somewhat outdated, the current status offers quite a bit more.
 
 ** Interactive Definition of Regions and Locsets
 [[images/locations.png]]
@@ -58,6 +60,7 @@ offer a different tool, though).
 - Set global and cell level defaults.
 
 ** Set Simulation Parameters
+[[images/cv-policy.png]]
 - Timestep and simulation interval.
 - Add Probes, Spike Detectors.
 - Set and visualise discretisation policy
