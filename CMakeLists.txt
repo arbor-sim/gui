@@ -88,7 +88,6 @@ configure_file(src/config.hpp.in config.hpp @ONLY)
 
 set(gui_srcs
   src/main.cpp
-  src/definition.hpp
   src/cell_builder.hpp src/cell_builder.cpp
   src/gui_state.hpp src/gui_state.cpp
   src/window.hpp src/window.cpp
@@ -96,6 +95,14 @@ set(gui_srcs
   src/utils.hpp src/utils.cpp
   src/view_state.hpp
   src/events.hpp
+  src/spike_detector.hpp src/spike_detector.cpp
+  src/stimulus.hpp src/stimulus.cpp
+  src/probe.hpp src/probe.cpp
+  src/ion.hpp src/ion.cpp
+  src/simulation.hpp src/simulation.cpp
+  src/parameter.hpp src/parameter.cpp
+  src/cv_policy.hpp src/cv_policy.cpp
+  src/mechanism.hpp src/mechanism.cpp
   src/component.hpp
   src/file_chooser.hpp
   src/loader.hpp src/loader.cpp

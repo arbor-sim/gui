@@ -9,12 +9,20 @@
 
 #include "cell_builder.hpp"
 #include "component.hpp"
-#include "definition.hpp"
 #include "events.hpp"
 #include "file_chooser.hpp"
 #include "geometry.hpp"
 #include "loader.hpp"
 #include "location.hpp"
+
+#include "ion.hpp"
+#include "cv_policy.hpp"
+#include "parameter.hpp"
+#include "probe.hpp"
+#include "mechanism.hpp"
+#include "spike_detector.hpp"
+#include "stimulus.hpp"
+#include "simulation.hpp"
 
 struct gui_state {
     arb::cable_cell_parameter_set   presets = arb::neuron_parameter_defaults;

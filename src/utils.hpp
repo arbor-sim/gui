@@ -11,6 +11,9 @@
 #include "Tracy.hpp"
 #include <stb_image_write.h>
 
+// Definition state flag
+enum class def_state { empty, error, good };
+
 // target time for a frame, locked to 60Hz
 using timer = std::chrono::high_resolution_clock;
 constexpr auto frame_time = std::chrono::seconds(1)/60.0;

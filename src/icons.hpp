@@ -2,6 +2,7 @@
 
 #include <IconsForkAwesome.h>
 
+namespace {
 const char * icon_delete   = (const char *)ICON_FK_TRASH;
 const char * icon_add      = (const char *)ICON_FK_PLUS_SQUARE;
 const char * icon_error    = (const char *)ICON_FK_EXCLAMATION_TRIANGLE;
@@ -41,3 +42,4 @@ const char * icon_sim      = (const char *)ICON_FK_ROCKET;
 const char * icon_axes     = (const char *)ICON_FK_ARROWS;
 const char * icon_anchor   = (const char *)ICON_FK_ANCHOR;
 const char * icon_about    = (const char *)ICON_FK_INFO;
+}

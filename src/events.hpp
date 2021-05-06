@@ -2,7 +2,6 @@
 
 #include <variant>
 
-#include "definition.hpp"
 #include "id.hpp"
 #include "location.hpp"
 

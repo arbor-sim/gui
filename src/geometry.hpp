@@ -16,7 +16,6 @@
 #include "id.hpp"
 #include "view_state.hpp"
 #include "utils.hpp"
-#include "definition.hpp"
 #include "component.hpp"
 
 struct point {
