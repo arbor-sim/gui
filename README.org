@@ -5,7 +5,8 @@
 - Define and highlight Arbor regions and locsets.
 - Paint ion dynamics and bio-physical properties onto morphologies.
 - Place spike detectors and probes.
-- Soon: export cable cells to Arbor's internal format for direct simulation.
+- Export cable cells to Arbor's internal format (ACC) for direct simulation.
+- Import cable cells in ACC format
 
 This project is under active development and welcomes early feedback. Currently,
 Arbor master as of March 2021 is supported and bundled with the project. Note that
@@ -31,7 +32,12 @@ for these purposes.
   - reset camera,
   - snap-to a defined locset,
   - set the background colour,
-  - tweak morphology orientation.
+  - tweak morphology orientation,
+  - toggle orientation guide,
+  - save the currently rendered image to disk.
+- Hover a segment to show
+  - containing branch and regions,
+  - geometry information.
 
 ** Definition of Ion Dynamics
 [[images/mechanisms.png]]
@@ -47,8 +53,14 @@ for these purposes.
 - Set per-region parameters like temperature, resisitivities, and more.
 - Set global and cell level defaults.
 
+** Set Simulation Parameters
+- Timestep and simulation interval.
+- Add Probes, Spike Detectors.
+- Set and visualise discretisation policy
+
 * Notes
 - You can adjust the GUI layout by dragging and dropping windows and tabs.
+- Dragging regions will change rendering order, so overlapping regions might be better visible.
 
 * Installation
 
