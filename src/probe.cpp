@@ -21,7 +21,7 @@ void gui_probe(const id_type& id, probe_def& data, event_queue& evts,
             }
             ImGui::EndCombo();
         }
-    } if (data.kind == "Mechanism State") {
+    } else if (data.kind == "Mechanism State") {
         if (ImGui::BeginCombo("State Variable", data.variable.c_str())) {
             for (const auto& label: state_variables) {
                 if (ImGui::Selectable(label.c_str(), label == data.variable)) data.variable = label;

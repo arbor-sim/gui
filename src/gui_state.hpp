@@ -78,6 +78,8 @@ struct gui_state {
 
     void reload(const io::loaded_morphology&);
 
+    void run_simulation();
+
     void serialize(const std::filesystem::path& fn);
     void deserialize(const std::filesystem::path& fn);
 

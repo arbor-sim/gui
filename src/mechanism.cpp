@@ -7,10 +7,9 @@
 void make_mechanism(mechanism_def& data,
                     const std::string& cat_name, const std::string& name,
                     const std::unordered_map<std::string, double>& values) {
-    data.name = fmt::format("{}/{}", cat_name, name);
-    log_debug("Fetching cat {}", cat_name);
+    data.name = name;
+    data.cat  = cat_name;
     auto cat = catalogues.at(cat_name);
-    log_debug("Fetching mach {}", name);
     auto info = cat[name];
     data.globals.clear();
     data.parameters.clear();

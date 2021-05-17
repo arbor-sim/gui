@@ -1,6 +1,7 @@
 #include "gui_state.hpp"
 
 #include <cmath>
+#include <regex>
 
 #include <arbor/morph/primitives.hpp>
 #include <arbor/morph/morphexcept.hpp>
@@ -13,6 +14,9 @@
 #include <arborio/neuroml.hpp>
 #include <arborio/swcio.hpp>
 #include <arborio/cableio.hpp>
+#include <arbor/simulation.hpp>
+#include <arbor/context.hpp>
+#include <arbor/load_balance.hpp>
 
 #include "gui.hpp"
 #include "utils.hpp"
@@ -20,6 +24,7 @@
 #include "events.hpp"
 #include "loader.hpp"
 #include "config.hpp"
+#include "recipe.hpp"
 
 extern float delta_phi;
 extern float delta_gamma;
@@ -625,9 +630,9 @@ namespace {
       std::vector<std::string> state_vars;
       for (const auto& [name, cat]: catalogues) {
         for (const auto& mech: cat.mechanism_names()) {
-          const auto& info = cat[name];
+          const auto& info = cat[mech];
           for (const auto& [k, v]: info.state) {
-            state_vars.push_back(fmt::format("{}/{}", name, k));
+            state_vars.push_back(fmt::format("{}::{}::{}", name, mech, k));
           }
         }
       }
@@ -727,6 +732,8 @@ namespace {
   inline void gui_simulation(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin(fmt::format("{} Simulation", icon_sim).c_str())) {
+      if (ImGui::Button("RUN")) state.run_simulation();
+      ImGui::Separator();
       gui_sim(state.sim);
       ImGui::Separator();
       gui_cv_policy(state.cv_policy_def, state.renderer.cv_boundaries, state.events);
@@ -772,7 +779,6 @@ void gui_state::serialize(const std::filesystem::path& fn) {
       auto item = detectors[child];
       decor.place(locset, arb::threshold_detector{item.threshold});
     }
-
   }
 
   auto param = parameter_defaults;
@@ -813,10 +819,17 @@ void gui_state::serialize(const std::filesystem::path& fn) {
 
     for (const auto child: mechanisms.get_children(id)) {
       auto item = mechanisms[child];
-      auto mech = arb::mechanism_desc(item.name);
-      for(const auto& [k, v]: item.parameters) mech.set(k, v);
-      for(const auto& [k, v]: item.globals)    mech.set(k, v);
-      for(const auto& [k, v]: item.states)     mech.set(k, v);
+      auto name = fmt::format("{}::{}", item.cat, item.name);
+      auto sep  = "/";
+      for (const auto& [k, v]: item.globals) {
+        name = fmt::format("{}{}{}={}", name, sep, k, v);
+        sep  = ",";
+      }
+      auto mech = arb::mechanism_desc(name);
+      for(const auto& [k, v]: item.parameters) {
+        mech.set(k, v);
+      }
+      // for(const auto& [k, v]: item.states)     mech.set(k, v);
       decor.paint(region, mech);
     }
   }
@@ -1168,4 +1181,131 @@ bool gui_state::store_snapshot() {
 
 void gui_state::handle_keys() {
   if (ImGui::IsKeyPressed('O') && ImGui::GetIO().KeyCtrl) open_morph_read = true;
+}
+
+void gui_state::run_simulation() {
+  arb::decor decor{};
+  for (const auto& id: locsets) {
+    auto ls = locset_defs[id];
+    auto locset = fmt::format("(locset \"{}\")", ls.name);
+    if (!ls.data) continue;
+    for (const auto child: stimuli.get_children(id)) {
+      auto item = stimuli[child];
+      arb::i_clamp i_clamp;
+      i_clamp.frequency = item.frequency;
+      i_clamp.phase     = item.phase;
+      for (const auto& [t, i]: item.envelope) i_clamp.envelope.emplace_back(arb::i_clamp::envelope_point{t, i});
+      decor.place(locset, i_clamp);
+    }
+    for (const auto child: detectors.get_children(id)) {
+      auto item = detectors[child];
+      decor.place(locset, arb::threshold_detector{item.threshold});
+    }
+  }
+
+  auto param = parameter_defaults;
+  if (param.RL) decor.set_default(arb::axial_resistivity{param.RL.value()});
+  if (param.Cm) decor.set_default(arb::membrane_capacitance{param.Cm.value()});
+  if (param.TK) decor.set_default(arb::temperature_K{param.TK.value()});
+  if (param.Vm) decor.set_default(arb::init_membrane_potential{param.Vm.value()});
+  for (const auto& ion: ions) {
+    const auto& data = ion_defaults[ion];
+    const auto& name = ion_defs[ion].name;
+    std::string meth;
+    if (data.method == "const.") {
+    } else if (data.method == "Nernst") {
+      decor.set_default(arb::ion_reversal_potential_method{"default/nernst"});
+    }
+    decor.set_default(arb::init_int_concentration{name, data.Xi});
+    decor.set_default(arb::init_ext_concentration{name, data.Xo});
+    decor.set_default(arb::init_reversal_potential{name, data.Er});
+  }
+
+  for (const auto& id: regions) {
+    auto rg = region_defs[id];
+    if (!rg.data) continue;
+    auto region = fmt::format("(region \"{}\")",  rg.name);
+    auto param  = parameter_defs[id];
+    if (param.RL) decor.paint(region, arb::axial_resistivity{param.RL.value()});
+    if (param.Cm) decor.paint(region, arb::membrane_capacitance{param.Cm.value()});
+    if (param.TK) decor.paint(region, arb::temperature_K{param.TK.value()});
+    if (param.Vm) decor.paint(region, arb::init_membrane_potential{param.Vm.value()});
+
+    for (const auto& ion: ions) {
+      const auto& data = ion_par_defs[{id, ion}];
+      const auto& name = ion_defs[ion].name;
+      if (data.Xi) decor.paint(region, arb::init_int_concentration{name,  data.Xi.value()});
+      if (data.Xo) decor.paint(region, arb::init_ext_concentration{name,  data.Xo.value()});
+      if (data.Er) decor.paint(region, arb::init_reversal_potential{name, data.Er.value()});
+    }
+
+    for (const auto child: mechanisms.get_children(id)) {
+      auto item = mechanisms[child];
+      auto name = fmt::format("{}::{}", item.cat, item.name);
+      auto sep  = "/";
+      for (const auto& [k, v]: item.globals) {
+        name = fmt::format("{}{}{}={}", name, sep, k, v);
+        sep  = ",";
+      }
+      auto mech = arb::mechanism_desc(name);
+      for(const auto& [k, v]: item.parameters) {
+        mech.set(k, v);
+      }
+      // for(const auto& [k, v]: item.states)     mech.set(k, v);
+      decor.paint(region, mech);
+    }
+  }
+  auto cell                     = arb::cable_cell(builder.morph, builder.labels, decor);
+  auto properties               = arb::cable_cell_global_properties{};
+  auto catalogue                = arb::mechanism_catalogue{};
+  properties.catalogue          = &catalogue;
+  properties.default_parameters = presets;
+  for (const auto& [k, v]: catalogues) catalogue.import(v, k + "::");
+
+  for (const auto& ion: ions) {
+    const auto& data     = ion_defs[ion];
+    const auto& def      = ion_defaults[ion];
+    properties.add_ion(data.name, data.charge, def.Xi, def.Xo, def.Er);
+  }
+
+  auto rec = make_recipe(properties, cell);
+  for (const auto& ls: locsets) {
+    for (const auto pb: probes.get_children(ls)) {
+      const auto& data = probes[pb];
+      const auto& where = locset_defs[ls];
+      if (!where.data) continue;
+      auto loc = where.data.value();
+      if (data.kind == "Voltage") {
+        rec.probes.emplace_back(arb::cable_probe_membrane_voltage{loc}, pb.value);
+      } else if (data.kind == "Axial Current") {
+        rec.probes.emplace_back(arb::cable_probe_axial_current{loc}, pb.value);
+      } if (data.kind == "Membrane Current") {
+        rec.probes.emplace_back(arb::cable_probe_total_ion_current_density{loc}, pb.value);
+      }
+    }
+  }
+
+  // Make simulation
+  auto ctx = arb::make_context();
+  auto dd  = arb::partition_load_balance(rec, ctx);
+  auto sim = arb::simulation(rec, dd, ctx);
+  sim.add_sampler(arb::all_probes,
+                  arb::regular_schedule(this->sim.dt),
+                  [](arb::probe_metadata pm, std::size_t n, const arb::sample_record* samples) {
+                    auto* loc = any_cast<const arb::mlocation*>(pm.meta);
+                    assert(loc);
+                    std::cout << "Tag: " << pm.tag << '\n';
+                    std::cout << "Index: " << pm.index << '\n';
+                    std::cout << "Id: " << pm.id << '\n';
+                    std::cout << std::fixed << std::setprecision(4);
+                    for (std::size_t i = 0; i<n; ++i) {
+                      auto* value = any_cast<const double*>(samples[i].data);
+                      assert(value);
+                      std::cout << " " << samples[i].time << ", " << loc->pos << ", " << *value << '\n';
+                    }
+                  },
+                  arb::sampling_policy::exact);
+  log_debug("starting sim");
+  sim.run(this->sim.until, this->sim.dt);
+  log_debug("finished sim");
 }

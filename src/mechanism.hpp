@@ -10,6 +10,7 @@
 
 struct mechanism_def {
     std::string name = "";
+    std::string cat  = "";
     std::unordered_map<std::string, double> parameters = {};
     std::unordered_map<std::string, double> states     = {};
     std::unordered_map<std::string, double> globals    = {};

@@ -4,6 +4,7 @@
 #include <GL/gl3w.h>
 
 #include <vector>
+#include <optional>
 #include <unordered_map>
 #include <string>
 #include <fstream>
