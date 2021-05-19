@@ -149,9 +149,9 @@ The project has been confirmed to build and run with Clang 11 on BigSur
 and Catalina using this line
 
 ```bash
-cmake .. -DCMAKE~CXXCOMPILER~=/usr/local/opt/llvm/bin/clang++
--DCMAKE~CCOMPILER~=/usr/local/opt/llvm/bin/clang
--DCMAKE~BUILDTYPE~=release
+cmake .. -DCMAKE_CXX_COMPILER=/usr/local/opt/llvm/bin/clang++ \
+         -DCMAKE_CCOMPILER=/usr/local/opt/llvm/bin/clang      \
+         -DCMAKE_BUILD_TYPE=release
 ```
 # Acknowledgements
 
