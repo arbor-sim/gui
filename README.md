@@ -54,7 +54,7 @@ status offers quite a bit more.
 
 ## Definition of Ion Dynamics
 
-[*images/mechanisms.png*](images/mechanisms.png)
+![images/mechanisms.png](images/mechanisms.png)
 
 -   Load mechanisms from built-in catalogues.
 -   Define ion species.
@@ -63,7 +63,7 @@ status offers quite a bit more.
 
 ## Manipulation of Cable Cell Parameters
 
-[*images/parameters.png*](images/parameters.png)
+![images/parameters.png](images/parameters.png)
 
 -   Set per-region parameters like temperature, resisitivities, and
     more.
@@ -71,7 +71,7 @@ status offers quite a bit more.
 
 ## Set Simulation Parameters
 
-[*images/cv-policy.png*](images/cv-policy.png)
+![images/cv-policy.png](images/cv-policy.png)
 
 -   Timestep and simulation interval.
 -   Add Probes, Spike Detectors.
