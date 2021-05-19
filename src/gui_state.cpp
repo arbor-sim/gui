@@ -1254,7 +1254,7 @@ void gui_state::run_simulation() {
                   arb::regular_schedule(this->sim.dt),
                   [&](arb::probe_metadata pm, std::size_t n, const arb::sample_record* samples) {
                     auto loc = any_cast<const arb::mlocation*>(pm.meta);
-                    trace t{(size_t)pm.tag, pm.index, loc->pos, loc->branch, {}, {} };
+                    trace t{(size_t)pm.tag, pm.index, loc->pos, loc->branch, {}, {}};
                     for (std::size_t i = 0; i<n; ++i) {
                       auto* value = any_cast<const double*>(samples[i].data);
                       t.times.push_back(samples[i].time);
