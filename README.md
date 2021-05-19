@@ -105,9 +105,10 @@ Next, follow the platform specific instructions.
 
 1.  Install build dependencies
     ``` bash
-    sudo apt update sudo apt install libxml2-dev libxrandr-dev
-    libxcinerama-dev \\ libxcursor-dev libxi-dev libglu1-mesa-dev \\
-    freeglut3-dev mesa-common-dev gcc-10 g++-10
+    sudo apt update 
+    sudo apt install libxml2-dev libxrandr-dev libxcinerama-dev \
+                     libxcursor-dev libxi-dev libglu1-mesa-dev \
+                     freeglut3-dev mesa-common-dev gcc-10 g++-10
     ```
 2.  Add GCC10 as alternative to GCC and select it:
     ``` bash
