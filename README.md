@@ -31,7 +31,7 @@ status offers quite a bit more.
 
 ## Interactive Definition of Regions and Locsets
 
-[*images/locations.png*](images/locations.png)
+[images/locations.png](images/locations.png)
 
 -   Rendering of cable cell as seen by Arbor.
 -   Define locations in Arbor\'s Locset/Region DSL.
@@ -128,18 +128,18 @@ Next, follow the platform specific instructions.
 Users of Windows Subsystem for Linux will have to run an X-Server on
 their Windows machine and use X11-forwarding to display the GUI.
 
-1.  Install \[<https://sourceforge.net/projects/vcxsrv/>\][*VcXsrv*](VcXsrv).
+1.  Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/).
     Make sure you add the right firewall rules and a subnet mask for the
     incoming connections.
-    \[This\]<https://github.com/cascadium/wsl-windows-toolbar-launcher#firewall-rules>
+    [This](https://github.com/cascadium/wsl-windows-toolbar-launcher#firewall-rules)
     is a great write-up of all the pitfalls you can encounter.
 
 2.  Add the following to `.bashrc`. Please note that it is similar
     but not identical to snippets you\'ll find elsewhere:
     ``` bash
-    export DISPLAY=\$(awk \'/nameserver / {print \$2; exit}\'
-    /etc/resolv.conf 2\>/dev/null):0 export LIBGL~ALWAYSINDIRECT~=0 export
-    MESA~GLVERSIONOVERRIDE~=3.3
+    export DISPLAY=$(awk '/nameserver / {print $2; exit}' /etc/resolv.conf 2\>/dev/null):0 
+    export LIBGL_ALWAYS_INDIRECT=0 export
+    export MESA_GL_VERSION_OVERRIDE=3.3
     ```
     
 ## MacOS
