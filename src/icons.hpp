@@ -42,4 +42,5 @@ const char * icon_sim      = (const char *)ICON_FK_ROCKET;
 const char * icon_axes     = (const char *)ICON_FK_ARROWS;
 const char * icon_anchor   = (const char *)ICON_FK_ANCHOR;
 const char * icon_about    = (const char *)ICON_FK_INFO;
+const char * icon_start    = (const char *)ICON_FK_PLAY_CIRCLE;
 }

@@ -92,6 +92,7 @@ set(gui_srcs
   src/gui_state.hpp src/gui_state.cpp
   src/window.hpp src/window.cpp
   src/id.hpp
+  src/recipe.hpp
   src/utils.hpp src/utils.cpp
   src/view_state.hpp
   src/events.hpp
