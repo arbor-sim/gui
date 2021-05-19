@@ -26,12 +26,12 @@ tracker here on GitHub for these purposes. Building network simulation
 is out of scope for this project (we might offer a different tool,
 though).
 
-[Note]{.ul} The screenshots below are somewhat outdated, the current
+*Note* The screenshots below are somewhat outdated, the current
 status offers quite a bit more.
 
 ## Interactive Definition of Regions and Locsets
 
-[*images/locations.png*]{.spurious-link target="images/locations.png"}
+[*images/locations.png*](images/locations.png)
 
 -   Rendering of cable cell as seen by Arbor.
 -   Define locations in Arbor\'s Locset/Region DSL.
@@ -54,7 +54,7 @@ status offers quite a bit more.
 
 ## Definition of Ion Dynamics
 
-[*images/mechanisms.png*]{.spurious-link target="images/mechanisms.png"}
+[*images/mechanisms.png*](images/mechanisms.png)
 
 -   Load mechanisms from built-in catalogues.
 -   Define ion species.
@@ -63,7 +63,7 @@ status offers quite a bit more.
 
 ## Manipulation of Cable Cell Parameters
 
-[*images/parameters.png*]{.spurious-link target="images/parameters.png"}
+[*images/parameters.png*](images/parameters.png)
 
 -   Set per-region parameters like temperature, resisitivities, and
     more.
@@ -71,7 +71,7 @@ status offers quite a bit more.
 
 ## Set Simulation Parameters
 
-[*images/cv-policy.png*]{.spurious-link target="images/cv-policy.png"}
+[*images/cv-policy.png*](images/cv-policy.png)
 
 -   Timestep and simulation interval.
 -   Add Probes, Spike Detectors.
@@ -95,99 +95,63 @@ drivers, or have to execute other environment specific patches.
 
 Start out by cloning the repository and creating a build directory:
 
-```{=org}
-#+begin_example bash
-```
+```bash
 git clone --recursive <https://github.com/thorstenhater/arbor-gui.git>
 cd arbor-gui mkdir build cd build
-
-```{=org}
-#+end_example
 ```
 Next, follow the platform specific instructions.
 
 ## Linux (Ubuntu)
 
 1.  Install build dependencies
+    ``` bash
+    sudo apt update sudo apt install libxml2-dev libxrandr-dev
+    libxcinerama-dev \\ libxcursor-dev libxi-dev libglu1-mesa-dev \\
+    freeglut3-dev mesa-common-dev gcc-10 g++-10
+    ```
+2.  Add GCC10 as alternative to GCC and select it:
+    ``` bash
+    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
+    sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
+    ```
+    Use `gcc --version` to confirm it is now version 10. If not you will
+    need to run `sudo update-alternatives --config gcc` (and its analog for
+    `g++`) and manually select the right number.
 
-```{=org}
-#+begin_example bash
-```
-sudo apt update sudo apt install libxml2-dev libxrandr-dev
-libxcinerama-dev \\ libxcursor-dev libxi-dev libglu1-mesa-dev \\
-freeglut3-dev mesa-common-dev gcc-10 g++-10
+3.  Install Arbor GUI
+    ```bash
+    cmake .. sudo make install -j 4
+    ```
 
-```{=org}
-#+end_example
-```
-1.  Add GCC10 as alternative to GCC and select it:
-
-```{=org}
-#+begin_example bash
-```
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
-sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
-
-```{=org}
-#+end_example
-```
-Use `gcc --version` to confirm it is now version 10. If not you will
-need to run `sudo update-alternatives --config gcc` (and its analog for
-`g++`) and manually select the right number.
-
-1.  Install Arbor GUI
-
-```{=org}
-#+begin_example bash
-```
-cmake .. sudo make install -j 4
-
-```{=org}
-#+end_example
-```
-### WSL2
+## Windows (WSL2)
 
 Users of Windows Subsystem for Linux will have to run an X-Server on
 their Windows machine and use X11-forwarding to display the GUI.
 
-1.  Install
-    \[<https://sourceforge.net/projects/vcxsrv/>\][*VcXsrv*]{.spurious-link
-    target="VcXsrv"}.
+1.  Install \[<https://sourceforge.net/projects/vcxsrv/>\][*VcXsrv*](VcXsrv).
+    Make sure you add the right firewall rules and a subnet mask for the
+    incoming connections.
+    \[This\]<https://github.com/cascadium/wsl-windows-toolbar-launcher#firewall-rules>
+    is a great write-up of all the pitfalls you can encounter.
 
-Make sure you add the right firewall rules and a subnet mask for the
-incoming connections.
-\[This\]<https://github.com/cascadium/wsl-windows-toolbar-launcher#firewall-rules>
-is a great write-up of all the pitfalls you can encounter.
-
-1.  Add the following to `.bashrc`. Please note that it is similar
-
-but not identical to snippets you\'ll find elsewhere:
-
-```{=org}
-#+begin_example bash
-```
-export DISPLAY=\$(awk \'/nameserver / {print \$2; exit}\'
-/etc/resolv.conf 2\>/dev/null):0 export LIBGL~ALWAYSINDIRECT~=0 export
-MESA~GLVERSIONOVERRIDE~=3.3
-
-```{=org}
-#+end_example
-```
+2.  Add the following to `.bashrc`. Please note that it is similar
+    but not identical to snippets you\'ll find elsewhere:
+    ``` bash
+    export DISPLAY=\$(awk \'/nameserver / {print \$2; exit}\'
+    /etc/resolv.conf 2\>/dev/null):0 export LIBGL~ALWAYSINDIRECT~=0 export
+    MESA~GLVERSIONOVERRIDE~=3.3
+    ```
+    
 ## MacOS
 
 Please use a recent version of Clang, as installed by brew for example.
 The project has been confirmed to build and run with Clang 11 on BigSur
 and Catalina using this line
 
-```{=org}
-#+begin_example bash
-```
+```bash
 cmake .. -DCMAKE~CXXCOMPILER~=/usr/local/opt/llvm/bin/clang++
 -DCMAKE~CCOMPILER~=/usr/local/opt/llvm/bin/clang
 -DCMAKE~BUILDTYPE~=release
-
-```{=org}
-#+end_example
 ```
 # Acknowledgements
 

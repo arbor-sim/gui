@@ -6,6 +6,8 @@ Contributors:
 * Brent Huisman @brenthuisman
 * Nora Abi Akar @noraabiakar
 * Ben Cumming @bcumming
+* Sebastian Schmitt @schmitts
+* Robin de Schepper @helveg
 
 Acknowledgements:
 This open source software code was developed in part or in whole in the Human
