@@ -31,7 +31,7 @@ status offers quite a bit more.
 
 ## Interactive Definition of Regions and Locsets
 
-[images/locations.png](images/locations.png)
+![images/locations.png](images/locations.png)
 
 -   Rendering of cable cell as seen by Arbor.
 -   Define locations in Arbor\'s Locset/Region DSL.
