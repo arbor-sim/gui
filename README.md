@@ -69,13 +69,14 @@ status offers quite a bit more.
     more.
 -   Set global and cell level defaults.
 
-## Set Simulation Parameters
+## Simulation Interface
 
 ![images/cv-policy.png](images/cv-policy.png)
 
 -   Timestep and simulation interval.
--   Add Probes, Spike Detectors.
--   Set and visualise discretisation policy
+-   Add Probes, Stimuli, and Spike Detectors.
+-   Set and visualise discretisation policy.
+-   Run a preview simulation and see probed traces.
 
 # Notes
 
@@ -96,8 +97,10 @@ drivers, or have to execute other environment specific patches.
 Start out by cloning the repository and creating a build directory:
 
 ```bash
-git clone --recursive <https://github.com/thorstenhater/arbor-gui.git>
-cd arbor-gui mkdir build cd build
+git clone --recursive https://github.com/thorstenhater/arbor-gui.git
+cd arbor-gui 
+mkdir build
+cd build
 ```
 Next, follow the platform specific instructions.
 
@@ -121,7 +124,8 @@ Next, follow the platform specific instructions.
 
 3.  Install Arbor GUI
     ```bash
-    cmake .. sudo make install -j 4
+    cmake .. 
+    sudo make install -j 4
     ```
 
 ## Windows (WSL2)
