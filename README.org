@@ -68,28 +68,76 @@ _Note_ The screenshots below are somewhat outdated, the current status offers qu
 * Notes
 - You can adjust the GUI layout by dragging and dropping windows and tabs.
 - Dragging regions will change rendering order, so overlapping regions might be better visible.
+- The Arbor GUI vendors its own copy of Arbor.
 
 * Installation
 
-Please install a OpenGL package confirming to your choice and platform.
-You will also need a recent (as in C++20 supported) C++ compiler.
+The Arbor GUI requires a functional OpenGL 3.3+ package and recent 
+(as in C++20 supported) C++ compiler to be present on the system.
+Listed below are the standard instructions to install per platform.
+Mileage may vary, especially when installing OpenGL. You might need
+to update drivers, or have to execute other environment specific patches.
 
-Then, clone this repository like this
+Start out by cloning the repository and creating a build directory:
+
 #+begin_example bash
 git clone --recursive https://github.com/thorstenhater/arbor-gui.git
-#+end_example
-this will bring in all the requirements apart from OpenGL.
-
-Next, configure and build the project
-#+begin_example bash
 cd arbor-gui
 mkdir build
 cd build
-cmake ..
-make install
 #+end_example
 
-** For MacOS Users
+Next, follow the platform specific instructions.
+
+** Linux (Ubuntu)
+
+1. Install build dependencies
+
+#+begin_example bash
+sudo apt update
+sudo apt install libxml2-dev libxrandr-dev libxcinerama-dev \
+                 libxcursor-dev libxi-dev libglu1-mesa-dev \
+                 freeglut3-dev mesa-common-dev gcc-10 g++-10
+#+end_example
+
+2. Add GCC10 as alternative to GCC and select it:
+
+#+begin_example bash
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
+#+end_example
+
+Use `gcc --version` to confirm it is now version 10. If not you will
+need to run `sudo update-alternatives --config gcc` (and its analog
+for `g++`) and manually select the right number.
+
+3. Install Arbor GUI
+
+#+begin_example bash
+cmake ..
+sudo make install -j 4
+#+end_example
+
+*** WSL2
+
+Users of Windows Subsystem for Linux will have to run an X-Server on
+their Windows machine and use X11-forwarding to display the GUI.
+
+1. Install [https://sourceforge.net/projects/vcxsrv/][[VcXsrv]].
+Make sure you add the right firewall rules and a subnet mask for 
+the incoming connections. [This][[https://github.com/cascadium/wsl-windows-toolbar-launcher#firewall-rules]] 
+is a great write-up of all the pitfalls you can encounter.
+
+2. Add the following to `.bashrc`. Please note that it is similar
+but not identical to snippets you'll find elsewhere:
+  
+#+begin_example bash
+export DISPLAY=$(awk '/nameserver / {print $2; exit}' /etc/resolv.conf 2>/dev/null):0
+export LIBGL_ALWAYS_INDIRECT=0
+export MESA_GL_VERSION_OVERRIDE=3.3
+#+end_example
+
+** MacOS
 Please use a recent version of Clang, as installed by brew for example.
 The project has been confirmed to build and run with Clang 11 on BigSur
 and Catalina using this line
