@@ -80,6 +80,7 @@ namespace {
     with_id id{"writing acc"};
     ImGui::OpenPopup("Save");
     static std::vector<std::string> suffixes{"acc"};
+    static std::string loader_error = "";
     if (ImGui::BeginPopupModal("Save")) {
       gui_dir_view(state.acc_chooser);
       {
@@ -97,8 +98,32 @@ namespace {
       ImGui::SameLine();
       auto ko = ImGui::Button("Cancel");
 
-      if (ok) state.deserialize(state.acc_chooser.file);
-      if (ok || ko) open = false;
+      try {
+        if (ok) {
+          state.deserialize(state.acc_chooser.file);
+          open = false;
+        }
+      } catch (const arb::arbor_exception& e) {
+        log_debug("Failed to load ACC: {}", e.what());
+        loader_error = e.what();
+      }
+
+      if (!loader_error.empty()) {
+        ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 40.0f, ImGui::GetFontSize() * 5.0f));
+        ImGui::OpenPopup("Cannot Load Cable Cell");
+      }
+      if (ImGui::BeginPopupModal("Cannot Load Cable Cell")) {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 50.0f);
+        ImGui::TextUnformatted(loader_error.c_str());
+        ImGui::PopTextWrapPos();
+        if (ImGui::Button("Close")) {
+          loader_error.clear();
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+      }
+
+      if (ko) open = false;
       ImGui::EndPopup();
     }
   }
@@ -651,11 +676,11 @@ namespace {
               with_indent indent{ImGui::GetTreeNodeToLabelSpacing()};
               if (ImGui::Button("Show Trace")) open_trace = probe;
             }
-            ImGui::TreePop();
           }
           ImGui::TreePop();
         }
       }
+      ImGui::TreePop();
     }
 
     if (open_trace) ImGui::OpenPopup("Trace");
