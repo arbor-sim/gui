@@ -30,6 +30,7 @@ struct renderable {
   size_t    instances = 0;
   unsigned  vao       = 0;
   bool      active    = false;
+  float     scale     = 1.0f;
   float     zorder    = 0.0f;
   glm::vec4 color     = {0.0f, 0.0f, 0.0f, 1.0f};
 };
