@@ -491,8 +491,10 @@ namespace {
           }
         }
         ImGui::Separator();
-        if (gui_menu_item("Snapshot", icon_paint)) state.store_snapshot();
-        ImGui::InputText("Output",& state.snapshot_path);
+        ImGui::Text("%s Image", icon_paint);
+        ImGui::SameLine();
+        if (ImGui::Button("Export")) state.store_snapshot();
+        ImGui::InputText("Output", &state.snapshot_path);
         ImGui::EndPopup();
       }
       ImGui::EndChild();
@@ -621,11 +623,12 @@ namespace {
       }
     }
 
-    float dz = 0.00001f;
-    float z = dz;
+    float dz = 0.00001f, ds = 0.5f;
+    auto ix = 1.0f;
     for (const auto& id: ids) {
-      renderables[id].zorder = z;
-      z += dz;
+      renderables[id].zorder = ix*dz;
+      renderables[id].scale  = 1.0f + ix*ds;
+      ix += 1.0f;
     }
   }
 
@@ -857,8 +860,27 @@ namespace {
   inline void gui_simulation(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin(fmt::format("{} Simulation", icon_sim).c_str())) {
-      if (ImGui::Button(icon_start)) state.run_simulation();
-      gui_tooltip("Run Preview.");
+      static std::string sim_error = "";
+      try {
+        if (ImGui::Button(icon_start)) state.run_simulation();
+        gui_tooltip("Run Preview.");
+      } catch (const arb::arbor_exception& e) {
+        sim_error = e.what();
+      }
+      if (!sim_error.empty()) {
+        ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 40.0f, ImGui::GetFontSize() * 5.0f));
+        ImGui::OpenPopup("Simulation Failed");
+      }
+      if (ImGui::BeginPopupModal("Simulation Failed")) {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 50.0f);
+        ImGui::TextUnformatted(sim_error.c_str());
+        ImGui::PopTextWrapPos();
+        if (ImGui::Button("Close")) {
+          sim_error.clear();
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+      }
       ImGui::Separator();
       gui_sim(state.sim);
       ImGui::Separator();
@@ -1159,6 +1181,7 @@ void gui_state::reload(const io::loaded_morphology& result) {
   for (const auto& [k, v]: result.locsets) add_locset(k, v);
   cv_policy_def.definition = "";
   update_cv_policy();
+  renderer.cv_boundaries.active = false;
 }
 
 void gui_state::update() {
@@ -1172,10 +1195,12 @@ void gui_state::update() {
       auto& def = state->cv_policy_def;
       auto& rnd = state->renderer.cv_boundaries;
       def.update();
+      auto was_active = rnd.active;
       if (def.state != def_state::error) {
         try {
           auto points = state->builder.make_boundary(def.data.value());
           state->renderer.make_marker(points, rnd);
+          rnd.active = was_active;
         } catch (const arb::arbor_exception& e) {
           def.set_error(e.what()); rnd.active = false;
         }
