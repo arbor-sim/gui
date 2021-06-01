@@ -77,11 +77,11 @@ namespace {
 
   inline void gui_read_acc(gui_state& state, bool& open) {
     ZoneScopedN(__FUNCTION__);
-    with_id id{"writing acc"};
-    ImGui::OpenPopup("Save");
+    with_id id{"reading acc"};
+    ImGui::OpenPopup("Load");
     static std::vector<std::string> suffixes{"acc"};
     static std::string loader_error = "";
-    if (ImGui::BeginPopupModal("Save")) {
+    if (ImGui::BeginPopupModal("Load")) {
       gui_dir_view(state.acc_chooser);
       {
         with_item_width id{120.0f};
@@ -128,6 +128,72 @@ namespace {
     }
   }
 
+  inline void gui_read_cat(gui_state& state, bool& open) {
+    ZoneScopedN(__FUNCTION__);
+    with_id id{"loading cat"};
+    ImGui::OpenPopup("Load");
+    static std::vector<std::string> suffixes{".so"};
+    static std::string loader_error = "";
+    if (ImGui::BeginPopupModal("Load")) {
+      gui_dir_view(state.cat_chooser);
+      {
+        with_item_width width{120.0f};
+        auto lbl = state.cat_chooser.filter.value_or("all");
+        if (ImGui::BeginCombo("Filter", lbl.c_str())) {
+          if (ImGui::Selectable("all", "all" == lbl)) state.cat_chooser.filter = {};
+          for (const auto& k: suffixes) {
+            if (ImGui::Selectable(k.c_str(), k == lbl)) state.cat_chooser.filter = {k};
+          }
+          ImGui::EndCombo();
+        }
+        ImGui::SameLine();
+        ImGui::InputText("Name", &state.open_cat_name);
+      }
+      auto can_load = !state.open_cat_name.empty() && !catalogues.contains(state.open_cat_name);
+      ImGui::PushStyleVar(ImGuiStyleVar_Alpha, can_load ? 1.0f: 0.6f);
+      auto ok = ImGui::Button("Load");
+      ImGui::PopStyleVar();
+      ImGui::SameLine();
+      ImGui::Text("%s", can_load ? icon_ok : icon_error);
+      gui_tooltip("Empty or duplicate catalogue name.");
+
+      ImGui::SameLine();
+      auto ko = ImGui::Button("Cancel");
+
+      if (ok && can_load) {
+        try {
+          auto cat = arb::load_catalogue(state.cat_chooser.file.string());
+          catalogues[state.open_cat_name] = cat;
+          open = false;
+          log_debug("Adding catalogue '{}'", state.open_cat_name);
+          for (const auto& [k, v]: catalogues) log_debug(" * {}", k);
+        } catch (const arb::arbor_exception& e) {
+          log_debug("Failed to load catalogue: {}", e.what());
+          loader_error = e.what();
+        }
+      }
+
+      if (!loader_error.empty()) {
+        ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 40.0f, ImGui::GetFontSize() * 5.0f));
+        ImGui::OpenPopup("Cannot Open Mechanism Catalogue");
+      }
+
+      if (ImGui::BeginPopupModal("Cannot Open Mechanism Catalogue")) {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 50.0f);
+        ImGui::TextUnformatted(loader_error.c_str());
+        ImGui::PopTextWrapPos();
+        if (ImGui::Button("Close")) {
+          loader_error.clear();
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+      }
+
+      if (ko) open = false;
+      ImGui::EndPopup();
+    }
+  }
+
   inline void gui_menu_bar(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     ImGui::BeginMainMenuBar();
@@ -135,14 +201,24 @@ namespace {
       ImGui::Text("%s Morphology", icon_branch);
       {
         with_indent indent;
-        state.open_morph_read = gui_menu_item("Load", icon_load, "C-o");
+        state.open_morph_read = gui_menu_item("Load##morph", icon_load, "C-o");
       }
       ImGui::Separator();
       ImGui::Text("%s Cable cell", icon_cell);
       {
         with_indent indent;
-        state.open_acc_read = gui_menu_item("Load", icon_load);
-        state.open_acc_save = gui_menu_item("Save", icon_save);
+        state.open_acc_read = gui_menu_item("Load##acc", icon_load);
+        state.open_acc_save = gui_menu_item("Save##acc", icon_save);
+      }
+      ImGui::Separator();
+      ImGui::Text("%s Catalogue", icon_book);
+      {
+        with_indent indent;
+        if(gui_menu_item("Load##cat",  icon_load)) {
+          state.open_cat_read = true;
+          state.open_cat_name = ""; // Reset name;
+        }
+        if (gui_menu_item("Reset##cat", icon_clean)) catalogues = default_catalogues;
       }
       ImGui::Separator();
       state.shutdown_requested = gui_menu_item("Quit", "");
@@ -158,6 +234,7 @@ namespace {
     ImGui::EndMainMenuBar();
     if (state.open_morph_read) gui_read_morphology(state, state.open_morph_read);
     if (state.open_acc_read)   gui_read_acc(state, state.open_acc_read);
+    if (state.open_cat_read)   gui_read_cat(state, state.open_cat_read);
     if (state.open_acc_save)   gui_save_acc(state, state.open_acc_save);
     if (state.open_debug)      gui_debug(state.open_debug);
     if (state.open_style)      gui_style(state.open_style);

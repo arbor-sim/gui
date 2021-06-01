@@ -4,6 +4,8 @@
 
 #include "gui.hpp"
 
+std::unordered_map<std::string, arb::mechanism_catalogue> catalogues = default_catalogues;
+
 void make_mechanism(mechanism_def& data,
                     const std::string& cat_name, const std::string& name,
                     const std::unordered_map<std::string, double>& values) {
@@ -25,6 +27,7 @@ void gui_mechanism(id_type id, mechanism_def& data, event_queue& evts) {
     with_id mech_guard{id};
     auto open = gui_tree("##mechanism-tree");
     ImGui::SameLine();
+    for (const auto& [k, v]: catalogues) log_debug(" * {}", k);
     if (ImGui::BeginCombo("##mechanism-choice", data.name.c_str())) {
         for (const auto& [cat_name, cat]: catalogues) {
             ImGui::Selectable(cat_name.c_str(), false);

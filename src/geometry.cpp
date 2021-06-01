@@ -160,7 +160,6 @@ inline void render(unsigned program,
     for (const auto& v: r) {
         if (v.active) {
             set_uniform(program, "scale", v.scale);
-            log_debug("Setting scale {}", v.scale);
             set_uniform(program, "object_color", v.color);
             glBindVertexArray(v.vao);
             glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);

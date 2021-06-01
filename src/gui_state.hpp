@@ -49,11 +49,14 @@ struct gui_state {
 
     bool open_morph_read = false;
     bool open_acc_read   = false;
+    bool open_cat_read   = false;
     bool open_acc_save   = false;
     bool open_debug      = false;
     bool open_style      = false;
     bool open_demo       = false;
     bool open_about      = false;
+
+    std::string open_cat_name;
 
     simulation sim;
 
@@ -67,6 +70,7 @@ struct gui_state {
 
     file_chooser_state file_chooser;
     file_chooser_state acc_chooser;
+    file_chooser_state cat_chooser;
     view_state view;
 
     gui_state(const gui_state&) = delete;
