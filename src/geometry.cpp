@@ -156,6 +156,7 @@ inline void render(unsigned program,
     set_uniform(program, "view",  view);
     for (const auto& v: render) {
         if (v.active) {
+            set_uniform(program, "scale", v.scale);
             set_uniform(program, "object_color", v.color);
             glBindVertexArray(v.vao);
             glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);
