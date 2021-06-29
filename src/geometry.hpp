@@ -31,6 +31,7 @@ struct renderable {
   unsigned  vao       = 0;
   bool      active    = false;
   float     zorder    = 0.0f;
+  float     scale     = 1.0;
   glm::vec4 color     = {0.0f, 0.0f, 0.0f, 1.0f};
 };
 
