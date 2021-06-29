@@ -154,7 +154,10 @@ inline void render(unsigned program,
     glUseProgram(program);
     set_uniform(program, "model", model);
     set_uniform(program, "view",  view);
-    for (const auto& v: render) {
+
+    auto r = render; std::sort(r.begin(), r.end(), [](const auto& a, const auto& b) { return a.scale > b.scale; });
+
+    for (const auto& v: r) {
         if (v.active) {
             set_uniform(program, "scale", v.scale);
             set_uniform(program, "object_color", v.color);
