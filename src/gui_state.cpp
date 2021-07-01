@@ -49,7 +49,7 @@ namespace {
     ZoneScopedN(__FUNCTION__);
     with_id id{"writing acc"};
     ImGui::OpenPopup("Save");
-    static std::vector<std::string> suffixes{"acc"};
+    static std::vector<std::string> suffixes{".acc"};
     if (ImGui::BeginPopupModal("Save")) {
       gui_dir_view(state.acc_chooser);
       {
@@ -83,7 +83,7 @@ namespace {
     ZoneScopedN(__FUNCTION__);
     with_id id{"reading acc"};
     ImGui::OpenPopup("Load");
-    static std::vector<std::string> suffixes{"acc"};
+    static std::vector<std::string> suffixes{".acc"};
     static std::string loader_error = "";
     if (ImGui::BeginPopupModal("Load")) {
       gui_dir_view(state.acc_chooser);
