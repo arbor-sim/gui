@@ -93,6 +93,7 @@ Window::Window() {
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImPlot::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
 
     // Enable keyboard navigation
@@ -166,6 +167,7 @@ Window::Window() {
 Window::~Window() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
+    ImPlot::DestroyContext();
     ImGui::DestroyContext();
     glfwDestroyWindow(handle);
     glfwTerminate();
