@@ -2,3 +2,7 @@
 /arbor-gui
 *.ini
 *.kdev4
+.DS_Store
+.ccls-cache/
+.vscode/
+compile_commands.json
