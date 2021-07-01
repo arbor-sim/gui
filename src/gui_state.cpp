@@ -162,11 +162,10 @@ namespace {
 
       if (ok && can_load) {
         try {
+          log_debug("Adding catalogue '{}'", state.open_cat_name);
           auto cat = arb::load_catalogue(state.cat_chooser.file.string());
           catalogues[state.open_cat_name] = cat;
           open = false;
-          log_debug("Adding catalogue '{}'", state.open_cat_name);
-          for (const auto& [k, v]: catalogues) log_debug(" * {}", k);
         } catch (const arb::arbor_exception& e) {
           log_debug("Failed to load catalogue: {}", e.what());
           loader_error = e.what();
@@ -491,10 +490,8 @@ namespace {
           }
         }
         ImGui::Separator();
-        ImGui::Text("%s Image", icon_paint);
-        ImGui::SameLine();
-        if (ImGui::Button("Export")) state.store_snapshot();
-        ImGui::InputText("Output", &state.snapshot_path);
+        if (gui_menu_item("Snapshot", icon_paint)) state.store_snapshot();
+        ImGui::InputText("Output",& state.snapshot_path);
         ImGui::EndPopup();
       }
       ImGui::EndChild();
@@ -623,12 +620,11 @@ namespace {
       }
     }
 
-    float dz = 0.00001f, ds = 0.5f;
-    auto ix = 1.0f;
+    float dz = 0.00001f;
+    float z = dz;
     for (const auto& id: ids) {
-      renderables[id].zorder = ix*dz;
-      renderables[id].scale  = 1.0f + ix*ds;
-      ix += 1.0f;
+      renderables[id].zorder = z;
+      z += dz;
     }
   }
 
@@ -772,9 +768,13 @@ namespace {
       ImGui::BulletText("Branch:   %zu (%f)", trace.branch, trace.location);
       if (probe.variable.empty()) ImGui::BulletText("Variable: %s",    probe.kind.c_str());
       else                        ImGui::BulletText("Variable: %s %s", probe.kind.c_str(), probe.variable.c_str());
-      const auto& [l, h] = std::minmax_element(trace.values.begin(), trace.values.end());
-      ImGui::Text("Values: %f -- %f", *l, *h);
-      ImGui::PlotLines("", trace.values.data(), trace.values.size(), 0, nullptr, FLT_MAX, FLT_MAX, {0, 250});
+      if (trace.values.empty()) {
+        ImGui::Text("Empty trace");
+      } else {
+        const auto& [l, h] = std::minmax_element(trace.values.begin(), trace.values.end());
+        ImGui::Text("Values: %f -- %f", *l, *h);
+        ImGui::PlotLines("", trace.values.data(), trace.values.size(), 0, nullptr, FLT_MAX, FLT_MAX, {0, 250});
+      }
       if (ImGui::Button("Close")) {
         open_trace = {};
         ImGui::CloseCurrentPopup();
@@ -860,27 +860,8 @@ namespace {
   inline void gui_simulation(gui_state& state) {
     ZoneScopedN(__FUNCTION__);
     if (ImGui::Begin(fmt::format("{} Simulation", icon_sim).c_str())) {
-      static std::string sim_error = "";
-      try {
-        if (ImGui::Button(icon_start)) state.run_simulation();
-        gui_tooltip("Run Preview.");
-      } catch (const arb::arbor_exception& e) {
-        sim_error = e.what();
-      }
-      if (!sim_error.empty()) {
-        ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 40.0f, ImGui::GetFontSize() * 5.0f));
-        ImGui::OpenPopup("Simulation Failed");
-      }
-      if (ImGui::BeginPopupModal("Simulation Failed")) {
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 50.0f);
-        ImGui::TextUnformatted(sim_error.c_str());
-        ImGui::PopTextWrapPos();
-        if (ImGui::Button("Close")) {
-          sim_error.clear();
-          ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-      }
+      if (ImGui::Button(icon_start)) state.run_simulation();
+      gui_tooltip("Run Preview.");
       ImGui::Separator();
       gui_sim(state.sim);
       ImGui::Separator();
@@ -926,7 +907,7 @@ namespace {
       std::string meth;
       if (data.method == "const.") {
       } else if (data.method == "Nernst") {
-        decor.set_default(arb::ion_reversal_potential_method{"default/nernst"});
+        decor.set_default(arb::ion_reversal_potential_method{name, arb::mechanism_desc{fmt::format("default::nernst/{}", name)}});
       }
       decor.set_default(arb::init_int_concentration{name, data.Xi});
       decor.set_default(arb::init_ext_concentration{name, data.Xo});
@@ -1135,7 +1116,7 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       for (const auto& [k, v]: defaults.ion_data) {
         auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                                 [&, name=k](const auto& id) { return state->ion_defs[id].name == name; });
-        if (ion == state->ions.end()) log_error("Unknown ion");
+        if (ion == state->ions.end()) log_error("Unknown ion {}.", k);
         auto& data = state->ion_defaults[*ion];
         if (v.init_reversal_potential) data.Er = v.init_reversal_potential.value();
         if (v.init_int_concentration)  data.Xi = v.init_int_concentration.value();
@@ -1144,7 +1125,7 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       for (const auto& [k, v]: defaults.reversal_potential_method) {
         auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                                 [&, name=k](const auto& id) { return state->ion_defs[id].name == name; });
-        if (ion == state->ions.end()) log_error("Unknown ion");
+        if (ion == state->ions.end()) log_error("Unknown ion {}.", k);
         state->ion_defaults[*ion].method = v.name();
       }
     }
@@ -1181,7 +1162,6 @@ void gui_state::reload(const io::loaded_morphology& result) {
   for (const auto& [k, v]: result.locsets) add_locset(k, v);
   cv_policy_def.definition = "";
   update_cv_policy();
-  renderer.cv_boundaries.active = false;
 }
 
 void gui_state::update() {
@@ -1195,12 +1175,10 @@ void gui_state::update() {
       auto& def = state->cv_policy_def;
       auto& rnd = state->renderer.cv_boundaries;
       def.update();
-      auto was_active = rnd.active;
       if (def.state != def_state::error) {
         try {
           auto points = state->builder.make_boundary(def.data.value());
           state->renderer.make_marker(points, rnd);
-          rnd.active = was_active;
         } catch (const arb::arbor_exception& e) {
           def.set_error(e.what()); rnd.active = false;
         }
@@ -1378,16 +1356,16 @@ void gui_state::run_simulation() {
   auto sm  = arb::simulation(rec, dd, ctx);
   sim.traces.clear();
   sm.add_sampler(arb::all_probes,
-                  arb::regular_schedule(this->sim.dt),
-                  [&](arb::probe_metadata pm, std::size_t n, const arb::sample_record* samples) {
-                    auto loc = any_cast<const arb::mlocation*>(pm.meta);
+                 arb::regular_schedule(this->sim.dt),
+                 [&](arb::probe_metadata pm, std::size_t n, const arb::sample_record* samples) {
+                    auto loc = arb::util::any_cast<const arb::mlocation*>(pm.meta); 
                     trace t{(size_t)pm.tag, pm.index, loc->pos, loc->branch, {}, {}};
                     for (std::size_t i = 0; i<n; ++i) {
-                      auto* value = any_cast<const double*>(samples[i].data);
+                      const double* value = arb::util::any_cast<const double*>(samples[i].data);
                       t.times.push_back(samples[i].time);
-                      t.times.push_back(*value);
+                      t.values.push_back(*value);
                     }
-                    sim.traces[t.id] = t;
+                    sim.traces[t.id] = t;                    
                   },
                  arb::sampling_policy::exact);
 
