@@ -60,6 +60,7 @@ target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/icons)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/spdlog/include)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/json/include)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui)
+target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/implot)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/glm)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/stb)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/tracy)
@@ -74,9 +75,12 @@ add_library(imgui OBJECT
   3rd-party/imgui/imgui_widgets.cpp
   3rd-party/imgui/imgui_tables.cpp
   3rd-party/imgui/imgui_demo.cpp
-  3rd-party/imgui/misc/cpp/imgui_stdlib.cpp)
+  3rd-party/imgui/misc/cpp/imgui_stdlib.cpp
+  3rd-party/implot/implot.cpp
+  3rd-party/implot/implot_items.cpp)
 target_include_directories(imgui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
 target_include_directories(imgui PRIVATE 3rd-party/imgui)
+target_include_directories(imgui PUBLIC 3rd-party/implot)
 target_link_libraries(imgui PRIVATE glfw)
 
 execute_process(COMMAND ${GIT_EXECUTABLE} -C ${PROJECT_SOURCE_DIR} describe --always --dirty --abbrev=0

@@ -29,3 +29,6 @@
 [submodule "3rd-party/tracy"]
 	path = 3rd-party/tracy
 	url = https://github.com/wolfpld/tracy.git
+[submodule "3rd-party/implot"]
+	path = 3rd-party/implot
+	url = https://github.com/epezent/implot.git

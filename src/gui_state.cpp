@@ -3,6 +3,8 @@
 #include <cmath>
 #include <regex>
 
+#include <implot.h>
+
 #include <arbor/morph/primitives.hpp>
 #include <arbor/morph/morphexcept.hpp>
 #include <arbor/mechcat.hpp>
@@ -32,6 +34,8 @@ extern float delta_zoom;
 extern float mouse_x;
 extern float mouse_y;
 extern glm::vec2 delta_pos;
+
+using namespace std::literals;
 
 namespace {
   inline void gui_read_morphology(gui_state& state, bool& open);
@@ -764,16 +768,15 @@ namespace {
       auto id    = open_trace.value();
       auto trace = state.sim.traces.at(id);
       auto probe = state.probes[id];
-      ImGui::Text("Probe");
-      ImGui::BulletText("Branch:   %zu (%f)", trace.branch, trace.location);
-      if (probe.variable.empty()) ImGui::BulletText("Variable: %s",    probe.kind.c_str());
-      else                        ImGui::BulletText("Variable: %s %s", probe.kind.c_str(), probe.variable.c_str());
+      auto var   = fmt::format("{} {}", probe.kind, probe.variable);
       if (trace.values.empty()) {
         ImGui::Text("Empty trace");
       } else {
-        const auto& [l, h] = std::minmax_element(trace.values.begin(), trace.values.end());
-        ImGui::Text("Values: %f -- %f", *l, *h);
-        ImGui::PlotLines("", trace.values.data(), trace.values.size(), 0, nullptr, FLT_MAX, FLT_MAX, {0, 250});
+        if (ImPlot::BeginPlot(fmt::format("Probe {} @ branch {} ({})", id.value, trace.branch, trace.location).c_str(),
+                              "Time (ms)", var.c_str())) {
+          ImPlot::PlotLine(var.c_str(), trace.times.data(), trace.values.data(), trace.values.size());
+          ImPlot::EndPlot();
+        }
       }
       if (ImGui::Button("Close")) {
         open_trace = {};
