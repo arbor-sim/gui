@@ -27,7 +27,6 @@ void gui_mechanism(id_type id, mechanism_def& data, event_queue& evts) {
     with_id mech_guard{id};
     auto open = gui_tree("##mechanism-tree");
     ImGui::SameLine();
-    for (const auto& [k, v]: catalogues) log_debug(" * {}", k);
     if (ImGui::BeginCombo("##mechanism-choice", data.name.c_str())) {
         for (const auto& [cat_name, cat]: catalogues) {
             ImGui::Selectable(cat_name.c_str(), false);

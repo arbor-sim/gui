@@ -422,7 +422,7 @@ geometry::geometry() {
     make_ruler();
 }
 
-void geometry::render(const view_state& vs, const glm::vec2& pick_pos) {
+void geometry::render(const view_state& vs, const glm::vec2& where) {
     ZoneScopedN(__FUNCTION__);
     make_fbo(vs.size.x, vs.size.y, cell);
     make_fbo(vs.size.x, vs.size.y, pick);
@@ -459,7 +459,7 @@ void geometry::render(const view_state& vs, const glm::vec2& pick_pos) {
         finalise_msaa_fbo(pick, vs.size);
         // Initialise pixel read
         glBindFramebuffer(GL_FRAMEBUFFER, pick.post_fbo);
-        fetch_pixel_buffer(pbo, pick_pos);
+        fetch_pixel_buffer(pbo, where);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 

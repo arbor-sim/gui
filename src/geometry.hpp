@@ -93,8 +93,6 @@ struct geometry {
   renderable                   cv_boundaries;
 
   render_ctx pick;
-  glm::vec2 pick_pos = {-1, -1};
-
   render_ctx cell;
 
   marker mark;

@@ -49,7 +49,7 @@ namespace {
     ZoneScopedN(__FUNCTION__);
     with_id id{"writing acc"};
     ImGui::OpenPopup("Save");
-    static std::vector<std::string> suffixes{"acc"};
+    static std::vector<std::string> suffixes{".acc"};
     if (ImGui::BeginPopupModal("Save")) {
       gui_dir_view(state.acc_chooser);
       {
@@ -83,7 +83,7 @@ namespace {
     ZoneScopedN(__FUNCTION__);
     with_id id{"reading acc"};
     ImGui::OpenPopup("Load");
-    static std::vector<std::string> suffixes{"acc"};
+    static std::vector<std::string> suffixes{".acc"};
     static std::string loader_error = "";
     if (ImGui::BeginPopupModal("Load")) {
       gui_dir_view(state.acc_chooser);
@@ -1346,7 +1346,7 @@ void gui_state::run_simulation() {
         rec.probes.emplace_back(arb::cable_probe_membrane_voltage{loc}, pb.value);
       } else if (data.kind == "Axial Current") {
         rec.probes.emplace_back(arb::cable_probe_axial_current{loc}, pb.value);
-      } if (data.kind == "Membrane Current") {
+      } else if (data.kind == "Membrane Current") {
         rec.probes.emplace_back(arb::cable_probe_total_ion_current_density{loc}, pb.value);
       }
       // TODO Finish
