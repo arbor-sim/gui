@@ -1346,7 +1346,7 @@ void gui_state::run_simulation() {
         rec.probes.emplace_back(arb::cable_probe_membrane_voltage{loc}, pb.value);
       } else if (data.kind == "Axial Current") {
         rec.probes.emplace_back(arb::cable_probe_axial_current{loc}, pb.value);
-      } if (data.kind == "Membrane Current") {
+      } else if (data.kind == "Membrane Current") {
         rec.probes.emplace_back(arb::cable_probe_total_ion_current_density{loc}, pb.value);
       }
       // TODO Finish
