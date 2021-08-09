@@ -23,7 +23,7 @@ struct ion_parameter {
 };
 
 struct ion_default {
-    double Xi = 0, Xo = 0, Er = 0;
+    std::optional<double> Xi, Xo, Er;
     std::string method = methods.front();
     constexpr static std::array<const char*, 2> methods{"const.", "Nernst"};
 };

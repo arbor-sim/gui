@@ -89,8 +89,19 @@ inline void gui_choose(const std::string& lbl, std::string& current, const Conta
 inline bool gui_input_double(const std::string& lbl, double& v, const std::string& unit="", const std::string& fmt="%8g") {
     auto format = fmt;
     if (!unit.empty()) format += " " + unit;
-    return ImGui::InputDouble(lbl.c_str(),& v, 0.0, 0.0, format.c_str(), ImGuiInputTextFlags_CharsScientific);
+    return ImGui::InputDouble(lbl.c_str(), &v, 0.0, 0.0, format.c_str(), ImGuiInputTextFlags_CharsScientific);
 }
+
+inline bool gui_input_double(const std::string& lbl, std::optional<double>& v, const std::string& unit="", const std::string& fmt="%8g") {
+    auto format = fmt;
+    if (!unit.empty()) format += " " + unit;
+    double tmp;
+    if (v) tmp = v.value();
+    auto result = ImGui::InputDouble(lbl.c_str(), &tmp, 0.0, 0.0, format.c_str(), ImGuiInputTextFlags_CharsScientific);
+    if (result) v = tmp;
+    return result;
+}
+
 
 inline void gui_defaulted_double(const std::string& label, const std::string& unit, std::optional<double>& value, const double fallback) {
     auto tmp = value.value_or(fallback);
@@ -105,7 +116,7 @@ gui_defaulted_double(const std::string& label,
                      const std::string& unit,
                      std::optional<double>& value,
                      const std::optional<double>& fallback) {
-    if (fallback)  return gui_defaulted_double(label, unit, value, fallback.value());
+    if (fallback) return gui_defaulted_double(label, unit, value, fallback.value());
     throw std::runtime_error{""};
 }
 

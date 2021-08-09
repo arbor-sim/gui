@@ -56,8 +56,6 @@ struct gui_state {
     bool open_demo       = false;
     bool open_about      = false;
 
-    std::string open_cat_name;
-
     simulation sim;
 
     cv_def      cv_policy_def;
@@ -71,6 +69,8 @@ struct gui_state {
     file_chooser_state file_chooser;
     file_chooser_state acc_chooser;
     file_chooser_state cat_chooser;
+    std::string open_cat_name;
+
     view_state view;
 
     gui_state(const gui_state&) = delete;

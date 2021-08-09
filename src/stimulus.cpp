@@ -2,7 +2,7 @@
 
 #include "gui.hpp"
 
-void gui_stimulus(const id_type& id, stimulus_def& data, event_queue& evts) {
+void gui_stimulus(const id_type& id, stimulus_def& data, event_queue& evts, std::vector<float>& values, double dt, double until) {
     with_id guard{id};
     with_item_width iw{160.0f};
     auto open = gui_tree("I Clamp");
@@ -39,6 +39,32 @@ void gui_stimulus(const id_type& id, stimulus_def& data, event_queue& evts) {
             std::sort(data.envelope.begin(), data.envelope.end());
             auto last = std::unique(data.envelope.begin(), data.envelope.end());
             data.envelope.erase(last, data.envelope.end());
+        }
+
+        auto add_values = [&](const double I0, const double I1, const double t0, const double t1) {
+            for (auto t = t0; t < t1; t += dt) {
+                auto ix = t/dt;
+                auto f = data.frequency ? std::sin(t*2e-3*data.frequency*PI + data.phase) : 1.0f;
+                auto I = I0 + (I1 - I0)*(t - t0)/(t1 - t0);
+                values[ix] = I*f;
+            }
+        };
+
+        auto envelope = data.envelope;
+        if (!envelope.empty() && dt > 0.0) {
+            std::sort(envelope.begin(), envelope.end());
+            auto it = envelope.begin();
+            auto t = it->first;
+            auto I = it->second;
+            add_values(0.0, 0.0, 0, t);
+            for (; it != envelope.end(); ++it) {
+                const auto& [t1, I1] = *it;
+                if (t1 <= t) continue;
+                add_values(I, I1, t, t1);
+                I = I1; t = t1;
+            }
+            add_values(I, I, t, until);
+            ImGui::PlotLines("Preview", values.data(), values.size(), 0, nullptr, FLT_MAX, FLT_MAX, {0, 0});
         }
         ImGui::TreePop();
     }
