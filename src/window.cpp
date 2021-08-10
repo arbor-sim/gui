@@ -150,7 +150,7 @@ Window::Window() {
     log_debug("Setting icon");
     GLFWimage image;
     auto path = get_resource_path("arbor.png");
-    image.pixels = stbi_load((path.c_str(), &image.width, &image.height, 0, 4); //rgba channels
+    image.pixels = stbi_load(path.c_str(), &image.width, &image.height, 0, 4); //rgba channels
     if (image.pixels != NULL) {
         try {
             glfwSetWindowIcon(handle, 1, &image);

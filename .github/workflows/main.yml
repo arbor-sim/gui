@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build_ubuntu_gcc:
+  build_ubuntu:
     name: "Build on Ubuntu"
     runs-on: ${{ matrix.config.os }}
     strategy:
@@ -32,6 +32,27 @@ jobs:
           submodules: "recursive"
       - name: Install misssing packages
         run: sudo apt install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
+      - name: Build
+        run: cmake --build build
+  build_macos:
+    name: "Build on MacOS"
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config:
+        - {
+            name: "MacOS 10",
+            os:   "macos-10.15",
+            cc:   "clang",
+            cxx:  "clang++"
+          }
+    steps:
+      - name: "Clone w/ submodules"
+        uses: actions/checkout@v2
+        with:
+          submodules: "recursive"
       - name: Configure
         run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
       - name: Build
