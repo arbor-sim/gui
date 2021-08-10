@@ -175,7 +175,7 @@ if(ARBORGUI_BUILD_BUNDLE)
   set(ARBORGUI_ICON_PATH ${CMAKE_SOURCE_DIR}/images/${ARBORGUI_ICON})
   set_source_files_properties(${ARBORGUI_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
-  add_executable(arbor-gui MACOSX_BUNDLE ${ARBORGUI_ICON_PATH} ${gui_srcs} $<TARGET_OBJECTS:imgui>)
+add_executable(arbor-gui MACOSX_BUNDLE ${ARBORGUI_ICON_PATH} ${gui_srcs} $<TARGET_OBJECTS:imgui>)
   set_target_properties(arbor-gui PROPERTIES MACOSX_BUNDLE_ICONFILE ${ARBORGUI_ICON})
 
   target_include_directories(arbor-gui PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
@@ -196,7 +196,6 @@ if(ARBORGUI_BUILD_BUNDLE)
 else()
   set(resource_path "${CMAKE_INSTALL_PREFIX}/etc/arbor-gui")
   add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
-  add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W="ON")
 
   add_executable(arbor-gui ${gui_srcs} $<TARGET_OBJECTS:imgui>)
 

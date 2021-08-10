@@ -45,7 +45,7 @@ jobs:
         - {
             name: "MacOS 10",
             os:   "macos-10.15",
-            cc:   "clang-10",
+            cc:   "c",
             cxx:  "clang++-10"
           }
     steps:
@@ -54,6 +54,6 @@ jobs:
         with:
           submodules: "recursive"
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++ -DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang
       - name: Build
         run: cmake --build build
