@@ -45,8 +45,8 @@ jobs:
         - {
             name: "MacOS 10",
             os:   "macos-10.15",
-            cc:   "clang",
-            cxx:  "clang++"
+            cc:   "clang-10",
+            cxx:  "clang++-10"
           }
     steps:
       - name: "Clone w/ submodules"
