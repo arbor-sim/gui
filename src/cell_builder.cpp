@@ -8,7 +8,6 @@ cell_builder::cell_builder(const arb::morphology &t)
     : morph{t}, pwlin{morph}, labels{}, provider{morph, labels} {};
 
 void cell_builder::make_label_dict(std::vector<ls_def>& locsets, std::vector<rg_def>& regions) {
-  ZoneScopedN(__FUNCTION__);
   labels = {};
   for (auto& item: locsets) {
     if (item.data) {

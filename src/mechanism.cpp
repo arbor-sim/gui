@@ -23,7 +23,6 @@ void make_mechanism(mechanism_def& data,
 }
 
 void gui_mechanism(id_type id, mechanism_def& data, event_queue& evts) {
-    ZoneScopedN(__FUNCTION__);
     with_id mech_guard{id};
     auto open = gui_tree("##mechanism-tree");
     ImGui::SameLine();

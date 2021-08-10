@@ -40,7 +40,6 @@ inline size_t unpack_id(const glm::vec3& id) {
 }
 
 unsigned make_pixel_buffer() {
-    ZoneScopedN(__FUNCTION__);
     unsigned pbo = 0;
     glGenBuffers(1, &pbo);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
@@ -51,7 +50,6 @@ unsigned make_pixel_buffer() {
 
 // intiate transfer
 void fetch_pixel_buffer(unsigned pbo, const glm::vec2& pos) {
-    ZoneScopedN(__FUNCTION__);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
     glReadPixels(pos.x, pos.y, 1, 1, GL_RGBA, GL_FLOAT, 0); // where, size, format, type, offset
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
@@ -59,7 +57,6 @@ void fetch_pixel_buffer(unsigned pbo, const glm::vec2& pos) {
 
 // finalise transfer and obtain value
 auto get_value_pixel_buffer(unsigned pbo) {
-    ZoneScopedN(__FUNCTION__);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
     glm::vec4 out = {-1, -1, -1, -1};
     float* ptr = (float*) glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
@@ -73,7 +70,6 @@ auto randf() { return (float)rand()/(float)RAND_MAX; }
 
 template<typename T>
 unsigned make_buffer_object(const std::vector<T>& v, unsigned type) {
-    ZoneScopedN(__FUNCTION__);
     unsigned int VBO;
     glGenBuffers(1, &VBO);
     glBindBuffer(type, VBO);
@@ -117,7 +113,6 @@ inline void render(unsigned program,
                    const glm::mat4& model,  const glm::mat4& view,
                    const glm::vec3& camera, const glm::vec3& light_color,
                    const std::vector<renderable>& render) {
-    ZoneScopedN(__FUNCTION__);
     gl_check_error("render init");
     auto light = glm::vec4(camera, 1.0f) + glm::vec4{0.0f, 1.5f, 0.0f, 0.0f};
     auto key   = glm::rotate(glm::mat4(1.0f), 0.25f*PI, glm::vec3{0.0f, 1.0f, 0.0f})*light;
@@ -149,7 +144,6 @@ inline void render(unsigned program,
 inline void render(unsigned program,
                    const glm::mat4& model, const glm::mat4& view,
                    const std::vector<renderable>& render) {
-    ZoneScopedN(__FUNCTION__);
     gl_check_error("render init");
     glUseProgram(program);
     set_uniform(program, "model", model);
@@ -170,13 +164,20 @@ inline void render(unsigned program,
     gl_check_error("render end");
 }
 
-inline auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
-    log_debug("Loading shader {}", fn.c_str());
-    auto src = slurp(fn);
-    auto c_src = src.c_str();
+inline auto make_shader(const std::filesystem::path& dn, unsigned shader_type) {
+    std::filesystem::path fn{"glsl"};
+    fn /= dn;
+    switch (shader_type) {
+        case GL_VERTEX_SHADER:   fn /= "vertex.glsl";   break;
+        case GL_FRAGMENT_SHADER: fn /= "fragment.glsl"; break;
+        default:                 log_error("No such shader type {}", shader_type);
+    };
+    auto path = get_resource_path(fn);
+    auto dsrc = slurp(path);
+    auto csrc = dsrc.c_str();
 
     unsigned int shader = glCreateShader(shader_type);
-    glShaderSource(shader, 1, &c_src, NULL);
+    glShaderSource(shader, 1, &csrc, NULL);
     glCompileShader(shader);
 
     int success;
@@ -184,13 +185,12 @@ inline auto make_shader(const std::filesystem::path& fn, unsigned shader_type) {
     if(!success) {
         char info[512];
         glGetShaderInfoLog(shader, sizeof(info), NULL, info);
-        log_error("Shader {} failed to compile\n{}", fn.c_str(), info);
+        log_error("Shader {} failed to compile\n{}", dn.c_str(), info);
     }
     return shader;
 }
 
 inline auto make_vao(unsigned vbo, const std::vector<unsigned>& idx, const std::vector<glm::vec3>& off) {
-    ZoneScopedN(__FUNCTION__);
     log_debug("Setting up VAO");
     unsigned vao = 0;
     glGenVertexArrays(1, &vao);
@@ -216,11 +216,8 @@ inline auto make_vao(unsigned vbo, const std::vector<unsigned>& idx, const std::
 }
 
 inline auto make_program(const std::string& dn, unsigned& program) {
-    ZoneScopedN(__FUNCTION__);
-    std::filesystem::path base = ARBORGUI_RESOURCES_BASE;
-    log_info("Setting up shader program {}", dn.c_str());
-    auto vertex_shader   = make_shader(base / "glsl" / dn / "vertex.glsl",   GL_VERTEX_SHADER);
-    auto fragment_shader = make_shader(base / "glsl" / dn / "fragment.glsl", GL_FRAGMENT_SHADER);
+    auto vertex_shader   = make_shader(dn, GL_VERTEX_SHADER);
+    auto fragment_shader = make_shader(dn, GL_FRAGMENT_SHADER);
 
     glDeleteProgram(program);
     program = glCreateProgram();
@@ -243,7 +240,6 @@ inline auto make_program(const std::string& dn, unsigned& program) {
 }
 
 void make_fbo(int w, int h, render_ctx& ctx) {
-    ZoneScopedN(__FUNCTION__);
     gl_check_error("make fbo init");
     glViewport(0, 0, w, h);
 
@@ -365,8 +361,6 @@ void make_frustrum_indices(size_t base, std::vector<unsigned>& indices, size_t n
 }
 
 void make_axes(axes& ax, float rescale) {
-    ZoneScopedN(__FUNCTION__);
-
     glDeleteBuffers(1, &ax.vbo);
 
     auto o = ax.origin / (rescale > 0.0f ? rescale : 1.0f);
@@ -413,7 +407,6 @@ void make_axes(axes& ax, float rescale) {
 }
 
 geometry::geometry() {
-    ZoneScopedN(__FUNCTION__);
     make_program("region", region_program);
     make_program("branch", object_program);
     make_program("marker", marker_program);
@@ -423,7 +416,6 @@ geometry::geometry() {
 }
 
 void geometry::render(const view_state& vs, const glm::vec2& where) {
-    ZoneScopedN(__FUNCTION__);
     make_fbo(vs.size.x, vs.size.y, cell);
     make_fbo(vs.size.x, vs.size.y, pick);
 
@@ -444,12 +436,10 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
 
     // Render flat colours to side fbo for picking
     {
-        ZoneScopedN("render-pick");
         glBindFramebuffer(GL_FRAMEBUFFER, pick.fbo);
         glClearColor(pick.clear_color.x, pick.clear_color.y, pick.clear_color.z, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         {
-            ZoneScopedN("render-pick-opengl");
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
             ::render(object_program, model, view, regions.items);
@@ -465,7 +455,6 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
 
     // Render main scene
     {
-        ZoneScopedN("render-cell");
         auto light = camera + glm::vec3{0.0f, 1.0f, 0.0f};
         auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
         glBindFramebuffer(GL_FRAMEBUFFER, cell.fbo);
@@ -473,7 +462,6 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Render Frustra ...
         {
-            ZoneScopedN("render-regions-opengl");
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
             ::render(region_program, model, view, camera, light_color, regions.items);
@@ -488,7 +476,6 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
         }
         // ... and markers
         {
-            ZoneScopedN("render-markers-opengl");
             glm::mat4 imodel = glm::mat4(1.0f);
             imodel = glm::rotate(imodel, -vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
             imodel = glm::rotate(imodel, -vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
@@ -508,7 +495,7 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
 }
 
 std::optional<object_id> geometry::get_id() {
-    ZoneScopedN(__FUNCTION__);
+
     auto color = get_value_pixel_buffer(pbo);
     if ((color == pick.clear_color) || (color.x < 0.0f) || (color.y < 0.0f) || (color.z < 0.0f)) return {};
     auto id = unpack_id(color);
@@ -519,7 +506,7 @@ std::optional<object_id> geometry::get_id() {
 }
 
 void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) {
-    ZoneScopedN(__FUNCTION__);
+
     std::vector<glm::vec3> off;
     for (const auto& m: points) off.emplace_back((m - root)/rescale);
     glDeleteVertexArrays(1, &r.vao);
@@ -530,7 +517,7 @@ void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) 
 }
 
 void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r) {
-    ZoneScopedN(__FUNCTION__);
+
     std::vector<unsigned> idcs{};
     for (const auto& seg: segs) {
         const auto idx = id_to_index[seg.id];
@@ -550,13 +537,12 @@ void geometry::make_ruler() {
 }
 
 void geometry::load_geometry(const arb::morphology& morph) {
-    ZoneScopedN(__FUNCTION__);
+
     clear();
     n_vertices  = n_faces*4 + 2;  // Faces: 4 vertices 2 are shared. Caps: three per face, center is shared
     n_triangles = n_faces*4;      // Each face is a quad made from 2 tris, caps have one tri per face
     n_indices   = n_triangles*3;  // Three indices (reference to vertex) per tri
     {
-        ZoneScopedN("look up tables");
         auto index = 0ul;
         for (auto branch = 0ul; branch < morph.num_branches(); ++branch) {
             std::vector<size_t> tmp;
@@ -599,7 +585,6 @@ void geometry::load_geometry(const arb::morphology& morph) {
     {
         vertices.reserve(segments.size()*n_vertices);
         indices.reserve(segments.size()*n_indices);
-        ZoneScopedN("Frustra");
         for (auto ix = 0ul; ix < segments.size(); ++ix) {
             const auto& [id, prox, dist, tag] = segments[ix];
             // Shift to root and find vector along the segment
@@ -614,7 +599,6 @@ void geometry::load_geometry(const arb::morphology& morph) {
     log_debug("Frustra generated: {} ({} points)", indices.size()/n_indices, vertices.size());
 
     {
-        ZoneScopedN("Rescaling");
         // Re-scale into [-1, 1]^3 box
         for (const auto& tri: vertices) {
             rescale = std::max(rescale, std::abs(tri.position.x));
@@ -630,7 +614,7 @@ void geometry::load_geometry(const arb::morphology& morph) {
 }
 
 void geometry::clear() {
-    ZoneScopedN(__FUNCTION__);
+
     vertices.clear();
     indices.clear();
     id_to_index.clear();
