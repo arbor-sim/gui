@@ -3,7 +3,31 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
-void log_init() { spdlog::set_level(spdlog::level::debug); }
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
+#include "spdlog/sinks/basic_file_sink.h"
+
+std::filesystem::path get_resource_path(const std::filesystem::path& fn) {
+#ifdef ARBORGUI_RESOURCES_BASE
+  return ARBORGUI_RESOURCES_BASE / fn;
+#else
+  CFURLRef appUrlRef = CFBundleCopyBundleURL( CFBundleGetMainBundle() );
+  CFStringRef macPath = CFURLCopyFileSystemPath( appUrlRef, kCFURLPOSIXPathStyle );
+  CFStringEncoding encodingMethod = CFStringGetSystemEncoding();
+  const char* path = CFStringGetCStringPtr(macPath, encodingMethod);
+  CFRelease(appUrlRef);
+  CFRelease(macPath);
+  return std::filesystem::path{path} / "Contents/Resources" / fn;
+#endif
+}
+
+void log_init() {
+  // auto logger = spdlog::basic_logger_mt("basic_logger", "logs/basic-log.txt");
+  spdlog::set_level(spdlog::level::debug);
+}
+
 
 ImVec4 to_imvec(const glm::vec4& v) { return {v.x, v.y, v.z, v.w}; }
 ImVec4 to_imvec(const glm::vec3& v) { return {v.x, v.y, v.z, 1.0f}; }

@@ -8,7 +8,6 @@
 #include "glm/glm.hpp"
 #include "imgui.h"
 #include "spdlog/spdlog.h"
-#include "Tracy.hpp"
 #include <stb_image_write.h>
 
 // Definition state flag
@@ -39,6 +38,8 @@ template <typename T> std::string to_string(const T &r) {
   ss << r;
   return ss.str();
 }
+
+std::filesystem::path get_resource_path(const std::filesystem::path& fn);
 
 std::string slurp(const std::filesystem::path& fn);
 

@@ -110,8 +110,7 @@ Window::Window() {
     ImGui::StyleColorsDark();
     //ImGui::StyleColorsClassic();
 
-    std::filesystem::path base = ARBORGUI_RESOURCES_BASE;
-    ini_file = base / "imgui.ini";
+    ini_file = get_resource_path("imgui.ini");
     io.IniFilename = ini_file.c_str();
     log_debug("Set Dear ImGUI ini file: {}", ini_file);
 
@@ -134,7 +133,7 @@ Window::Window() {
         auto text = u8"ΔΩ·²";
         builder.AddText((const char*) text);
         builder.BuildRanges(&base_range);
-        auto path = base / "fonts/iosevka/iosevka-medium.ttf";
+        auto path = get_resource_path("fonts/iosevka/iosevka-medium.ttf");
         font = io.Fonts->AddFontFromFileTTF(path.c_str(), 16.0f, nullptr, (ImWchar*) base_range.Data);
     }
     {
@@ -142,7 +141,7 @@ Window::Window() {
         ImFontConfig icons_config;
         icons_config.MergeMode = true;
         icons_config.PixelSnapH = true;
-        auto path = base / "fonts/icons" / FONT_ICON_FILE_NAME_FK;
+        auto path = get_resource_path(std::filesystem::path{"fonts/icons"} / FONT_ICON_FILE_NAME_FK);
         io.Fonts->AddFontFromFileTTF(path.c_str(), 16.0f, &icons_config, icons_ranges);
     }
     log_debug("Set up fonts");
@@ -150,7 +149,8 @@ Window::Window() {
     #if !__APPLE__
     log_debug("Setting icon");
     GLFWimage image;
-    image.pixels = stbi_load((base / "arbor.png").c_str(), &image.width, &image.height, 0, 4); //rgba channels
+    auto path = get_resource_path("arbor.png");
+    image.pixels = stbi_load(path.c_str(), &image.width, &image.height, 0, 4); //rgba channels
     if (image.pixels != NULL) {
         try {
             glfwSetWindowIcon(handle, 1, &image);
@@ -176,7 +176,6 @@ Window::~Window() {
 bool Window::running() { return !glfwWindowShouldClose(handle); }
 
 void Window::begin_frame() {
-    ZoneScopedN(__FUNCTION__);
     // Poll and handle events (inputs, window resize, etc.)
     // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
     // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -190,18 +189,11 @@ void Window::begin_frame() {
 }
 
 void Window::end_frame() {
-    ZoneScopedN(__FUNCTION__);
-    {
-        ImGui::PopFont();
-        ZoneScopedN("ImGui::Render");
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    }
-    {
-        ZoneScopedN("GLFW::Swap");
-        glfwSwapBuffers(handle);
-    }
+    ImGui::PopFont();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    glfwSwapBuffers(handle);
     delta_pos = {0.0f, 0.0f};
     delta_phi = 0.0f;
     delta_gamma = 0.0f;

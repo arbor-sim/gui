@@ -46,7 +46,7 @@ namespace {
   inline void gui_demo(bool&);
 
   inline void gui_save_acc(gui_state& state, bool& open) {
-    ZoneScopedN(__FUNCTION__);
+
     with_id id{"writing acc"};
     ImGui::OpenPopup("Save");
     static std::vector<std::string> suffixes{".acc"};
@@ -80,7 +80,7 @@ namespace {
   }
 
   inline void gui_read_acc(gui_state& state, bool& open) {
-    ZoneScopedN(__FUNCTION__);
+
     with_id id{"reading acc"};
     ImGui::OpenPopup("Load");
     static std::vector<std::string> suffixes{".acc"};
@@ -133,7 +133,7 @@ namespace {
   }
 
   inline void gui_read_cat(gui_state& state, bool& open) {
-    ZoneScopedN(__FUNCTION__);
+
     with_id id{"loading cat"};
     ImGui::OpenPopup("Load");
     static std::vector<std::string> suffixes{".so"};
@@ -198,7 +198,7 @@ namespace {
   }
 
   inline void gui_menu_bar(gui_state& state) {
-    ZoneScopedN(__FUNCTION__);
+
     ImGui::BeginMainMenuBar();
     if (ImGui::BeginMenu("File")) {
       ImGui::Text("%s Morphology", icon_branch);
@@ -245,7 +245,7 @@ namespace {
   }
 
   inline void gui_main(gui_state& state) {
-    ZoneScopedN(__FUNCTION__);
+
     static bool opt_fullscreen = true;
     static bool opt_padding = false;
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
@@ -348,7 +348,7 @@ namespace {
   }
 
   inline void gui_read_morphology(gui_state& state, bool& open_file) {
-    ZoneScopedN(__FUNCTION__);
+
     with_id id{"reading morphology"};
     ImGui::OpenPopup("Open");
     if (ImGui::BeginPopupModal("Open")) {
@@ -429,7 +429,7 @@ namespace {
   }
 
   inline void gui_cell(gui_state& state) {
-    ZoneScopedN(__FUNCTION__);
+
     if (ImGui::Begin("Cell")) {
       ImGui::BeginChild("Cell Render");
       auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
@@ -504,7 +504,7 @@ namespace {
   }
 
   inline void gui_cell_info(gui_state& state) {
-    ZoneScopedN(__FUNCTION__);
+
     if (ImGui::Begin("Info")) {
       ImGui::Text("%s Selection", icon_branch);
       if (state.object) {
@@ -557,7 +557,7 @@ namespace {
                           component_unique<Item>& items,
                           component_unique<renderable>& renderables,
                           event_queue& events) {
-    ZoneScopedN(__FUNCTION__);
+
     with_id guard{name};
     auto from = -1, to = -1;
     auto open = gui_tree_add(name, [&](){ events.emplace_back(evt_add_locdef<Item>{}); });
@@ -633,7 +633,7 @@ namespace {
   }
 
   inline void gui_locations(gui_state& state) {
-    ZoneScopedN(__FUNCTION__);
+
     if (ImGui::Begin(fmt::format("{} Locations", icon_location).c_str())) {
       gui_locdefs(fmt::format("{} Regions", icon_region), state.regions, state.region_defs, state.renderer.regions, state.events);
       ImGui::Separator();
@@ -643,7 +643,7 @@ namespace {
   }
 
   inline void gui_ion_settings(gui_state& state) {
-    ZoneScopedN(__FUNCTION__);
+
     with_id guard{"ion-settings"};
     if (gui_tree(fmt::format("{} Regions", icon_region))) {
       for (const auto& region: state.regions) {
@@ -660,7 +660,7 @@ namespace {
   }
 
   inline void gui_ion_defaults(gui_state& state) {
-    ZoneScopedN(__FUNCTION__);
+
     with_id guard{"ion-defaults"};
     auto open = gui_tree_add(fmt::format("{} Default", icon_default), [&]() { state.add_ion(); });
     if (open) {
@@ -690,7 +690,7 @@ namespace {
   }
 
   inline void gui_parameters(gui_state& state) {
-    ZoneScopedN(__FUNCTION__);
+
     with_id id{"parameters"};
     if (ImGui::Begin(fmt::format("{} Parameters", icon_list).c_str())) {
       if (gui_tree(fmt::format("{} Cable Cell Properties", icon_sliders))) {
@@ -777,16 +777,16 @@ namespace {
     }
   }
 
-  inline void gui_debug(bool& open) { ZoneScopedN(__FUNCTION__); ImGui::ShowMetricsWindow(&open); }
+  inline void gui_debug(bool& open) {  ImGui::ShowMetricsWindow(&open); }
 
   inline void gui_style(bool& open) {
-    ZoneScopedN(__FUNCTION__);
+
     if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
     ImGui::End();
   }
 
   inline void gui_about(bool& open) {
-    ZoneScopedN(__FUNCTION__);
+
     if (ImGui::Begin("About", &open)) {
       ImGui::Text("Version: %s", gui_git_commit);
       ImGui::Text("Webpage: %s", gui_web_page);
@@ -797,13 +797,13 @@ namespace {
 
 
   inline void gui_demo(bool& open) {
-    ZoneScopedN(__FUNCTION__);
+
     if (ImGui::Begin("Demo", &open)) ImGui::ShowDemoWindow();
     ImGui::End();
   }
 
   inline void gui_stimuli(gui_state& state) {
-    ZoneScopedN(__FUNCTION__);
+
     std::vector<float> values(state.sim.until/state.sim.dt, 0.0f);
     if (gui_tree(fmt::format("{} Stimuli", icon_stimulus))) {
       for (const auto& locset: state.locsets) {
@@ -822,7 +822,7 @@ namespace {
   }
 
   inline void gui_simulation(gui_state& state) {
-    ZoneScopedN(__FUNCTION__);
+
     if (ImGui::Begin(fmt::format("{} Simulation", icon_sim).c_str())) {
       ImGui::Separator();
       gui_sim(state.sim);
@@ -978,7 +978,7 @@ namespace {
 } // namespace
 
 void gui_state::gui() {
-  ZoneScopedN(__FUNCTION__);
+
   update();
   gui_main(*this);
   gui_locations(*this);
@@ -1162,7 +1162,7 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
 gui_state::gui_state(): builder{} { reset(); }
 
 void gui_state::reset() {
-  ZoneScopedN(__FUNCTION__);
+
   locsets.clear();
   regions.clear();
   locset_defs.clear();
@@ -1180,7 +1180,7 @@ void gui_state::reset() {
 }
 
 void gui_state::reload(const io::loaded_morphology& result) {
-  ZoneScopedN(__FUNCTION__);
+
   reset();
   builder = cell_builder{result.morph};
   renderer.load_geometry(result.morph);
@@ -1191,7 +1191,6 @@ void gui_state::reload(const io::loaded_morphology& result) {
 }
 
 void gui_state::update() {
-  ZoneScopedN("gui_state::update()");
   struct event_visitor {
     gui_state* state;
 
@@ -1211,7 +1210,7 @@ void gui_state::update() {
       }
     }
     void operator()(const evt_add_locdef<ls_def>& c) {
-      ZoneScopedN(__FUNCTION__);
+
       auto ls = state->locsets.add();
       state->locset_defs.add(ls, {c.name.empty() ? fmt::format("Locset {}", ls.value) : c.name, c.definition});
       state->renderer.locsets.add(ls);
@@ -1219,7 +1218,7 @@ void gui_state::update() {
       state->update_locset(ls);
     }
     void operator()(const evt_upd_locdef<ls_def>& c) {
-      ZoneScopedN(__FUNCTION__);
+
       auto& def = state->locset_defs[c.id];
       auto& rnd = state->renderer.locsets[c.id];
       def.update();
@@ -1235,7 +1234,7 @@ void gui_state::update() {
       state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_del_locdef<ls_def>& c) {
-      ZoneScopedN(__FUNCTION__);
+
       auto id = c.id;
       log_debug("Erasing locset {}", id.value);
       state->renderer.locsets.del(id);
@@ -1246,7 +1245,7 @@ void gui_state::update() {
       state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_add_locdef<rg_def>& c) {
-      ZoneScopedN(__FUNCTION__);
+
       auto id = state->regions.add();
       state->region_defs.add(id, {c.name.empty() ? fmt::format("Region {}", id.value) : c.name, c.definition});
       state->parameter_defs.add(id);
@@ -1256,7 +1255,7 @@ void gui_state::update() {
       state->update_region(id);
     }
     void operator()(const evt_upd_locdef<rg_def>& c) {
-      ZoneScopedN(__FUNCTION__);
+
       auto& def = state->region_defs[c.id];
       auto& rnd = state->renderer.regions[c.id];
       for(auto& [segment, regions]: state->segment_to_regions) {
@@ -1281,7 +1280,7 @@ void gui_state::update() {
       state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_del_locdef<rg_def>& c) {
-      ZoneScopedN(__FUNCTION__);
+
       auto id = c.id;
       state->renderer.regions.del(id);
       state->region_defs.del(id);
@@ -1294,28 +1293,28 @@ void gui_state::update() {
       state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_add_ion& c) {
-      ZoneScopedN(__FUNCTION__);
+
       auto id = state->ions.add();
       state->ion_defs.add(id, {c.name.empty() ? fmt::format("Ion {}", id.value) : c.name, c.charge});
       state->ion_defaults.add(id);
       for (const auto& region: state->regions) state->ion_par_defs.add(region, id);
     }
     void operator()(const evt_del_ion& c) {
-      ZoneScopedN(__FUNCTION__);
+
       auto id = c.id;
       state->ion_defs.del(id);
       state->ion_defaults.del(id);
       state->ion_par_defs.del_by_2nd(id);
       state->ions.del(id);
     }
-    void operator()(const evt_add_mechanism& c) { ZoneScopedN(__FUNCTION__); state->mechanisms.add(c.region); }
-    void operator()(const evt_del_mechanism& c) { ZoneScopedN(__FUNCTION__); state->mechanisms.del(c.id); }
-    void operator()(const evt_add_detector& c)  { ZoneScopedN(__FUNCTION__); state->detectors.add(c.locset); }
-    void operator()(const evt_del_detector& c)  { ZoneScopedN(__FUNCTION__); state->detectors.del(c.id); }
-    void operator()(const evt_add_probe& c)     { ZoneScopedN(__FUNCTION__); state->probes.add(c.locset); }
-    void operator()(const evt_del_probe& c)     { ZoneScopedN(__FUNCTION__); state->probes.del(c.id); }
-    void operator()(const evt_add_stimulus& c)  { ZoneScopedN(__FUNCTION__); state->stimuli.add(c.locset); }
-    void operator()(const evt_del_stimulus& c)  { ZoneScopedN(__FUNCTION__); state->stimuli.del(c.id); }
+    void operator()(const evt_add_mechanism& c) {  state->mechanisms.add(c.region); }
+    void operator()(const evt_del_mechanism& c) {  state->mechanisms.del(c.id); }
+    void operator()(const evt_add_detector& c)  {  state->detectors.add(c.locset); }
+    void operator()(const evt_del_detector& c)  {  state->detectors.del(c.id); }
+    void operator()(const evt_add_probe& c)     {  state->probes.add(c.locset); }
+    void operator()(const evt_del_probe& c)     {  state->probes.del(c.id); }
+    void operator()(const evt_add_stimulus& c)  {  state->stimuli.add(c.locset); }
+    void operator()(const evt_del_stimulus& c)  {  state->stimuli.del(c.id); }
   };
 
   while (!events.empty()) {
