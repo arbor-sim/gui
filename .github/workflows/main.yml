@@ -54,7 +54,7 @@ jobs:
         with:
           submodules: "recursive"
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++ -DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang -DARBORGUI_BUILD_BUNDLE
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++ -DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang -DARBORGUI_BUILD_BUNDLE=ON
       - name: Build
         run: cmake --build build --target package
       - name: Upload .dmg
