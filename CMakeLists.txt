@@ -191,7 +191,7 @@ add_executable(arbor-gui MACOSX_BUNDLE ${ARBORGUI_ICON_PATH} ${gui_srcs} $<TARGE
   install(DIRECTORY fonts                 DESTINATION ${resource_path})
 
   set(CPACK_BINARY_DRAGNDROP ON)
-  set(CPACK_GENERATOR "DRAGNDROP")
+  set(CPACK_GENERATOR "DragNDrop")
   include(CPack)
 else()
   set(resource_path "${CMAKE_INSTALL_PREFIX}/etc/arbor-gui")
