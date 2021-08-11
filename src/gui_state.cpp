@@ -1413,5 +1413,13 @@ void gui_state::run_simulation() {
                   },
                  arb::sampling_policy::exact);
 
-  sm.run(sim.until, sim.dt);
+  try {
+    sm.run(sim.until, sim.dt);
+  } catch (...) {
+      ImGui::OpenPopup("Error");
+  }
+  if (ImGui::BeginPopupModal("Error")) {
+    ImGui::Text("Arbor failed to run.");
+    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+  }
 }
