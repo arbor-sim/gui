@@ -2,7 +2,7 @@
 
 #include "gui.hpp"
 
-#include <arbor/cv_policy_parse.hpp>
+#include <arborio/cv_policy_parse.hpp>
 
 void cv_def::set_error(const std::string& m) {
     data = {};
@@ -18,7 +18,7 @@ void cv_def::update() {
         return;
     }
     try {
-        auto p = arb::cv::parse_expression(def);
+        auto p = arborio::parse_cv_policy_expression(def);
         if (p) {
             data = p.value();
             state = def_state::good;
@@ -26,7 +26,7 @@ void cv_def::update() {
         } else {
             set_error(p.error().what());
         }
-    } catch (const arb::cv::parse_error &e) {
+    } catch (const arborio::cv_policy_parse_error &e) {
         set_error(e.what());
     }
 }

@@ -848,8 +848,8 @@ namespace {
     arb::decor decor{};
     for (const auto& id: state.locsets) {
       auto ls = state.locset_defs[id];
-      auto locset = fmt::format("(locset \"{}\")", ls.name);
       if (!ls.data) continue;
+      auto locset = ls.data.value();
       for (const auto child: state.stimuli.get_children(id)) {
         auto item = state.stimuli[child];
         arb::i_clamp i_clamp;
@@ -857,11 +857,11 @@ namespace {
         i_clamp.phase     = item.phase;
         std::sort(item.envelope.begin(), item.envelope.end());
         for (const auto& [t, i]: item.envelope) i_clamp.envelope.emplace_back(arb::i_clamp::envelope_point{t, i});
-        decor.place(locset, i_clamp);
+        decor.place(locset, i_clamp, item.tag);
       }
       for (const auto child: state.detectors.get_children(id)) {
         auto item = state.detectors[child];
-        decor.place(locset, arb::threshold_detector{item.threshold});
+        decor.place(locset, arb::threshold_detector{item.threshold}, item.tag);
       }
     }
 
@@ -895,19 +895,18 @@ namespace {
     for (const auto& id: state.regions) {
       auto rg = state.region_defs[id];
       if (!rg.data) continue;
-      auto region = fmt::format("(region \"{}\")",  rg.name);
       auto param  = state.parameter_defs[id];
-      if (param.RL) decor.paint(region, arb::axial_resistivity{param.RL.value()});
-      if (param.Cm) decor.paint(region, arb::membrane_capacitance{param.Cm.value()});
-      if (param.TK) decor.paint(region, arb::temperature_K{param.TK.value()});
-      if (param.Vm) decor.paint(region, arb::init_membrane_potential{param.Vm.value()});
+      if (param.RL) decor.paint(rg.data.value(), arb::axial_resistivity{param.RL.value()});
+      if (param.Cm) decor.paint(rg.data.value(), arb::membrane_capacitance{param.Cm.value()});
+      if (param.TK) decor.paint(rg.data.value(), arb::temperature_K{param.TK.value()});
+      if (param.Vm) decor.paint(rg.data.value(), arb::init_membrane_potential{param.Vm.value()});
 
       for (const auto& ion: state.ions) {
         const auto& data = state.ion_par_defs[{id, ion}];
         const auto& name = state.ion_defs[ion].name;
-        if (data.Xi) decor.paint(region, arb::init_int_concentration{name,  data.Xi.value()});
-        if (data.Xo) decor.paint(region, arb::init_ext_concentration{name,  data.Xo.value()});
-        if (data.Er) decor.paint(region, arb::init_reversal_potential{name, data.Er.value()});
+        if (data.Xi) decor.paint(rg.data.value(), arb::init_int_concentration{name,  data.Xi.value()});
+        if (data.Xo) decor.paint(rg.data.value(), arb::init_ext_concentration{name,  data.Xo.value()});
+        if (data.Er) decor.paint(rg.data.value(), arb::init_reversal_potential{name, data.Er.value()});
       }
 
       for (const auto child: state.mechanisms.get_children(id)) {
@@ -922,7 +921,7 @@ namespace {
         for(const auto& [k, v]: item.parameters) {
           mech.set(k, v);
         }
-        decor.paint(region, mech);
+        decor.paint(rg.data.value(), mech);
       }
     }
     return {state.builder.morph, state.builder.labels, decor};
@@ -1005,8 +1004,9 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
   struct ls_visitor {
     gui_state* state;
     id_type locset;
+    std::string tag;
 
-    ls_visitor(gui_state* s, const arb::locset& l): state{s} {
+    ls_visitor(gui_state* s, const arb::locset& l, const std::string& t): state{s}, tag{t} {
       auto ls = to_string(l);
       auto res = std::find_if(state->locsets.begin(), state->locsets.end(),
                               [&](const auto& id) {
@@ -1020,13 +1020,16 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
 
     void operator()(const arb::threshold_detector& t) {
       auto id = state->detectors.add(locset);
-      state->detectors[id].threshold = t.threshold;
+      auto& data = state->detectors[id];
+      data.threshold = t.threshold;
+      data.tag       = tag;
     }
     void operator()(const arb::i_clamp& t)            {
       auto id        = state->stimuli.add(locset);
       auto& data     = state->stimuli[id];
       data.frequency = t.frequency;
       data.phase     = t.phase;
+      data.tag       = tag;
       for (const auto& [k, v]: t.envelope) data.envelope.emplace_back(k, v);
     }
     void operator()(const arb::mechanism_desc& t)     { log_error("Cannot handle mech."); }
@@ -1132,8 +1135,8 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       state->reload({c.morphology(), regions, locsets});
       state->update(); // process events here
       arb::decor decor = c.decorations();
-      for (const auto& [k, v]: decor.placements()) std::visit(ls_visitor{state, to_string(k)}, v);
-      for (const auto& [k, v]: decor.paintings())  std::visit(rg_visitor{state, to_string(k)}, v);
+      for (const auto& [k, v, t]: decor.placements()) std::visit(ls_visitor{state, k, t}, v);
+      for (const auto& [k, v]: decor.paintings())  std::visit(rg_visitor{state, k}, v);
       auto defaults = decor.defaults();
       state->parameter_defaults.Cm = defaults.membrane_capacitance;
       state->parameter_defaults.RL = defaults.axial_resistivity;
@@ -1300,7 +1303,6 @@ void gui_state::update() {
       for (const auto& region: state->regions) state->ion_par_defs.add(region, id);
     }
     void operator()(const evt_del_ion& c) {
-
       auto id = c.id;
       state->ion_defs.del(id);
       state->ion_defaults.del(id);
@@ -1309,11 +1311,19 @@ void gui_state::update() {
     }
     void operator()(const evt_add_mechanism& c) {  state->mechanisms.add(c.region); }
     void operator()(const evt_del_mechanism& c) {  state->mechanisms.del(c.id); }
-    void operator()(const evt_add_detector& c)  {  state->detectors.add(c.locset); }
+    void operator()(const evt_add_detector& c)  {
+      auto id = state->detectors.add(c.locset);
+      auto& data = state->detectors[id];
+      if (data.tag.empty()) data.tag = fmt::format("Detector {}", id.value);
+    }
     void operator()(const evt_del_detector& c)  {  state->detectors.del(c.id); }
     void operator()(const evt_add_probe& c)     {  state->probes.add(c.locset); }
     void operator()(const evt_del_probe& c)     {  state->probes.del(c.id); }
-    void operator()(const evt_add_stimulus& c)  {  state->stimuli.add(c.locset); }
+    void operator()(const evt_add_stimulus& c)  {
+      auto id = state->stimuli.add(c.locset);
+      auto& data = state->stimuli[id];
+      if (data.tag.empty()) data.tag = fmt::format("I Clamp {}", id.value);
+    }
     void operator()(const evt_del_stimulus& c)  {  state->stimuli.del(c.id); }
   };
 
