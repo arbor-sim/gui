@@ -4,8 +4,9 @@
 
 #include <glm/glm.hpp>
 
-#include <arbor/morph/label_parse.hpp>
-#include <arbor/cv_policy_parse.hpp>
+#include <arborio/label_parse.hpp>
+#include <arborio/cv_policy_parse.hpp>
+
 #include <arbor/morph/region.hpp>
 #include <arbor/morph/locset.hpp>
 
@@ -35,10 +36,13 @@ struct loc_def {
             data = {}; state = def_state::empty; message = "Empty.";
             return;
         }
-        try {
-            data = {def}; state = def_state::good; message = "Ok.";
-        } catch (const arb::label_parse_error &e) {
-            set_error(e.what());
+        auto loc = arborio::parse_label_expression(def);
+        if (loc) {
+            data = std::any_cast<T>(loc.value());
+            state = def_state::good;
+            message = "Ok.";
+        } else {
+            set_error(loc.error().what());
         }
     }
 };

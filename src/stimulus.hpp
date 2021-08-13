@@ -7,6 +7,7 @@
 struct stimulus_def {
     double frequency = 0.0; // Hz
     double phase     = 0.0; // Radians
+    std::string tag;
     std::vector<std::pair<double, double>> envelope;
 };
 

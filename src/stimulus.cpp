@@ -5,13 +5,15 @@
 void gui_stimulus(const id_type& id, stimulus_def& data, event_queue& evts, std::vector<float>& values, double dt, double until) {
     with_id guard{id};
     with_item_width iw{160.0f};
-    auto open = gui_tree("I Clamp");
+    auto open = gui_tree("##iclamp");
+    ImGui::SameLine();
+    ImGui::InputText("##iclamp-name", &data.tag, ImGuiInputTextFlags_AutoSelectAll);
+    gui_right_margin();
+    if (ImGui::Button(icon_delete)) evts.push_back(evt_del_stimulus{id});
     if (open) {
         bool clean = false;
         double z = 0.0, pi2 = 2*PI;
         ImGui::SliderScalar("Phase", ImGuiDataType_Double, &data.phase, &z, &pi2, "%.3f");
-        gui_right_margin();
-        if (ImGui::Button(icon_delete)) evts.push_back(evt_del_stimulus{id});
         gui_input_double("Frequency", data.frequency, "Hz");
         ImGui::Text("Envelope");
         ImGui::SameLine();

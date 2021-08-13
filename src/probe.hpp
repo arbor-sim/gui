@@ -8,7 +8,7 @@
 struct probe_def {
     double frequency     = 1000.0; // [Hz]
     std::string kind     = kinds.front();
-    std::string variable = "";
+    std::string variable;
     constexpr static std::array kinds{"Voltage", "Axial Current", "Membrane Current", "Internal Concentration", "External Concentration", "Mechanism State"};
 };
 
