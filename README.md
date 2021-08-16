@@ -155,7 +155,7 @@ and Catalina using this line
 
 ```bash
 cmake .. -DCMAKE_CXX_COMPILER=/usr/local/opt/llvm/bin/clang++ \
-         -DCMAKE_CCOMPILER=/usr/local/opt/llvm/bin/clang      \
+         -DCMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang      \
          -DCMAKE_BUILD_TYPE=release
 ```
 # Acknowledgements
