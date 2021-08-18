@@ -25,13 +25,29 @@ loaded_morphology load_swc(const std::filesystem::path &fn,
 loaded_morphology load_neuron_swc(const std::filesystem::path &fn) { return load_swc(fn, arborio::load_swc_neuron); }
 loaded_morphology load_arbor_swc(const std::filesystem::path &fn)  { return load_swc(fn, arborio::load_swc_arbor); }
 
-loaded_morphology load_neuroml(const std::filesystem::path &fn) {
+loaded_morphology load_neuroml_morph(const std::filesystem::path &fn) {
     arborio::neuroml nml(slurp(fn));
-    auto id         = nml.cell_ids().front();
-    auto morph_data = nml.cell_morphology(id).value();
-    loaded_morphology result{.morph=morph_data.morphology};
-    for (const auto& [k, v]: morph_data.groups.regions()) result.regions.emplace_back(k, to_string(v));
-    for (const auto& [k, v]: morph_data.groups.locsets()) result.locsets.emplace_back(k, to_string(v));
+    if (nml.morphology_ids().empty()) log_error("NML file {} has no morphologies.", fn.string());
+    auto id = nml.morphology_ids().front();
+    auto morph_data = nml.morphology(id);
+    if (!morph_data) log_error("Invalid morphology id {} in NML file.");
+    auto morph = morph_data.value();
+    loaded_morphology result{.morph=morph.morphology};
+    for (const auto& [k, v]: morph.groups.regions()) result.regions.emplace_back(k, to_string(v));
+    for (const auto& [k, v]: morph.groups.locsets()) result.locsets.emplace_back(k, to_string(v));
+    return result;
+}
+
+loaded_morphology load_neuroml_cell(const std::filesystem::path &fn) {
+    arborio::neuroml nml(slurp(fn));
+    if (nml.cell_ids().empty()) log_error("NML file {} has no cells.", fn.string());
+    auto id = nml.cell_ids().front();
+    auto morph_data = nml.cell_morphology(id);
+    if (!morph_data) log_error("Invalid cell id {} in NML file.");
+    auto morph = morph_data.value();
+    loaded_morphology result{.morph=morph.morphology};
+    for (const auto& [k, v]: morph.groups.regions()) result.regions.emplace_back(k, to_string(v));
+    for (const auto& [k, v]: morph.groups.locsets()) result.locsets.emplace_back(k, to_string(v));
     return result;
 }
 
@@ -48,7 +64,8 @@ static std::unordered_map<std::string,
                                              std::function<loaded_morphology(const std::filesystem::path &fn)>>>
 loaders{{".swc", {{"Arbor",   load_arbor_swc},
                   {"Neuron",  load_neuron_swc}}},
-        {".nml", {{"Default", load_neuroml}}},
+        {".nml", {{"Cell",    load_neuroml_cell},
+                  {"Morph",   load_neuroml_morph}}},
         {".asc", {{"Default", load_asc}}}};
 
 const std::vector<std::string>& get_suffixes() {
