@@ -88,13 +88,20 @@ status offers quite a bit more.
 
 # Installation
 
+We have Macos Bundles and Linux AppImages and they are the preferred way
+of getting and using Arbor GUI. Simply download the version for your
+system and copy them to a directory of your choosing.
+
 The Arbor GUI requires a functional OpenGL 3.3+ package and recent (as
 in C++20 supported) C++ compiler to be present on the system. Listed
 below are the standard instructions to install per platform. Mileage may
 vary, especially when installing OpenGL. You might need to update
 drivers, or have to execute other environment specific patches.
 
-Start out by cloning the repository and creating a build directory:
+## Building Arbor GUI
+
+If you wish to build and perhaps modify Arbor GUI, start out by cloning
+the repository and creating a build directory:
 
 ```bash
 git clone --recursive https://github.com/thorstenhater/arbor-gui.git
@@ -109,7 +116,7 @@ Next, follow the platform specific instructions.
 1.  Install build dependencies
     ``` bash
     sudo apt update
-    sudo apt install libxml2-dev libxrandr-dev libxcinerama-dev \
+    sudo apt install libxml2-dev libxrandr-dev libxinerama-dev \
                      libxcursor-dev libxi-dev libglu1-mesa-dev \
                      freeglut3-dev mesa-common-dev gcc-10 g++-10
     ```
@@ -124,7 +131,7 @@ Next, follow the platform specific instructions.
 
 3.  Install Arbor GUI
     ```bash
-    cmake .. 
+    cmake ..
     sudo make install -j 4
     ```
 
