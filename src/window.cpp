@@ -64,26 +64,17 @@ bool Window::visible() { return glfwGetWindowAttrib(handle, GLFW_FOCUSED); }
 Window::Window() {
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()) log_fatal("Failed to initialise GLFW");
-#if __APPLE__
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on Mac
-    glsl_version = "#version 150";
-    log_info("Set up on Apple: OpenGL 3.2 Core forward compatible GLSL v150");
-#else
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
-    glsl_version = "#version 130";
-    log_info("Set up on Linux: OpenGL 3.0 GLSL v130");
-#endif
-    // glEnable(GL_MULTISAMPLE);
-    // glfwWindowHint(GLFW_SAMPLES, 4);
-    // Create window with graphics context
+    log_info("Setting up window with OpenGL 4.1 Core forward compatible GLSL v410");
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glsl_version = "#version 410";
     handle = glfwCreateWindow(1280, 720, "arbor-gui", NULL, NULL);
     if (handle == nullptr) log_fatal("Failed to obtain window");
+    log_info("OpenGL version instantiated {}.{}",
+             glfwGetWindowAttrib(handle, GLFW_CONTEXT_VERSION_MAJOR),
+             glfwGetWindowAttrib(handle, GLFW_CONTEXT_VERSION_MINOR));
     glfwMakeContextCurrent(handle);
     glfwSwapInterval(1); // Enable vsync
     glfwSetScrollCallback(handle, scroll_callback);

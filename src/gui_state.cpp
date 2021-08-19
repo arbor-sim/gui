@@ -348,7 +348,6 @@ namespace {
   }
 
   inline void gui_read_morphology(gui_state& state, bool& open_file) {
-
     with_id id{"reading morphology"};
     ImGui::OpenPopup("Open");
     if (ImGui::BeginPopupModal("Open")) {
@@ -396,6 +395,8 @@ namespace {
             } catch (const arborio::swc_error& e) {
               loader_error = e.what();
             } catch (const arborio::neuroml_exception& e) {
+              loader_error = e.what();
+            } catch (const std::runtime_error& e) {
               loader_error = e.what();
             }
           }
