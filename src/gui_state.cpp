@@ -1214,7 +1214,6 @@ void gui_state::update() {
       }
     }
     void operator()(const evt_add_locdef<ls_def>& c) {
-
       auto ls = state->locsets.add();
       state->locset_defs.add(ls, {c.name.empty() ? fmt::format("Locset {}", ls.value) : c.name, c.definition});
       state->renderer.locsets.add(ls);
@@ -1222,7 +1221,6 @@ void gui_state::update() {
       state->update_locset(ls);
     }
     void operator()(const evt_upd_locdef<ls_def>& c) {
-
       auto& def = state->locset_defs[c.id];
       auto& rnd = state->renderer.locsets[c.id];
       def.update();
@@ -1238,7 +1236,6 @@ void gui_state::update() {
       state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_del_locdef<ls_def>& c) {
-
       auto id = c.id;
       log_debug("Erasing locset {}", id.value);
       state->renderer.locsets.del(id);
@@ -1249,7 +1246,6 @@ void gui_state::update() {
       state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_add_locdef<rg_def>& c) {
-
       auto id = state->regions.add();
       state->region_defs.add(id, {c.name.empty() ? fmt::format("Region {}", id.value) : c.name, c.definition});
       state->parameter_defs.add(id);
@@ -1259,7 +1255,6 @@ void gui_state::update() {
       state->update_region(id);
     }
     void operator()(const evt_upd_locdef<rg_def>& c) {
-
       auto& def = state->region_defs[c.id];
       auto& rnd = state->renderer.regions[c.id];
       for(auto& [segment, regions]: state->segment_to_regions) {
@@ -1284,7 +1279,6 @@ void gui_state::update() {
       state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_del_locdef<rg_def>& c) {
-
       auto id = c.id;
       state->renderer.regions.del(id);
       state->region_defs.del(id);
@@ -1297,7 +1291,6 @@ void gui_state::update() {
       state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
     }
     void operator()(const evt_add_ion& c) {
-
       auto id = state->ions.add();
       state->ion_defs.add(id, {c.name.empty() ? fmt::format("Ion {}", id.value) : c.name, c.charge});
       state->ion_defaults.add(id);
