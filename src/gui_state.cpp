@@ -644,7 +644,6 @@ namespace {
   }
 
   inline void gui_ion_settings(gui_state& state) {
-
     with_id guard{"ion-settings"};
     if (gui_tree(fmt::format("{} Regions", icon_region))) {
       for (const auto& region: state.regions) {

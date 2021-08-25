@@ -32,15 +32,29 @@ inline void gui_check_state(const T& def) {
 
 inline void gui_right_margin(float delta=40.0f) { ImGui::SameLine(ImGui::GetWindowWidth() - delta); }
 
+inline bool gui_tree(const std::string& label, bool& force) {
+    if (force) {
+        ImGui::SetNextItemOpen(force);
+        force = false;
+    }
+    ImGui::AlignTextToFramePadding();
+    return ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
+}
+
 inline bool gui_tree(const std::string& label) {
     ImGui::AlignTextToFramePadding();
     return ImGui::TreeNodeEx(label.c_str(), ImGuiTreeNodeFlags_AllowItemOverlap);
 }
 
-template<typename F> bool gui_tree_add(const std::string& label, F action) {
-    auto open = gui_tree(label);
+template<typename F>
+bool gui_tree_add(const std::string& label, F action) {
+    static bool force_open = false;
+    auto open = gui_tree(label, force_open);
     gui_right_margin();
-    if (ImGui::Button(icon_add)) action();
+    if (ImGui::Button(icon_add)) {
+        action();
+        force_open = true;
+    }
     return open;
 }
 
