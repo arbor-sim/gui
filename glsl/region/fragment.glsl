@@ -1,4 +1,4 @@
-#version 330 core
+#version 410 core
 
 in vec3 position;
 in vec3 normal;
@@ -34,7 +34,7 @@ void main() {
     float specular_str = 0.05f;
     vec3 view_dir    = normalize(camera - position);
     vec3 reflect_dir = reflect(-key_dir, norm);
-    float spec       = pow(max(dot(view_dir, reflect_dir), 0.0), 32);
+    float spec       = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0f);
     vec3 specular    = specular_str*spec*key_color;
 
     color = vec4(ambient + diffuse + specular, 1.0f)*object_color;

@@ -7,6 +7,7 @@ project(the-arbor-gui
   LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
+include(GNUInstallDirs)
 
 # Generate a .json file with full compilation command for each file.
 set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
@@ -169,32 +170,36 @@ set(gui_srcs
 set_source_files_properties("${gui_srcs}" PROPERTIES COMPILE_FLAGS "-Wall -Wextra -pedantic")
 
 if(ARBORGUI_BUILD_BUNDLE)
-  set(resource_path "arbor-gui.app/Contents/Resources")
+  if (APPLE)
+    set(resource_path "arbor-gui.app/Contents/Resources")
 
-  set(ARBORGUI_ICON arbor.icns)
-  set(ARBORGUI_ICON_PATH ${CMAKE_SOURCE_DIR}/images/${ARBORGUI_ICON})
-  set_source_files_properties(${ARBORGUI_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+    set(ARBORGUI_ICON arbor.icns)
+    set(ARBORGUI_ICON_PATH ${CMAKE_SOURCE_DIR}/images/${ARBORGUI_ICON})
+    set_source_files_properties(${ARBORGUI_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
-add_executable(arbor-gui MACOSX_BUNDLE ${ARBORGUI_ICON_PATH} ${gui_srcs} $<TARGET_OBJECTS:imgui>)
-  set_target_properties(arbor-gui PROPERTIES MACOSX_BUNDLE_ICONFILE ${ARBORGUI_ICON})
+    add_executable(arbor-gui MACOSX_BUNDLE ${ARBORGUI_ICON_PATH} ${gui_srcs} $<TARGET_OBJECTS:imgui>)
+    set_target_properties(arbor-gui PROPERTIES MACOSX_BUNDLE_ICONFILE ${ARBORGUI_ICON})
 
-  target_include_directories(arbor-gui PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
-  target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glfw arbor-gui-deps)
+    target_include_directories(arbor-gui PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
+    target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glfw arbor-gui-deps)
 
-  install(TARGETS arbor-gui
-    BUNDLE DESTINATION . COMPONENT Runtime
-    RUNTIME DESTINATION bin COMPONENT Runtime)
+    install(TARGETS arbor-gui
+        BUNDLE DESTINATION . COMPONENT Runtime
+        RUNTIME DESTINATION bin COMPONENT Runtime)
 
-  install(FILES     ${ARBORGUI_ICON_PATH} DESTINATION ${resource_path})
-  install(FILES     default.ini           DESTINATION ${resource_path} RENAME imgui.ini)
-  install(DIRECTORY glsl                  DESTINATION ${resource_path})
-  install(DIRECTORY fonts                 DESTINATION ${resource_path})
+    install(FILES     ${ARBORGUI_ICON_PATH} DESTINATION ${resource_path})
+    install(FILES     default.ini           DESTINATION ${resource_path} RENAME imgui.ini)
+    install(DIRECTORY glsl                  DESTINATION ${resource_path})
+    install(DIRECTORY fonts                 DESTINATION ${resource_path})
 
-  set(CPACK_BINARY_DRAGNDROP ON)
-  set(CPACK_GENERATOR "DragNDrop")
-  include(CPack)
-else()
-  set(resource_path "${CMAKE_INSTALL_PREFIX}/etc/arbor-gui")
+    set(CPACK_BINARY_DRAGNDROP ON)
+    set(CPACK_GENERATOR "DragNDrop")
+    include(CPack)
+  endif()
+  if (CMAKE_SYSTEM MATCHES "Linux")
+  endif()
+else()  
+  set(resource_path "${CMAKE_INSTALL_FULL_DATAROOTDIR}/arbor-gui")
   add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
 
   add_executable(arbor-gui ${gui_srcs} $<TARGET_OBJECTS:imgui>)
@@ -209,9 +214,9 @@ else()
       DEPENDS ${CMAKE_SOURCE_DIR}/scripts/set-osx-icon.sh ${CMAKE_SOURCE_DIR}/images/arbor.png)
   endif()
   if (CMAKE_SYSTEM MATCHES "Linux")
-    add_custom_command(TARGET arbor-gui POST_BUILD
-      COMMAND sh ${CMAKE_SOURCE_DIR}/scripts/set-linux-desktop-file.sh ${resource_path} ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_SOURCE_DIR}/images/arbor.svg ${CMAKE_SOURCE_DIR}/scripts/arbor-gui.desktop
-      DEPENDS ${CMAKE_SOURCE_DIR}/scripts/set-linux-desktop-file.sh ${CMAKE_SOURCE_DIR}/images/arbor.svg ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_SOURCE_DIR}/scripts/arbor-gui.desktop)
+    install(FILES     ${CMAKE_SOURCE_DIR}/images/arbor.png DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/icons/hicolor/256x256/apps/)
+    install(FILES     ${CMAKE_SOURCE_DIR}/images/arbor.svg DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/icons/hicolor/scalable/apps/)
+    install(FILES     ${CMAKE_SOURCE_DIR}/scripts/arbor-gui.desktop DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/applications/)
   endif()
 
   install(TARGETS arbor-gui RUNTIME DESTINATION bin)

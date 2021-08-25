@@ -11,7 +11,12 @@
 
 std::filesystem::path get_resource_path(const std::filesystem::path& fn) {
 #ifdef ARBORGUI_RESOURCES_BASE
-  return ARBORGUI_RESOURCES_BASE / fn;
+  //if in appimage. Can only be known at runtime
+  if(const char *APPDIR = std::getenv("APPDIR"); nullptr != APPDIR){
+    return std::filesystem::path{ std::string(APPDIR) } / "usr/share/arbor-gui" / fn;
+  } else {
+    return ARBORGUI_RESOURCES_BASE / fn;
+  }
 #else
   CFURLRef appUrlRef = CFBundleCopyBundleURL( CFBundleGetMainBundle() );
   CFStringRef macPath = CFURLCopyFileSystemPath( appUrlRef, kCFURLPOSIXPathStyle );
