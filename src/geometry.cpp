@@ -131,7 +131,7 @@ inline void render(unsigned program,
     for (const auto& v: render) {
         if (v.active) {
             set_uniform(program, "object_color", v.color);
-            set_uniform(program, "zorder", v.zorder*0.01f);
+            set_uniform(program, "zorder", v.zorder*1e-5f);
             glBindVertexArray(v.vao);
             glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);
             glBindVertexArray(0);
@@ -149,11 +149,11 @@ inline void render(unsigned program,
     set_uniform(program, "model", model);
     set_uniform(program, "view",  view);
 
-    auto r = render; std::sort(r.begin(), r.end(), [](const auto& a, const auto& b) { return a.scale > b.scale; });
+    auto r = render; std::sort(r.begin(), r.end(), [](const auto& a, const auto& b) { return a.zorder > b.zorder; });
 
     for (const auto& v: r) {
         if (v.active) {
-            set_uniform(program, "scale", v.scale);
+            set_uniform(program, "scale", (1.0f + v.zorder*0.25f));
             set_uniform(program, "object_color", v.color);
             glBindVertexArray(v.vao);
             glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);
@@ -506,7 +506,6 @@ std::optional<object_id> geometry::get_id() {
 }
 
 void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) {
-
     std::vector<glm::vec3> off;
     for (const auto& m: points) off.emplace_back((m - root)/rescale);
     glDeleteVertexArrays(1, &r.vao);
@@ -517,7 +516,6 @@ void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) 
 }
 
 void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r) {
-
     std::vector<unsigned> idcs{};
     for (const auto& seg: segs) {
         const auto idx = id_to_index[seg.id];
@@ -536,8 +534,12 @@ void geometry::make_ruler() {
     make_axes(ax, rescale);
 }
 
-void geometry::load_geometry(const arb::morphology& morph) {
-
+void geometry::load_geometry(const arb::morphology& morph, bool reset) {
+    if (reset) {
+        locsets.clear();
+        regions.clear();
+        cv_boundaries.active = false;
+    }
     clear();
     n_vertices  = n_faces*4 + 2;  // Faces: 4 vertices 2 are shared. Caps: three per face, center is shared
     n_triangles = n_faces*4;      // Each face is a quad made from 2 tris, caps have one tri per face
@@ -600,6 +602,7 @@ void geometry::load_geometry(const arb::morphology& morph) {
 
     {
         // Re-scale into [-1, 1]^3 box
+        rescale = ax.scale;
         for (const auto& tri: vertices) {
             rescale = std::max(rescale, std::abs(tri.position.x));
             rescale = std::max(rescale, std::abs(tri.position.y));
@@ -614,7 +617,6 @@ void geometry::load_geometry(const arb::morphology& morph) {
 }
 
 void geometry::clear() {
-
     vertices.clear();
     indices.clear();
     id_to_index.clear();
@@ -622,6 +624,4 @@ void geometry::clear() {
     segments.clear();
     branch_to_ids.clear();
     rescale = -1;
-    locsets.clear();
-    regions.clear();
 }
