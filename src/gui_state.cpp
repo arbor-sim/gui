@@ -309,6 +309,18 @@ namespace {
       gui_right_margin();
       gui_toggle(icon_show, icon_hide, state.show_hidden);
     }
+    // Some well-known directories
+    {
+            ImGui::BeginChild("Dirs",
+                              {25.0f,
+                               -3.00f*ImGui::GetTextLineHeightWithSpacing()},
+                              false);
+            if (ImGui::Button(icon_home, {25.0f, 25.0f})) state.cwd = state.home;
+            if (ImGui::Button(icon_desk, {25.0f, 25.0f})) state.cwd = state.desk;
+            if (ImGui::Button(icon_docs, {25.0f, 25.0f})) state.cwd = state.docs;
+            ImGui::EndChild();
+    }
+    ImGui::SameLine();
     // Draw the current dir
     {
       ImGui::BeginChild("Files",
@@ -579,7 +591,8 @@ namespace {
         gui_toggle(icon_show, icon_hide, render.active);
         ImGui::SameLine();
         gui_check_state(item);
-
+        ImGui::SameLine();
+        if (ImGui::Button(icon_clone)) events.push_back(evt_add_locdef<Item>{item.name, item.definition});
         gui_right_margin();
         if (ImGui::Button(icon_delete)) events.push_back(evt_del_locdef<Item>{id});
 
@@ -634,7 +647,6 @@ namespace {
   }
 
   inline void gui_locations(gui_state& state) {
-
     if (ImGui::Begin(fmt::format("{} Locations", icon_location).c_str())) {
       gui_locdefs(fmt::format("{} Regions", icon_region), state.regions, state.region_defs, state.renderer.regions, state.events);
       ImGui::Separator();
