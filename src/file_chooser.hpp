@@ -23,6 +23,5 @@ struct file_chooser_state {
         } else {
             log_info("Could not retrieve $HOME");
         }
-
     }
 };

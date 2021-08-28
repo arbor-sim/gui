@@ -10,13 +10,10 @@ static void glfw_error_callback(int error, const char* description) {
     log_error("Glfw error {}:\n{}", error, description);
 }
 
-float delta_phi     = 0.0f;
-float delta_gamma     = 0.0f;
 float delta_zoom    = 0.0f;
 glm::vec2 delta_pos = {0.0f, 0.0f};
-
-float mouse_x;
-float mouse_y;
+glm::vec2 delta_rot = {0.0f, 0.0f};
+glm::vec2 mouse     = {0.0f, 0.0f};
 
 static void scroll_callback(GLFWwindow*, double xoffset, double yoffset) {
     delta_zoom -= (float) yoffset;
@@ -31,21 +28,13 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
         (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS);
 
     auto eps = 0.01;
-    auto dx = mouse_x - x; mouse_x = x;
-    auto dy = mouse_y - y; mouse_y = y;
+    auto
+        d = mouse - glm::vec2{x, y},
+        a = glm::abs(d);
+    mouse = {x, y};
 
-    if (lb_down && ctrl_key) {
-        delta_pos.x = (std::abs(dx) > eps) ? -dx*2 : 0.0f;
-        delta_pos.y = (std::abs(dy) > eps) ?  dy*2 : 0.0f;
-    }
-
-    if (lb_down && !ctrl_key) {
-        delta_phi = ((dx > eps) - (dx < eps))*0.1f;
-    }
-
-    if (mb_down && !ctrl_key) {
-        delta_gamma = ((dy > eps) - (dy < eps))*0.1f;
-    }
+    if (lb_down &&  ctrl_key) delta_pos = {-(a.x > eps)*d.x, (a.y > eps)*d.y};
+    if (lb_down && !ctrl_key) delta_rot = { (a.x > eps)*0.1f*d.x, (a.y > eps)*0.1f*d.y};
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -186,7 +175,6 @@ void Window::end_frame() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(handle);
     delta_pos = {0.0f, 0.0f};
-    delta_phi = 0.0f;
-    delta_gamma = 0.0f;
+    delta_rot = {0.0f, 0.0f};
     delta_zoom = 0.0f;
 }

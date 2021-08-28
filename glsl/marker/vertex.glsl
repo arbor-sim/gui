@@ -10,5 +10,5 @@ uniform mat4  view;
 uniform float scale;
 
 void main() {
-    gl_Position =  view * (model * vec4(scale * pos, 1.0f) + vec4(off, 0.0f));
+    gl_Position =  view * model * vec4(off, 1.0f) + view * vec4(scale * pos, 0.0f);
 }

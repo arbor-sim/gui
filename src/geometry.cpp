@@ -419,18 +419,12 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
     make_fbo(vs.size.x, vs.size.y, cell);
     make_fbo(vs.size.x, vs.size.y, pick);
 
-    float distance  = 2.5f;
-    auto camera     = distance*glm::vec3{0.0f, 0.0f, 1.0f};
-    glm::vec3 up    = {0.0f, 1.0f, 0.0f};
     glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
-    glm::mat4 view  = glm::lookAt(camera, (vs.target - root)/rescale + shift, up);
+    glm::mat4 view  = glm::lookAt(vs.camera, (vs.target - root)/rescale + shift, vs.up);
     glm::mat4 proj  = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
     view = proj*view; // pre-multiply view matrices
 
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::rotate(model, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
-    model = glm::rotate(model, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::rotate(model, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 model = vs.rotate;
 
     if (!pbo) pbo = make_pixel_buffer();
 
@@ -455,7 +449,7 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
 
     // Render main scene
     {
-        auto light = camera + glm::vec3{0.0f, 1.0f, 0.0f};
+        auto light = vs.camera + glm::vec3{0.0f, 1.0f, 0.0f};
         auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
         glBindFramebuffer(GL_FRAMEBUFFER, cell.fbo);
         glClearColor(cell.clear_color.x, cell.clear_color.y, cell.clear_color.z, 1.0f);
@@ -464,29 +458,21 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
         {
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
-            ::render(region_program, model, view, camera, light_color, regions.items);
+            ::render(region_program, model, view, vs.camera, light_color, regions.items);
             glDisable(GL_CULL_FACE);
         }
         // ... axes ...
         {
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
-            if (ax.active) ::render(region_program, model, view, camera, light_color, ax.renderables);
+            if (ax.active) ::render(region_program, model, view, vs.camera, light_color, ax.renderables);
             glDisable(GL_CULL_FACE);
         }
         // ... and markers
         {
-            glm::mat4 imodel = glm::mat4(1.0f);
-            imodel = glm::rotate(imodel, -vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
-            imodel = glm::rotate(imodel, -vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-            imodel = glm::rotate(imodel, -vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
-            auto iview = view;
-            iview = glm::rotate(iview, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
-            iview = glm::rotate(iview, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-            iview = glm::rotate(iview, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
             glDisable(GL_DEPTH_TEST);
-            ::render(marker_program, imodel, iview, locsets.items);
-            ::render(marker_program, imodel, iview, {cv_boundaries});
+            ::render(marker_program, vs.rotate, view, locsets.items);
+            ::render(marker_program, vs.rotate, view, {cv_boundaries});
             glEnable(GL_DEPTH_TEST);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -495,7 +481,6 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
 }
 
 std::optional<object_id> geometry::get_id() {
-
     auto color = get_value_pixel_buffer(pbo);
     if ((color == pick.clear_color) || (color.x < 0.0f) || (color.y < 0.0f) || (color.z < 0.0f)) return {};
     auto id = unpack_id(color);
