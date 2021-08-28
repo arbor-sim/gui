@@ -2,6 +2,8 @@
 
 #include <filesystem>
 
+#include "ImGuizmo.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <IconsForkAwesome.h>
@@ -48,8 +50,7 @@ static void mouse_callback(GLFWwindow* window, double x, double y) {
     }
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if ((key == GLFW_KEY_DOWN)  && (action == GLFW_PRESS)) delta_pos.y =  15.0f;
     if ((key == GLFW_KEY_UP)    && (action == GLFW_PRESS)) delta_pos.y = -15.0f;
     if ((key == GLFW_KEY_LEFT)  && (action == GLFW_PRESS)) delta_pos.x =  15.0f;
@@ -176,6 +177,7 @@ void Window::begin_frame() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
     ImGui::PushFont(font);
 }
 

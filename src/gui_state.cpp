@@ -4,6 +4,7 @@
 #include <regex>
 
 #include <implot.h>
+#include <ImGuizmo.h>
 
 #include <arbor/morph/primitives.hpp>
 #include <arbor/morph/morphexcept.hpp>
@@ -437,12 +438,18 @@ namespace {
       state.view.size = to_glmvec(size);
       state.renderer.render(state.view, {mouse_x - win_pos.x, size.y + win_pos.y - mouse_y});
       ImGui::Image(reinterpret_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
+      {
+        ImGuizmo::SetDrawlist();
+        ImGuizmo::SetRect(win_pos.x, win_pos.y, size.x, size.y);
+        ImGuizmo::Manipulate();
+      }
+
 
       if (ImGui::IsItemHovered()) {
-        state.view.offset -= delta_pos;
-        state.view.zoom    = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
-        state.view.phi     = std::fmod(state.view.phi   + delta_phi   + 2*PI, 2*PI); // cyclic in [0, 2pi)
-        state.view.gamma   = std::fmod(state.view.gamma + delta_gamma + 2*PI, 2*PI); // cyclic in [0, 2pi)
+        // state.view.offset -= delta_pos;
+        // state.view.zoom    = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
+        // state.view.phi     = std::fmod(state.view.phi   + delta_phi   + 2*PI, 2*PI); // cyclic in [0, 2pi)
+        // state.view.gamma   = std::fmod(state.view.gamma + delta_gamma + 2*PI, 2*PI); // cyclic in [0, 2pi)
       }
       state.object = state.renderer.get_id();
 
