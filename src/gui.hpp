@@ -2,10 +2,13 @@
 
 #include <optional>
 
+#include <arbor/version.hpp>
+
 #include <fmt/format.h>
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
 
+#include "config.hpp"
 #include "id.hpp"
 #include "icons.hpp"
 #include "utils.hpp"
@@ -155,3 +158,24 @@ inline bool gui_toggle(const char *on, const char *off, bool& flag) {
 
 inline bool gui_menu_item(const char* text, const char* icon) { return ImGui::MenuItem(fmt::format("{} {}", icon, text).c_str()); }
 inline bool gui_menu_item(const char* text, const char* icon, const char* key) { return ImGui::MenuItem(fmt::format("{} {}", icon, text).c_str(), key); }
+
+inline void gui_debug(bool& open) {  ImGui::ShowMetricsWindow(&open); }
+
+inline void gui_style(bool& open) {
+    if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
+    ImGui::End();
+}
+
+inline void gui_about(bool& open) {
+    if (ImGui::Begin("About", &open)) {
+        ImGui::Text("Version: %s", gui_git_commit);
+        ImGui::Text("Webpage: %s", gui_web_page);
+        ImGui::Text("Arbor:   %s (%s)", arb::version, arb::source_id);
+    }
+    ImGui::End();
+}
+
+inline void gui_demo(bool& open) {
+    if (ImGui::Begin("Demo", &open)) ImGui::ShowDemoWindow();
+    ImGui::End();
+}

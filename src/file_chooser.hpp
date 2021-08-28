@@ -25,3 +25,5 @@ struct file_chooser_state {
         }
     }
 };
+
+void gui_dir_view(file_chooser_state& state);

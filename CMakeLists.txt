@@ -162,7 +162,7 @@ set(gui_srcs
   src/cv_policy.hpp src/cv_policy.cpp
   src/mechanism.hpp src/mechanism.cpp
   src/component.hpp
-  src/file_chooser.hpp
+  src/file_chooser.hpp src/file_chooser.cpp
   src/loader.hpp src/loader.cpp
   src/geometry.hpp src/geometry.cpp
   src/location.hpp)

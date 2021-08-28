@@ -39,14 +39,8 @@ using namespace std::literals;
 
 namespace {
   inline void gui_read_morphology(gui_state& state, bool& open);
-  inline void gui_dir_view(file_chooser_state& state);
-  inline void gui_debug(bool&);
-  inline void gui_style(bool&);
-  inline void gui_about(bool&);
-  inline void gui_demo(bool&);
 
   inline void gui_save_acc(gui_state& state, bool& open) {
-
     with_id id{"writing acc"};
     ImGui::OpenPopup("Save");
     static std::vector<std::string> suffixes{".acc"};
@@ -133,7 +127,6 @@ namespace {
   }
 
   inline void gui_read_cat(gui_state& state, bool& open) {
-
     with_id id{"loading cat"};
     ImGui::OpenPopup("Load");
     static std::vector<std::string> suffixes{".so"};
@@ -198,7 +191,6 @@ namespace {
   }
 
   inline void gui_menu_bar(gui_state& state) {
-
     ImGui::BeginMainMenuBar();
     if (ImGui::BeginMenu("File")) {
       ImGui::Text("%s Morphology", icon_branch);
@@ -245,7 +237,6 @@ namespace {
   }
 
   inline void gui_main(gui_state& state) {
-
     static bool opt_fullscreen = true;
     static bool opt_padding = false;
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
@@ -293,70 +284,6 @@ namespace {
     }
     gui_menu_bar(state);
     ImGui::End();
-  }
-
-  inline void gui_dir_view(file_chooser_state& state) {
-    // Draw the current path + show hidden
-    {
-      auto acc = std::filesystem::path{};
-      if (ImGui::Button(icon_open_dir)) state.cwd = "/";
-      for (const auto& part: state.cwd) {
-        acc /= part;
-        if ("/" == part) continue;
-        ImGui::SameLine(0.0f, 0.0f);
-        if (ImGui::Button(fmt::format("/ {}", part.c_str()).c_str())) state.cwd = acc;
-      }
-      gui_right_margin();
-      gui_toggle(icon_show, icon_hide, state.show_hidden);
-    }
-    // Some well-known directories
-    {
-            ImGui::BeginChild("Dirs",
-                              {25.0f,
-                               -3.00f*ImGui::GetTextLineHeightWithSpacing()},
-                              false);
-            if (ImGui::Button(icon_home, {25.0f, 25.0f})) state.cwd = state.home;
-            if (ImGui::Button(icon_desk, {25.0f, 25.0f})) state.cwd = state.desk;
-            if (ImGui::Button(icon_docs, {25.0f, 25.0f})) state.cwd = state.docs;
-            ImGui::EndChild();
-    }
-    ImGui::SameLine();
-    // Draw the current dir
-    {
-      ImGui::BeginChild("Files",
-                        {-0.35f*ImGui::GetTextLineHeightWithSpacing(),
-                         -3.00f*ImGui::GetTextLineHeightWithSpacing()},
-                        true);
-
-      std::vector<std::tuple<std::string, std::filesystem::path>> dirnames;
-      std::vector<std::tuple<std::string, std::filesystem::path>> filenames;
-
-      for (const auto& it: std::filesystem::directory_iterator(state.cwd)) {
-        const auto& path = it.path();
-        const auto& ext = path.extension();
-        std::string fn = path.filename();
-        if (fn.empty() || (!state.show_hidden && (fn.front() == '.'))) continue;
-        if (it.is_directory()) dirnames.push_back({fn, path});
-        if (state.filter && state.filter.value() != ext) continue;
-        if (it.is_regular_file()) filenames.push_back({fn, path});
-      }
-
-      std::sort(filenames.begin(), filenames.end());
-      std::sort(dirnames.begin(), dirnames.end());
-
-      for (const auto& [dn, path]: dirnames) {
-        auto lbl = fmt::format("{} {}", icon_folder, dn);
-        ImGui::Selectable(lbl.c_str(), false);
-        if (ImGui::IsItemHovered() && (ImGui::IsMouseDoubleClicked(0) || ImGui::IsKeyPressed(GLFW_KEY_ENTER))) {
-          state.cwd = path;
-          state.file.clear();
-        }
-      }
-      for (const auto& [fn, path]: filenames) {
-        if (ImGui::Selectable(fn.c_str(), path == state.file)) state.file = path;
-      }
-      ImGui::EndChild();
-    }
   }
 
   inline void gui_read_morphology(gui_state& state, bool& open_file) {
@@ -442,7 +369,6 @@ namespace {
   }
 
   inline void gui_cell(gui_state& state) {
-
     if (ImGui::Begin("Cell")) {
       ImGui::BeginChild("Cell Render");
       auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
@@ -516,9 +442,10 @@ namespace {
   }
 
   inline void gui_cell_info(gui_state& state) {
-
     if (ImGui::Begin("Info")) {
-      ImGui::Text("%s Selection", icon_branch);
+      ImGui::Text("%s Cell", icon_branch);
+      ImGui::BulletText("Segments %zu", state.renderer.segments.size());
+      ImGui::BulletText("Branches %zu", state.renderer.branch_to_ids.size());
       if (state.object) {
         auto& object = state.object.value();
         ImGui::BulletText("Segment %u", object.data.id);
@@ -670,7 +597,6 @@ namespace {
   }
 
   inline void gui_ion_defaults(gui_state& state) {
-
     with_id guard{"ion-defaults"};
     auto open = gui_tree_add(fmt::format("{} Default", icon_default), [&]() { state.add_ion(); });
     if (open) {
@@ -700,7 +626,6 @@ namespace {
   }
 
   inline void gui_parameters(gui_state& state) {
-
     with_id id{"parameters"};
     if (ImGui::Begin(fmt::format("{} Parameters", icon_list).c_str())) {
       if (gui_tree(fmt::format("{} Cable Cell Properties", icon_sliders))) {
@@ -787,33 +712,7 @@ namespace {
     }
   }
 
-  inline void gui_debug(bool& open) {  ImGui::ShowMetricsWindow(&open); }
-
-  inline void gui_style(bool& open) {
-
-    if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
-    ImGui::End();
-  }
-
-  inline void gui_about(bool& open) {
-
-    if (ImGui::Begin("About", &open)) {
-      ImGui::Text("Version: %s", gui_git_commit);
-      ImGui::Text("Webpage: %s", gui_web_page);
-      ImGui::Text("Arbor:   %s (%s)", arb::version, arb::source_id);
-    }
-    ImGui::End();
-  }
-
-
-  inline void gui_demo(bool& open) {
-
-    if (ImGui::Begin("Demo", &open)) ImGui::ShowDemoWindow();
-    ImGui::End();
-  }
-
   inline void gui_stimuli(gui_state& state) {
-
     std::vector<float> values(state.sim.until/state.sim.dt, 0.0f);
     if (gui_tree(fmt::format("{} Stimuli", icon_stimulus))) {
       for (const auto& locset: state.locsets) {
@@ -987,7 +886,6 @@ namespace {
 } // namespace
 
 void gui_state::gui() {
-
   update();
   gui_main(*this);
   gui_locations(*this);
@@ -1422,7 +1320,6 @@ void gui_state::run_simulation() {
                     sim.traces[t.id] = t;                    
                   },
                  arb::sampling_policy::exact);
-
   try {
     sm.run(sim.until, sim.dt);
   } catch (...) {

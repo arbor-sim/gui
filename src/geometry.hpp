@@ -86,7 +86,6 @@ struct geometry {
   std::unordered_map<size_t, size_t> id_to_branch;  // map segment id to branch id
   std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> branch_to_ids; // map branch to segment ids
 
-
   component_unique<renderable> locsets;
   component_unique<renderable> regions;
   renderable                   cv_boundaries;
