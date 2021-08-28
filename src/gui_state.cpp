@@ -502,6 +502,7 @@ namespace {
             state.renderer.n_faces = tmp;
             state.renderer.load_geometry(state.builder.morph);
             for (const auto& rg: state.regions) state.update_region(rg);
+            for (const auto& ls: state.locsets) state.update_locset(ls);
           }
         }
         ImGui::Separator();
@@ -636,11 +637,10 @@ namespace {
       }
     }
 
-    float dz = 0.00001f;
-    float z = dz;
+    float z = 0;
     for (const auto& id: ids) {
       renderables[id].zorder = z;
-      z += dz;
+      z += 1.0f;
     }
   }
 
@@ -1175,7 +1175,6 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
 gui_state::gui_state(): builder{} { reset(); }
 
 void gui_state::reset() {
-
   locsets.clear();
   regions.clear();
   locset_defs.clear();
@@ -1193,10 +1192,9 @@ void gui_state::reset() {
 }
 
 void gui_state::reload(const io::loaded_morphology& result) {
-
   reset();
   builder = cell_builder{result.morph};
-  renderer.load_geometry(result.morph);
+  renderer.load_geometry(result.morph, true);
   for (const auto& [k, v]: result.regions) add_region(k, v);
   for (const auto& [k, v]: result.locsets) add_locset(k, v);
   cv_policy_def.definition = "";
@@ -1221,6 +1219,7 @@ void gui_state::update() {
           def.set_error(e.what()); rnd.active = false;
         }
       }
+      if (def.definition.empty()) rnd.active = false;
     }
     void operator()(const evt_add_locdef<ls_def>& c) {
       auto ls = state->locsets.add();
@@ -1266,9 +1265,7 @@ void gui_state::update() {
     void operator()(const evt_upd_locdef<rg_def>& c) {
       auto& def = state->region_defs[c.id];
       auto& rnd = state->renderer.regions[c.id];
-      for(auto& [segment, regions]: state->segment_to_regions) {
-        regions.erase(c.id);
-      }
+      for(auto& [segment, regions]: state->segment_to_regions) regions.erase(c.id);
       def.update();
       if (def.state == def_state::good) {
         log_info("Making frustrums for region {} '{}'", def.name, def.definition);
