@@ -26,6 +26,7 @@ struct Window {
     bool visible();
     void begin_frame();
     void end_frame();
+    void apply_style_dark();
 
     private:
         ImFont* font = nullptr;
