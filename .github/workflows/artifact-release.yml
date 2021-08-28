@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    branches: [ master ]
+    tags:
+      - v*
+
+jobs:
+  build_appimage:
+    name: "Make Linux AppImage Nightly"
+    runs-on: ubuntu-18.04
+    steps:
+      - name: install dependencies
+        run: |
+          sudo apt install -y software-properties-common
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+          sudo apt install -y build-essential python3-pip libxml2-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev gcc-10 g++-10
+          sudo pip3 install --upgrade pip cmake
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
+      - name: "Clone w/ submodules"
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Make AppImage
+        run: sh ./scripts/appimage.sh
+      - uses: actions/upload-artifact@v2
+        with:
+          name: linux
+          path: './*.AppImage*'
+
+  build_diskim:
+    name: "Make Apple Disk Image Nightly"
+    runs-on: macos-10.15
+    steps:
+      - name: "Clone w/ submodules"
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++ -DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang -DARBORGUI_BUILD_BUNDLE=ON
+      - name: Build
+        run: cmake --build build --target package
+      - name: Upload .dmg
+        uses: actions/upload-artifact@v2
+        with:
+          name: apple
+          path: build/*.dmg
+
+  make_rel:
+    name: Make Release
+    needs: [build_diskim, build_appimage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+      - name: "Get artifacts"
+        uses: actions/download-artifact@v2
+      - name: Move and rename appimage
+        run: mv */*.AppImage arbor-gui.AppImage
+      - name: Move and rename dmg
+        run: mv */*.dmg arbor-gui.dmg
+      - name: "Make Release"
+        uses: ncipollo/release-action@v1
+        with:
+          omitBody: true
+          draft: true
+          prerelease: false
+          artifacts: '*.dmg,*.AppImage'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          

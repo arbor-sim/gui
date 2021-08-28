@@ -59,8 +59,3 @@ jobs:
         run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++ -DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang -DARBORGUI_BUILD_BUNDLE=ON
       - name: Build
         run: cmake --build build --target package
-      - name: Upload .dmg
-        uses: actions/upload-artifact@v2
-        with:
-          name: arbor-gui.dmg
-          path: build/*.dmg
