@@ -3,6 +3,8 @@
 #include <cmath>
 #include <regex>
 
+#include <glm/gtc/matrix_transform.hpp>
+
 #include <implot.h>
 
 #include <arbor/morph/primitives.hpp>
@@ -28,12 +30,10 @@
 #include "config.hpp"
 #include "recipe.hpp"
 
-extern float delta_phi;
-extern float delta_gamma;
 extern float delta_zoom;
-extern float mouse_x;
-extern float mouse_y;
+extern glm::vec2 delta_rot;
 extern glm::vec2 delta_pos;
+extern glm::vec2 mouse;
 
 using namespace std::literals;
 
@@ -447,14 +447,14 @@ namespace {
       ImGui::BeginChild("Cell Render");
       auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
       state.view.size = to_glmvec(size);
-      state.renderer.render(state.view, {mouse_x - win_pos.x, size.y + win_pos.y - mouse_y});
+      state.renderer.render(state.view, {mouse.x - win_pos.x, size.y + win_pos.y - mouse.y});
       ImGui::Image(reinterpret_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
 
       if (ImGui::IsItemHovered()) {
         state.view.offset -= delta_pos;
-        state.view.zoom    = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
-        state.view.phi     = std::fmod(state.view.phi   + delta_phi   + 2*PI, 2*PI); // cyclic in [0, 2pi)
-        state.view.gamma   = std::fmod(state.view.gamma + delta_gamma + 2*PI, 2*PI); // cyclic in [0, 2pi)
+        state.view.zoom   = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
+        state.view.rotate = glm::rotate(state.view.rotate, delta_rot.x, glm::vec3(0.0f, 1.0f, 0.0f));
+        state.view.rotate = glm::rotate(state.view.rotate, delta_rot.y, glm::vec3(1.0f, 0.0f, 0.0f));
       }
       state.object = state.renderer.get_id();
 
@@ -486,7 +486,7 @@ namespace {
 
           if (gui_menu_item("Reset##camera", icon_refresh)) {
             state.view.offset = {0.0f, 0.0f};
-            state.view.phi    = 0.0f;
+            state.view.rotate = glm::mat4(1.0f);
             state.view.target = {0.0f, 0.0f, 0.0f};
             state.renderer.cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
           }
@@ -497,8 +497,6 @@ namespace {
         ImGui::Text("%s Model", icon_cell);
         {
           with_indent indent{};
-          ImGui::SliderFloat("Theta", &state.view.theta, -PI, PI);
-          ImGui::SliderFloat("Gamma", &state.view.gamma, -PI, PI);
           int tmp = state.renderer.n_faces;
           if (ImGui::DragInt("Frustrum Resolution", &tmp, 1.0f, 8, 64, "%d", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp)) {
             state.renderer.n_faces = tmp;
