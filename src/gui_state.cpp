@@ -4,8 +4,10 @@
 #include <regex>
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <implot.h>
+#include <ImGuizmo.h>
 
 #include <arbor/morph/primitives.hpp>
 #include <arbor/morph/morphexcept.hpp>
@@ -31,8 +33,6 @@
 #include "recipe.hpp"
 
 extern float delta_zoom;
-extern glm::vec2 delta_rot;
-extern glm::vec2 delta_pos;
 extern glm::vec2 mouse;
 
 using namespace std::literals;
@@ -442,19 +442,27 @@ namespace {
   }
 
   inline void gui_cell(gui_state& state) {
-
     if (ImGui::Begin("Cell")) {
       ImGui::BeginChild("Cell Render");
       auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
-      state.view.size = to_glmvec(size);
-      state.renderer.render(state.view, {mouse.x - win_pos.x, size.y + win_pos.y - mouse.y});
+      auto& vs = state.view;
+      vs.size = to_glmvec(size);
+      state.renderer.render(vs, {mouse.x - win_pos.x, size.y + win_pos.y - mouse.y});
       ImGui::Image(reinterpret_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
-
       if (ImGui::IsItemHovered()) {
-        state.view.offset -= delta_pos;
-        state.view.zoom   = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
-        state.view.rotate = glm::rotate(state.view.rotate, delta_rot.x, glm::vec3(0.0f, 1.0f, 0.0f));
-        state.view.rotate = glm::rotate(state.view.rotate, delta_rot.y, glm::vec3(1.0f, 0.0f, 0.0f));
+        auto shft = ImGui::IsKeyDown(GLFW_KEY_LEFT_SHIFT) || ImGui::IsKeyDown(GLFW_KEY_RIGHT_SHIFT);
+        auto ctrl = ImGui::IsKeyDown(GLFW_KEY_LEFT_CONTROL) || ImGui::IsKeyDown(GLFW_KEY_RIGHT_CONTROL);
+        if (shft || ctrl) {
+          auto what = shft ? ImGuizmo::ROTATE : ImGuizmo::TRANSLATE;
+          glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
+          glm::mat4 V  = glm::lookAt(vs.camera, (vs.target - state.renderer.root)/state.renderer.rescale + shift, vs.up);
+          glm::mat4 P  = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
+          ImGuizmo::SetDrawlist();
+          ImGuizmo::SetRect(win_pos.x, win_pos.y, size.x, size.y);
+          ImGuizmo::Manipulate(glm::value_ptr(V), glm::value_ptr(P), what, ImGuizmo::LOCAL, glm::value_ptr(vs.rotate));
+        } else {
+          vs.zoom = std::clamp(vs.zoom + delta_zoom, 1.0f, 45.0f);
+        }
       }
       state.object = state.renderer.get_id();
 
@@ -480,10 +488,8 @@ namespace {
                 ImGui::EndMenu();
               }
             }
-
             ImGui::EndMenu();
           }
-
           if (gui_menu_item("Reset##camera", icon_refresh)) {
             state.view.offset = {0.0f, 0.0f};
             state.view.rotate = glm::mat4(1.0f);
@@ -589,9 +595,9 @@ namespace {
         ImGui::SameLine();
         gui_toggle(icon_show, icon_hide, render.active);
         ImGui::SameLine();
-        gui_check_state(item);
         ImGui::SameLine();
         if (ImGui::Button(icon_clone)) events.push_back(evt_add_locdef<Item>{item.name, item.definition});
+        gui_check_state(item);
         gui_right_margin();
         if (ImGui::Button(icon_delete)) events.push_back(evt_del_locdef<Item>{id});
 
@@ -938,56 +944,62 @@ namespace {
   }
 
   void gui_traces(gui_state& state) {
+    static std::optional<id_type> to_plot;
     if (ImGui::Begin("Traces")) {
-      static std::optional<id_type> to_plot;
-      if (to_plot) {
-        auto probe = to_plot.value();
-        auto trace = state.sim.traces.at(probe);
-        auto probe_def = state.probes[probe];
-        auto var = fmt::format("{} {}", probe_def.kind, probe_def.variable);
+      if (ImGui::BeginChild("TracePlot", {-180.0f, 0.0f})) {
+        if (to_plot) {
+          auto probe = to_plot.value();
+          auto trace = state.sim.traces.at(probe);
+          auto probe_def = state.probes[probe];
+          auto var = fmt::format("{} {}", probe_def.kind, probe_def.variable);
 
-        if (ImPlot::BeginPlot(fmt::format("Probe {} @ branch {} ({})", probe.value, trace.branch, trace.location).c_str(),
-                              "Time (ms)",
-                              var.c_str(),
-                              ImVec2(-1, -20),
-                              ImPlotFlags_NoLegend,
-                              ImPlotAxisFlags_AutoFit,
-                              ImPlotAxisFlags_AutoFit)) {
-          ImPlot::PlotLine(var.c_str(), trace.times.data(), trace.values.data(), trace.values.size());
-          ImPlot::EndPlot();
-        }
-      } else {
-        if (ImPlot::BeginPlot("Please select a probe below",
-                              "Time (ms)",
-                              "Unknown",
-                              ImVec2(-1, -20),
-                              ImPlotFlags_NoLegend,
-                              ImPlotAxisFlags_AutoFit,
-                              ImPlotAxisFlags_AutoFit)) {
-          ImPlot::EndPlot();
-        }
-      }
-      for (const auto& locset: state.locsets) {
-        with_id id{locset};
-        auto locset_def = state.locset_defs[locset];
-        if (gui_tree(fmt::format("{} {}", icon_locset, locset_def.name))) {
-          for (const auto& probe: state.probes.get_children(locset)) {
-            const auto& data = state.probes[probe];
-            if(ImGui::RadioButton(fmt::format("{} {}: {} {}", icon_probe, probe.value, data.kind, data.variable).c_str(),
-                                  to_plot && (to_plot.value() == probe))) {
-              to_plot = probe;
-            }
+          if (ImPlot::BeginPlot(fmt::format("Probe {} @ branch {} ({})", probe.value, trace.branch, trace.location).c_str(),
+                                "Time (ms)",
+                                var.c_str(),
+                                ImVec2(-1, -20),
+                                ImPlotFlags_NoLegend,
+                                ImPlotAxisFlags_AutoFit,
+                                ImPlotAxisFlags_AutoFit)) {
+            ImPlot::PlotLine(var.c_str(), trace.times.data(), trace.values.data(), trace.values.size());
+            ImPlot::EndPlot();
           }
-          ImGui::TreePop();
+        } else {
+          if (ImPlot::BeginPlot("Please select a probe below",
+                                "Time (ms)",
+                                "Unknown",
+                                ImVec2(-1, -20),
+                                ImPlotFlags_NoLegend,
+                                ImPlotAxisFlags_AutoFit,
+                                ImPlotAxisFlags_AutoFit)) {
+            ImPlot::EndPlot();
+          }
         }
       }
+      ImGui::EndChild();
+      ImGui::SameLine();
+      if (ImGui::BeginChild("TraceSelect", {150.0f, 0.0f})) {
+        for (const auto& locset: state.locsets) {
+          with_id id{locset};
+          auto locset_def = state.locset_defs[locset];
+          if (gui_tree(fmt::format("{} {}", icon_locset, locset_def.name))) {
+            for (const auto& probe: state.probes.get_children(locset)) {
+              const auto& data = state.probes[probe];
+              if(ImGui::RadioButton(fmt::format("{} {}: {} {}", icon_probe, probe.value, data.kind, data.variable).c_str(),
+                                    to_plot && (to_plot.value() == probe))) {
+                to_plot = probe;
+              }
+            }
+            ImGui::TreePop();
+          }
+        }
+      }
+      ImGui::EndChild();
+      ImGui::End();
     }
-    ImGui::End();
   }
 } // namespace
 
 void gui_state::gui() {
-
   update();
   gui_main(*this);
   gui_locations(*this);
@@ -1385,7 +1397,6 @@ void gui_state::run_simulation() {
                    def.Er.value());
     }
   }
-
   auto rec = make_recipe(prop, cell);
   for (const auto& ls: locsets) {
     for (const auto pb: probes.get_children(ls)) {
@@ -1403,7 +1414,6 @@ void gui_state::run_simulation() {
       // TODO Finish
     }
   }
-
   // Make simulation
   auto ctx = arb::make_context();
   auto dd  = arb::partition_load_balance(rec, ctx);
@@ -1422,7 +1432,6 @@ void gui_state::run_simulation() {
                     sim.traces[t.id] = t;                    
                   },
                  arb::sampling_policy::exact);
-
   try {
     sm.run(sim.until, sim.dt);
   } catch (...) {

@@ -13,9 +13,6 @@
 
 #include <utils.hpp>
 
-extern float delta_zoom;
-extern glm::vec2 delta_pos;
-extern glm::vec2 delta_rot;
 extern glm::vec2 mouse;
 
 struct Window {
