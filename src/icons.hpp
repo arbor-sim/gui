@@ -44,4 +44,8 @@ const char * icon_anchor   = (const char *)ICON_FK_ANCHOR;
 const char * icon_about    = (const char *)ICON_FK_INFO;
 const char * icon_book     = (const char *)ICON_FK_BOOK;
 const char * icon_start    = (const char *)ICON_FK_PLAY_CIRCLE;
+const char * icon_clone    = (const char *)ICON_FK_CLONE;
+const char * icon_home     = (const char *)ICON_FK_HOME;
+const char * icon_desk     = (const char *)ICON_FK_DESKTOP;
+const char * icon_docs     = (const char *)ICON_FK_SUITCASE;
 }

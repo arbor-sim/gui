@@ -131,7 +131,7 @@ inline void render(unsigned program,
     for (const auto& v: render) {
         if (v.active) {
             set_uniform(program, "object_color", v.color);
-            set_uniform(program, "zorder", v.zorder*0.01f);
+            set_uniform(program, "zorder", v.zorder*1e-5f);
             glBindVertexArray(v.vao);
             glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);
             glBindVertexArray(0);
@@ -149,11 +149,11 @@ inline void render(unsigned program,
     set_uniform(program, "model", model);
     set_uniform(program, "view",  view);
 
-    auto r = render; std::sort(r.begin(), r.end(), [](const auto& a, const auto& b) { return a.scale > b.scale; });
+    auto r = render; std::sort(r.begin(), r.end(), [](const auto& a, const auto& b) { return a.zorder > b.zorder; });
 
     for (const auto& v: r) {
         if (v.active) {
-            set_uniform(program, "scale", v.scale);
+            set_uniform(program, "scale", (1.0f + v.zorder*0.25f));
             set_uniform(program, "object_color", v.color);
             glBindVertexArray(v.vao);
             glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);
@@ -419,18 +419,12 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
     make_fbo(vs.size.x, vs.size.y, cell);
     make_fbo(vs.size.x, vs.size.y, pick);
 
-    float distance  = 2.5f;
-    auto camera     = distance*glm::vec3{0.0f, 0.0f, 1.0f};
-    glm::vec3 up    = {0.0f, 1.0f, 0.0f};
     glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
-    glm::mat4 view  = glm::lookAt(camera, (vs.target - root)/rescale + shift, up);
+    glm::mat4 view  = glm::lookAt(vs.camera, (vs.target - root)/rescale + shift, vs.up);
     glm::mat4 proj  = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
     view = proj*view; // pre-multiply view matrices
 
-    glm::mat4 model = glm::mat4(1.0f);
-    model = glm::rotate(model, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
-    model = glm::rotate(model, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::rotate(model, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::mat4 model = vs.rotate;
 
     if (!pbo) pbo = make_pixel_buffer();
 
@@ -455,7 +449,7 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
 
     // Render main scene
     {
-        auto light = camera + glm::vec3{0.0f, 1.0f, 0.0f};
+        auto light = vs.camera + glm::vec3{0.0f, 1.0f, 0.0f};
         auto light_color = glm::vec3{1.0f, 1.0f, 1.0f};
         glBindFramebuffer(GL_FRAMEBUFFER, cell.fbo);
         glClearColor(cell.clear_color.x, cell.clear_color.y, cell.clear_color.z, 1.0f);
@@ -464,29 +458,21 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
         {
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
-            ::render(region_program, model, view, camera, light_color, regions.items);
+            ::render(region_program, model, view, vs.camera, light_color, regions.items);
             glDisable(GL_CULL_FACE);
         }
         // ... axes ...
         {
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
-            if (ax.active) ::render(region_program, model, view, camera, light_color, ax.renderables);
+            if (ax.active) ::render(region_program, model, view, vs.camera, light_color, ax.renderables);
             glDisable(GL_CULL_FACE);
         }
         // ... and markers
         {
-            glm::mat4 imodel = glm::mat4(1.0f);
-            imodel = glm::rotate(imodel, -vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
-            imodel = glm::rotate(imodel, -vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-            imodel = glm::rotate(imodel, -vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
-            auto iview = view;
-            iview = glm::rotate(iview, vs.phi,   glm::vec3(0.0f, 1.0f, 0.0f));
-            iview = glm::rotate(iview, vs.theta, glm::vec3(1.0f, 0.0f, 0.0f));
-            iview = glm::rotate(iview, vs.gamma, glm::vec3(0.0f, 0.0f, 1.0f));
             glDisable(GL_DEPTH_TEST);
-            ::render(marker_program, imodel, iview, locsets.items);
-            ::render(marker_program, imodel, iview, {cv_boundaries});
+            ::render(marker_program, vs.rotate, view, locsets.items);
+            ::render(marker_program, vs.rotate, view, {cv_boundaries});
             glEnable(GL_DEPTH_TEST);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -495,7 +481,6 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
 }
 
 std::optional<object_id> geometry::get_id() {
-
     auto color = get_value_pixel_buffer(pbo);
     if ((color == pick.clear_color) || (color.x < 0.0f) || (color.y < 0.0f) || (color.z < 0.0f)) return {};
     auto id = unpack_id(color);
@@ -506,7 +491,6 @@ std::optional<object_id> geometry::get_id() {
 }
 
 void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) {
-
     std::vector<glm::vec3> off;
     for (const auto& m: points) off.emplace_back((m - root)/rescale);
     glDeleteVertexArrays(1, &r.vao);
@@ -517,7 +501,6 @@ void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) 
 }
 
 void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r) {
-
     std::vector<unsigned> idcs{};
     for (const auto& seg: segs) {
         const auto idx = id_to_index[seg.id];
@@ -536,8 +519,12 @@ void geometry::make_ruler() {
     make_axes(ax, rescale);
 }
 
-void geometry::load_geometry(const arb::morphology& morph) {
-
+void geometry::load_geometry(const arb::morphology& morph, bool reset) {
+    if (reset) {
+        locsets.clear();
+        regions.clear();
+        cv_boundaries.active = false;
+    }
     clear();
     n_vertices  = n_faces*4 + 2;  // Faces: 4 vertices 2 are shared. Caps: three per face, center is shared
     n_triangles = n_faces*4;      // Each face is a quad made from 2 tris, caps have one tri per face
@@ -600,6 +587,7 @@ void geometry::load_geometry(const arb::morphology& morph) {
 
     {
         // Re-scale into [-1, 1]^3 box
+        rescale = ax.scale;
         for (const auto& tri: vertices) {
             rescale = std::max(rescale, std::abs(tri.position.x));
             rescale = std::max(rescale, std::abs(tri.position.y));
@@ -614,7 +602,6 @@ void geometry::load_geometry(const arb::morphology& morph) {
 }
 
 void geometry::clear() {
-
     vertices.clear();
     indices.clear();
     id_to_index.clear();
@@ -622,6 +609,4 @@ void geometry::clear() {
     segments.clear();
     branch_to_ids.clear();
     rescale = -1;
-    locsets.clear();
-    regions.clear();
 }
