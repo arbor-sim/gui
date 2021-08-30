@@ -1,3 +1,7 @@
+**⚠️ This project is now part of the arbor organisation ⚠️**
+
+**⚠️ Please look here: https://github.com/arbor-sim/gui ⚠️**
+
 # Introduction
 
 This project aims to be a comprehensive tool for building single cell
