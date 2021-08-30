@@ -88,7 +88,7 @@ status offers quite a bit more.
 
 # Installation
 
-We have Macos Bundles and Linux AppImages and they are the preferred way
+We have Apple Disk Images and Linux AppImages which are the preferred way
 of getting and using Arbor GUI. Simply download the version for your
 system and copy them to a directory of your choosing.
 

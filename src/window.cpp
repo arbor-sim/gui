@@ -2,6 +2,8 @@
 
 #include <filesystem>
 
+#include "ImGuizmo.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <IconsForkAwesome.h>
@@ -10,50 +12,18 @@ static void glfw_error_callback(int error, const char* description) {
     log_error("Glfw error {}:\n{}", error, description);
 }
 
-float delta_phi     = 0.0f;
-float delta_gamma     = 0.0f;
 float delta_zoom    = 0.0f;
-glm::vec2 delta_pos = {0.0f, 0.0f};
-
-float mouse_x;
-float mouse_y;
+glm::vec2 mouse     = {0.0f, 0.0f};
 
 static void scroll_callback(GLFWwindow*, double xoffset, double yoffset) {
     delta_zoom -= (float) yoffset;
 }
 
 static void mouse_callback(GLFWwindow* window, double x, double y) {
-    auto lb_down = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-    auto mb_down = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS;
-    auto alt_key = (glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS) ||
-        (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS);
-    auto ctrl_key = (glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) ||
-        (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS);
-
-    auto eps = 0.01;
-    auto dx = mouse_x - x; mouse_x = x;
-    auto dy = mouse_y - y; mouse_y = y;
-
-    if (lb_down && ctrl_key) {
-        delta_pos.x = (std::abs(dx) > eps) ? -dx*2 : 0.0f;
-        delta_pos.y = (std::abs(dy) > eps) ?  dy*2 : 0.0f;
-    }
-
-    if (lb_down && !ctrl_key) {
-        delta_phi = ((dx > eps) - (dx < eps))*0.1f;
-    }
-
-    if (mb_down && !ctrl_key) {
-        delta_gamma = ((dy > eps) - (dy < eps))*0.1f;
-    }
+    mouse = {x, y};
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-    if ((key == GLFW_KEY_DOWN)  && (action == GLFW_PRESS)) delta_pos.y =  15.0f;
-    if ((key == GLFW_KEY_UP)    && (action == GLFW_PRESS)) delta_pos.y = -15.0f;
-    if ((key == GLFW_KEY_LEFT)  && (action == GLFW_PRESS)) delta_pos.x =  15.0f;
-    if ((key == GLFW_KEY_RIGHT) && (action == GLFW_PRESS)) delta_pos.x = -15.0f;
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if ((key == GLFW_KEY_MINUS) && (action == GLFW_PRESS)) delta_zoom  =  2.0f;
     if ((key == GLFW_KEY_EQUAL) && (action == GLFW_PRESS)) delta_zoom  = -2.0f;
 }
@@ -176,6 +146,7 @@ void Window::begin_frame() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
     ImGui::PushFont(font);
 }
 
@@ -185,8 +156,5 @@ void Window::end_frame() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(handle);
-    delta_pos = {0.0f, 0.0f};
-    delta_phi = 0.0f;
-    delta_gamma = 0.0f;
     delta_zoom = 0.0f;
 }

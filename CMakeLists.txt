@@ -114,6 +114,7 @@ target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/spdlog/incl
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/json/include)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/implot)
+target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/ImGuizmo)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/glm)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/stb)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui/backends)
@@ -128,11 +129,13 @@ add_library(imgui OBJECT
   3rd-party/imgui/imgui_tables.cpp
   3rd-party/imgui/imgui_demo.cpp
   3rd-party/imgui/misc/cpp/imgui_stdlib.cpp
+  3rd-party/ImGuizmo/ImGuizmo.cpp
   3rd-party/implot/implot.cpp
   3rd-party/implot/implot_items.cpp)
 target_include_directories(imgui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
 target_include_directories(imgui PRIVATE 3rd-party/imgui)
 target_include_directories(imgui PUBLIC 3rd-party/implot)
+target_include_directories(imgui PUBLIC 3rd-party/ImGuizmo/)
 target_link_libraries(imgui PRIVATE glfw)
 
 # Get commit hashes from git and inject into config

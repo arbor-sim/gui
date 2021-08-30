@@ -3,7 +3,11 @@
 #include <cmath>
 #include <regex>
 
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include <implot.h>
+#include <ImGuizmo.h>
 
 #include <arbor/morph/primitives.hpp>
 #include <arbor/morph/morphexcept.hpp>
@@ -28,12 +32,8 @@
 #include "config.hpp"
 #include "recipe.hpp"
 
-extern float delta_phi;
-extern float delta_gamma;
 extern float delta_zoom;
-extern float mouse_x;
-extern float mouse_y;
-extern glm::vec2 delta_pos;
+extern glm::vec2 mouse;
 
 using namespace std::literals;
 
@@ -309,6 +309,18 @@ namespace {
       gui_right_margin();
       gui_toggle(icon_show, icon_hide, state.show_hidden);
     }
+    // Some well-known directories
+    {
+            ImGui::BeginChild("Dirs",
+                              {25.0f,
+                               -3.00f*ImGui::GetTextLineHeightWithSpacing()},
+                              false);
+            if (ImGui::Button(icon_home, {25.0f, 25.0f})) state.cwd = state.home;
+            if (ImGui::Button(icon_desk, {25.0f, 25.0f})) state.cwd = state.desk;
+            if (ImGui::Button(icon_docs, {25.0f, 25.0f})) state.cwd = state.docs;
+            ImGui::EndChild();
+    }
+    ImGui::SameLine();
     // Draw the current dir
     {
       ImGui::BeginChild("Files",
@@ -430,19 +442,27 @@ namespace {
   }
 
   inline void gui_cell(gui_state& state) {
-
     if (ImGui::Begin("Cell")) {
       ImGui::BeginChild("Cell Render");
       auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
-      state.view.size = to_glmvec(size);
-      state.renderer.render(state.view, {mouse_x - win_pos.x, size.y + win_pos.y - mouse_y});
+      auto& vs = state.view;
+      vs.size = to_glmvec(size);
+      state.renderer.render(vs, {mouse.x - win_pos.x, size.y + win_pos.y - mouse.y});
       ImGui::Image(reinterpret_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
-
       if (ImGui::IsItemHovered()) {
-        state.view.offset -= delta_pos;
-        state.view.zoom    = std::clamp(state.view.zoom + delta_zoom, 1.0f, 45.0f);
-        state.view.phi     = std::fmod(state.view.phi   + delta_phi   + 2*PI, 2*PI); // cyclic in [0, 2pi)
-        state.view.gamma   = std::fmod(state.view.gamma + delta_gamma + 2*PI, 2*PI); // cyclic in [0, 2pi)
+        auto shft = ImGui::IsKeyDown(GLFW_KEY_LEFT_SHIFT) || ImGui::IsKeyDown(GLFW_KEY_RIGHT_SHIFT);
+        auto ctrl = ImGui::IsKeyDown(GLFW_KEY_LEFT_CONTROL) || ImGui::IsKeyDown(GLFW_KEY_RIGHT_CONTROL);
+        if (shft || ctrl) {
+          auto what = shft ? ImGuizmo::ROTATE : ImGuizmo::TRANSLATE;
+          glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
+          glm::mat4 V  = glm::lookAt(vs.camera, (vs.target - state.renderer.root)/state.renderer.rescale + shift, vs.up);
+          glm::mat4 P  = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
+          ImGuizmo::SetDrawlist();
+          ImGuizmo::SetRect(win_pos.x, win_pos.y, size.x, size.y);
+          ImGuizmo::Manipulate(glm::value_ptr(V), glm::value_ptr(P), what, ImGuizmo::LOCAL, glm::value_ptr(vs.rotate));
+        } else {
+          vs.zoom = std::clamp(vs.zoom + delta_zoom, 1.0f, 45.0f);
+        }
       }
       state.object = state.renderer.get_id();
 
@@ -468,13 +488,11 @@ namespace {
                 ImGui::EndMenu();
               }
             }
-
             ImGui::EndMenu();
           }
-
           if (gui_menu_item("Reset##camera", icon_refresh)) {
             state.view.offset = {0.0f, 0.0f};
-            state.view.phi    = 0.0f;
+            state.view.rotate = glm::mat4(1.0f);
             state.view.target = {0.0f, 0.0f, 0.0f};
             state.renderer.cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
           }
@@ -485,13 +503,12 @@ namespace {
         ImGui::Text("%s Model", icon_cell);
         {
           with_indent indent{};
-          ImGui::SliderFloat("Theta", &state.view.theta, -PI, PI);
-          ImGui::SliderFloat("Gamma", &state.view.gamma, -PI, PI);
           int tmp = state.renderer.n_faces;
           if (ImGui::DragInt("Frustrum Resolution", &tmp, 1.0f, 8, 64, "%d", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp)) {
             state.renderer.n_faces = tmp;
             state.renderer.load_geometry(state.builder.morph);
             for (const auto& rg: state.regions) state.update_region(rg);
+            for (const auto& ls: state.locsets) state.update_locset(ls);
           }
         }
         ImGui::Separator();
@@ -578,8 +595,9 @@ namespace {
         ImGui::SameLine();
         gui_toggle(icon_show, icon_hide, render.active);
         ImGui::SameLine();
+        ImGui::SameLine();
+        if (ImGui::Button(icon_clone)) events.push_back(evt_add_locdef<Item>{item.name, item.definition});
         gui_check_state(item);
-
         gui_right_margin();
         if (ImGui::Button(icon_delete)) events.push_back(evt_del_locdef<Item>{id});
 
@@ -625,16 +643,14 @@ namespace {
       }
     }
 
-    float dz = 0.00001f;
-    float z = dz;
+    float z = 0;
     for (const auto& id: ids) {
       renderables[id].zorder = z;
-      z += dz;
+      z += 1.0f;
     }
   }
 
   inline void gui_locations(gui_state& state) {
-
     if (ImGui::Begin(fmt::format("{} Locations", icon_location).c_str())) {
       gui_locdefs(fmt::format("{} Regions", icon_region), state.regions, state.region_defs, state.renderer.regions, state.events);
       ImGui::Separator();
@@ -928,56 +944,62 @@ namespace {
   }
 
   void gui_traces(gui_state& state) {
+    static std::optional<id_type> to_plot;
     if (ImGui::Begin("Traces")) {
-      static std::optional<id_type> to_plot;
-      if (to_plot) {
-        auto probe = to_plot.value();
-        auto trace = state.sim.traces.at(probe);
-        auto probe_def = state.probes[probe];
-        auto var = fmt::format("{} {}", probe_def.kind, probe_def.variable);
+      if (ImGui::BeginChild("TracePlot", {-180.0f, 0.0f})) {
+        if (to_plot) {
+          auto probe = to_plot.value();
+          auto trace = state.sim.traces.at(probe);
+          auto probe_def = state.probes[probe];
+          auto var = fmt::format("{} {}", probe_def.kind, probe_def.variable);
 
-        if (ImPlot::BeginPlot(fmt::format("Probe {} @ branch {} ({})", probe.value, trace.branch, trace.location).c_str(),
-                              "Time (ms)",
-                              var.c_str(),
-                              ImVec2(-1, -20),
-                              ImPlotFlags_NoLegend,
-                              ImPlotAxisFlags_AutoFit,
-                              ImPlotAxisFlags_AutoFit)) {
-          ImPlot::PlotLine(var.c_str(), trace.times.data(), trace.values.data(), trace.values.size());
-          ImPlot::EndPlot();
-        }
-      } else {
-        if (ImPlot::BeginPlot("Please select a probe below",
-                              "Time (ms)",
-                              "Unknown",
-                              ImVec2(-1, -20),
-                              ImPlotFlags_NoLegend,
-                              ImPlotAxisFlags_AutoFit,
-                              ImPlotAxisFlags_AutoFit)) {
-          ImPlot::EndPlot();
-        }
-      }
-      for (const auto& locset: state.locsets) {
-        with_id id{locset};
-        auto locset_def = state.locset_defs[locset];
-        if (gui_tree(fmt::format("{} {}", icon_locset, locset_def.name))) {
-          for (const auto& probe: state.probes.get_children(locset)) {
-            const auto& data = state.probes[probe];
-            if(ImGui::RadioButton(fmt::format("{} {}: {} {}", icon_probe, probe.value, data.kind, data.variable).c_str(),
-                                  to_plot && (to_plot.value() == probe))) {
-              to_plot = probe;
-            }
+          if (ImPlot::BeginPlot(fmt::format("Probe {} @ branch {} ({})", probe.value, trace.branch, trace.location).c_str(),
+                                "Time (ms)",
+                                var.c_str(),
+                                ImVec2(-1, -20),
+                                ImPlotFlags_NoLegend,
+                                ImPlotAxisFlags_AutoFit,
+                                ImPlotAxisFlags_AutoFit)) {
+            ImPlot::PlotLine(var.c_str(), trace.times.data(), trace.values.data(), trace.values.size());
+            ImPlot::EndPlot();
           }
-          ImGui::TreePop();
+        } else {
+          if (ImPlot::BeginPlot("Please select a probe below",
+                                "Time (ms)",
+                                "Unknown",
+                                ImVec2(-1, -20),
+                                ImPlotFlags_NoLegend,
+                                ImPlotAxisFlags_AutoFit,
+                                ImPlotAxisFlags_AutoFit)) {
+            ImPlot::EndPlot();
+          }
         }
       }
+      ImGui::EndChild();
+      ImGui::SameLine();
+      if (ImGui::BeginChild("TraceSelect", {150.0f, 0.0f})) {
+        for (const auto& locset: state.locsets) {
+          with_id id{locset};
+          auto locset_def = state.locset_defs[locset];
+          if (gui_tree(fmt::format("{} {}", icon_locset, locset_def.name))) {
+            for (const auto& probe: state.probes.get_children(locset)) {
+              const auto& data = state.probes[probe];
+              if(ImGui::RadioButton(fmt::format("{} {}: {} {}", icon_probe, probe.value, data.kind, data.variable).c_str(),
+                                    to_plot && (to_plot.value() == probe))) {
+                to_plot = probe;
+              }
+            }
+            ImGui::TreePop();
+          }
+        }
+      }
+      ImGui::EndChild();
+      ImGui::End();
     }
-    ImGui::End();
   }
 } // namespace
 
 void gui_state::gui() {
-
   update();
   gui_main(*this);
   gui_locations(*this);
@@ -1165,7 +1187,6 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
 gui_state::gui_state(): builder{} { reset(); }
 
 void gui_state::reset() {
-
   locsets.clear();
   regions.clear();
   locset_defs.clear();
@@ -1183,10 +1204,9 @@ void gui_state::reset() {
 }
 
 void gui_state::reload(const io::loaded_morphology& result) {
-
   reset();
   builder = cell_builder{result.morph};
-  renderer.load_geometry(result.morph);
+  renderer.load_geometry(result.morph, true);
   for (const auto& [k, v]: result.regions) add_region(k, v);
   for (const auto& [k, v]: result.locsets) add_locset(k, v);
   cv_policy_def.definition = "";
@@ -1211,6 +1231,7 @@ void gui_state::update() {
           def.set_error(e.what()); rnd.active = false;
         }
       }
+      if (def.definition.empty()) rnd.active = false;
     }
     void operator()(const evt_add_locdef<ls_def>& c) {
       auto ls = state->locsets.add();
@@ -1256,9 +1277,7 @@ void gui_state::update() {
     void operator()(const evt_upd_locdef<rg_def>& c) {
       auto& def = state->region_defs[c.id];
       auto& rnd = state->renderer.regions[c.id];
-      for(auto& [segment, regions]: state->segment_to_regions) {
-        regions.erase(c.id);
-      }
+      for(auto& [segment, regions]: state->segment_to_regions) regions.erase(c.id);
       def.update();
       if (def.state == def_state::good) {
         log_info("Making frustrums for region {} '{}'", def.name, def.definition);
@@ -1378,7 +1397,6 @@ void gui_state::run_simulation() {
                    def.Er.value());
     }
   }
-
   auto rec = make_recipe(prop, cell);
   for (const auto& ls: locsets) {
     for (const auto pb: probes.get_children(ls)) {
@@ -1396,7 +1414,6 @@ void gui_state::run_simulation() {
       // TODO Finish
     }
   }
-
   // Make simulation
   auto ctx = arb::make_context();
   auto dd  = arb::partition_load_balance(rec, ctx);
@@ -1415,7 +1432,6 @@ void gui_state::run_simulation() {
                     sim.traces[t.id] = t;                    
                   },
                  arb::sampling_policy::exact);
-
   try {
     sm.run(sim.until, sim.dt);
   } catch (...) {

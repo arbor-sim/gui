@@ -13,13 +13,7 @@
 
 #include <utils.hpp>
 
-extern float delta_phi;
-extern float delta_gamma;
-extern float delta_zoom;
-extern float delta_x;
-extern float delta_y;
-extern float mouse_x;
-extern float mouse_y;
+extern glm::vec2 mouse;
 
 struct Window {
     Window();

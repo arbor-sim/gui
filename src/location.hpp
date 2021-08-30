@@ -20,9 +20,7 @@ struct ls_def {
     std::string message = "Empty.";
 
     void set_error(const std::string& m) {
-        data = {};
-        auto colon = m.find(':') + 1; colon = m.find(':', colon) + 1;
-        state = def_state::error; message = m.substr(colon, m.size() - 1);
+        data = {}; state = def_state::error; message = m;
     }
 
     ls_def(const ls_def&) = default;
@@ -54,9 +52,7 @@ struct rg_def {
     std::string message = "Empty.";
 
     void set_error(const std::string& m) {
-        data = {};
-        auto colon = m.find(':') + 1; colon = m.find(':', colon) + 1;
-        state = def_state::error; message = m.substr(colon, m.size() - 1);
+        data = {}; state = def_state::error; message = m;
     }
 
     rg_def(const rg_def&) = default;
