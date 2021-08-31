@@ -15,7 +15,7 @@ use.
 -   Import cable cells in ACC format
 
 This project is under active development and welcomes early feedback.
-Currently, Arbor master as of March 2021 is supported and bundled with
+Currently, Arbor master as of August 2021 is supported and bundled with
 the project. Note that the screenshots below are updated less frequently
 than the actual project. We aim for a formal release with Arbor 0.6 at
 which point the project will stabilise and receive regular updates
@@ -27,7 +27,9 @@ is out of scope for this project (we might offer a different tool,
 though).
 
 *Note* The screenshots below are somewhat outdated, the current
-status offers quite a bit more.
+status offers quite a bit more. See here for a more up to date 
+tutorial.
+https://github.com/arbor-sim/arbor/wiki/Single-Modelling-with-Arbor's-GUI
 
 ## Interactive Definition of Regions and Locsets
 
