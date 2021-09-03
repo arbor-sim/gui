@@ -390,7 +390,7 @@ void make_axes(axes& ax, float rescale) {
                          .instances = 1,
                          .vao       = make_vao(ax.vbo, ax.x_indices, {{0,0,0}}),
                          .active    = true,
-                         .color     = {1, 0, 0, 1}},
+                         .color     = {0, 0, 1, 1}},
         y = renderable {.count     = ax.y_indices.size(),
                         .instances = 1,
                         .vao       = make_vao(ax.vbo, ax.y_indices, {{0,0,0}}),
@@ -400,7 +400,7 @@ void make_axes(axes& ax, float rescale) {
                         .instances = 1,
                         .vao       = make_vao(ax.vbo, ax.z_indices, {{0,0,0}}),
                         .active    = true,
-                        .color     = {0, 0, 1, 1}};
+                        .color     = {1, 0, 0, 1}};
     ax.renderables = {{x, y, z}};
 };
 

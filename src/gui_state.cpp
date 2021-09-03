@@ -595,8 +595,8 @@ namespace {
         ImGui::SameLine();
         gui_toggle(icon_show, icon_hide, render.active);
         ImGui::SameLine();
-        ImGui::SameLine();
         if (ImGui::Button(icon_clone)) events.push_back(evt_add_locdef<Item>{item.name, item.definition});
+        ImGui::SameLine();
         gui_check_state(item);
         gui_right_margin();
         if (ImGui::Button(icon_delete)) events.push_back(evt_del_locdef<Item>{id});
@@ -994,8 +994,8 @@ namespace {
         }
       }
       ImGui::EndChild();
-      ImGui::End();
     }
+    ImGui::End();
   }
 } // namespace
 
@@ -1355,8 +1355,7 @@ bool gui_state::store_snapshot() {
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  auto rc = stbi_write_png(snapshot_path.c_str(), w, h, c, pixels.data() + c*w*(h - 1), -c*w);
-  return !!rc;
+  return !!stbi_write_png(snapshot_path.c_str(), w, h, c, pixels.data() + c*w*(h - 1), -c*w);
 }
 
 void gui_state::handle_keys() {
