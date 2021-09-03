@@ -24,6 +24,9 @@ struct Window {
     void begin_frame();
     void end_frame();
 
+    void set_style_dark();
+    void set_style_light();
+
     private:
         ImFont* font = nullptr;
         std::string ini_file = "";
