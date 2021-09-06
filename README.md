@@ -1,8 +1,6 @@
-**⚠️ This project is now part of the arbor organisation ⚠️**
-
-**⚠️ Please look here: https://github.com/arbor-sim/gui ⚠️**
-
 # Introduction
+
+![images/full.png](images/full.png)
 
 This project aims to be a comprehensive tool for building single cell
 models using Arbor. It strives to be self-contained, fast, and easy to
@@ -30,9 +28,6 @@ tracker here on GitHub for these purposes. Building network simulation
 is out of scope for this project (we might offer a different tool,
 though).
 
-*Note* The screenshots below are somewhat outdated, the current
-status offers quite a bit more.
-
 ## Interactive Definition of Regions and Locsets
 
 ![images/locations.png](images/locations.png)
@@ -42,9 +37,9 @@ status offers quite a bit more.
     -   Live feedback by Arbor\'s parser.
     -   Well-formed expressions are rendered immediately.
 -   Navigate with
-    -   pan: arrow keys or C-drag,
+    -   pan: arrow keys or hold [CTRL],
     -   zoom: +/- or mouse wheel,
-    -   rotate: mouse drag.
+    -   rotate: hold [SHIFT].
 -   Right-click to
     -   reset camera,
     -   snap-to a defined locset,
@@ -52,6 +47,7 @@ status offers quite a bit more.
     -   tweak morphology orientation,
     -   toggle orientation guide,
     -   save the currently rendered image to disk.
+    -   enter auto-rotation mode
 -   Hover a segment to show
     -   containing branch and regions,
     -   geometry information.
@@ -155,7 +151,7 @@ their Windows machine and use X11-forwarding to display the GUI.
     ```bash
     export DISPLAY=$(awk '/nameserver / {print $2; exit}' /etc/resolv.conf 2\>/dev/null):0
     export LIBGL_ALWAYS_INDIRECT=0
-    export MESA_GL_VERSION_OVERRIDE=3.3
+    export MESA_GL_VERSION_OVERRIDE=3.3 # This should no longer be needed.
     ```
 
 ## MacOS
@@ -166,7 +162,7 @@ and Catalina using this line
 
 ```bash
 cmake .. -DCMAKE_CXX_COMPILER=/usr/local/opt/llvm/bin/clang++ \
-         -DCMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang      \
+         -DCMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang     \
          -DCMAKE_BUILD_TYPE=release
 ```
 # Acknowledgements
