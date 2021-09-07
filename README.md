@@ -17,7 +17,7 @@ use.
 -   Import cable cells in ACC format
 
 This project is under active development and welcomes early feedback.
-Currently, Arbor master as of March 2021 is supported and bundled with
+Currently, Arbor master as of August 2021 is supported and bundled with
 the project. Note that the screenshots below are updated less frequently
 than the actual project. We aim for a formal release with Arbor 0.6 at
 which point the project will stabilise and receive regular updates
