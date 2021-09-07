@@ -23,7 +23,7 @@ than the actual project. We aim for a formal release with Arbor 0.6 at
 which point the project will stabilise and receive regular updates
 alongside Arbor.
 
-To get a feel for the workflow witn Arbor-GUI, you can take a look
+To get a feel for the workflow with Arbor-GUI, you can take a look
 at the tutorial
 https://github.com/arbor-sim/arbor/wiki/Single-Modelling-with-Arbor's-GUI
 
