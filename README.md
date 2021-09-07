@@ -1,5 +1,7 @@
 # Introduction
 
+![images/full.png](images/full.png)
+
 This project aims to be a comprehensive tool for building single cell
 models using Arbor. It strives to be self-contained, fast, and easy to
 use.
@@ -21,15 +23,14 @@ than the actual project. We aim for a formal release with Arbor 0.6 at
 which point the project will stabilise and receive regular updates
 alongside Arbor.
 
+To get a feel for the workflow with Arbor-GUI, you can take a look
+at the tutorial
+https://github.com/arbor-sim/arbor/wiki/Single-Modelling-with-Arbor's-GUI
+
 We welcome bug reports and feature requests, please use the issue
 tracker here on GitHub for these purposes. Building network simulation
 is out of scope for this project (we might offer a different tool,
 though).
-
-*Note* The screenshots below are somewhat outdated, the current
-status offers quite a bit more. See here for a more up to date 
-tutorial.
-https://github.com/arbor-sim/arbor/wiki/Single-Modelling-with-Arbor's-GUI
 
 ## Interactive Definition of Regions and Locsets
 
@@ -40,9 +41,9 @@ https://github.com/arbor-sim/arbor/wiki/Single-Modelling-with-Arbor's-GUI
     -   Live feedback by Arbor\'s parser.
     -   Well-formed expressions are rendered immediately.
 -   Navigate with
-    -   pan: arrow keys or C-drag,
+    -   pan: arrow keys or hold [CTRL],
     -   zoom: +/- or mouse wheel,
-    -   rotate: mouse drag.
+    -   rotate: hold [SHIFT].
 -   Right-click to
     -   reset camera,
     -   snap-to a defined locset,
@@ -50,6 +51,7 @@ https://github.com/arbor-sim/arbor/wiki/Single-Modelling-with-Arbor's-GUI
     -   tweak morphology orientation,
     -   toggle orientation guide,
     -   save the currently rendered image to disk.
+    -   enter auto-rotation mode
 -   Hover a segment to show
     -   containing branch and regions,
     -   geometry information.
@@ -106,7 +108,7 @@ If you wish to build and perhaps modify Arbor GUI, start out by cloning
 the repository and creating a build directory:
 
 ```bash
-git clone --recursive https://github.com/thorstenhater/arbor-gui.git
+git clone --recursive https://github.com/arbor-sim/gui.git
 cd arbor-gui
 mkdir build
 cd build
@@ -153,8 +155,15 @@ their Windows machine and use X11-forwarding to display the GUI.
     ```bash
     export DISPLAY=$(awk '/nameserver / {print $2; exit}' /etc/resolv.conf 2\>/dev/null):0
     export LIBGL_ALWAYS_INDIRECT=0
-    export MESA_GL_VERSION_OVERRIDE=3.3
     ```
+
+-----
+:warning: Older versions required manually enforcing OpenGL versions using :warning:
+```bash
+export MESA_GL_VERSION_OVERRIDE=3.3
+```
+:warning: in newer versions this will cause failures. :warning:
+-----
 
 ## MacOS
 
@@ -164,7 +173,7 @@ and Catalina using this line
 
 ```bash
 cmake .. -DCMAKE_CXX_COMPILER=/usr/local/opt/llvm/bin/clang++ \
-         -DCMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang      \
+         -DCMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang     \
          -DCMAKE_BUILD_TYPE=release
 ```
 # Acknowledgements
