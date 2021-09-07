@@ -158,7 +158,7 @@ their Windows machine and use X11-forwarding to display the GUI.
     ```
 
 -----
-:warning: Older versions required manually enforcing OpenGL like :warning:
+:warning: Older versions required manually enforcing OpenGL versions using :warning:
 ```bash
 export MESA_GL_VERSION_OVERRIDE=3.3
 ```
