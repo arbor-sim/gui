@@ -23,6 +23,10 @@ than the actual project. We aim for a formal release with Arbor 0.6 at
 which point the project will stabilise and receive regular updates
 alongside Arbor.
 
+To get a feel for the workflow witn Arbor-GUI, you can take a look
+at the tutorial
+https://github.com/arbor-sim/arbor/wiki/Single-Modelling-with-Arbor's-GUI
+
 We welcome bug reports and feature requests, please use the issue
 tracker here on GitHub for these purposes. Building network simulation
 is out of scope for this project (we might offer a different tool,
@@ -104,7 +108,7 @@ If you wish to build and perhaps modify Arbor GUI, start out by cloning
 the repository and creating a build directory:
 
 ```bash
-git clone --recursive https://github.com/thorstenhater/arbor-gui.git
+git clone --recursive https://github.com/arbor-sim/gui.git
 cd arbor-gui
 mkdir build
 cd build
@@ -151,8 +155,15 @@ their Windows machine and use X11-forwarding to display the GUI.
     ```bash
     export DISPLAY=$(awk '/nameserver / {print $2; exit}' /etc/resolv.conf 2\>/dev/null):0
     export LIBGL_ALWAYS_INDIRECT=0
-    export MESA_GL_VERSION_OVERRIDE=3.3 # This should no longer be needed.
     ```
+
+-----
+:warning: If you have this in your environment, you will need to remove it :warning:
+
+```bash
+export MESA_GL_VERSION_OVERRIDE=3.3
+```
+-----
 
 ## MacOS
 
