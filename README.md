@@ -158,11 +158,11 @@ their Windows machine and use X11-forwarding to display the GUI.
     ```
 
 -----
-:warning: If you have this in your environment, you will need to remove it :warning:
-
+:warning: Older versions required manually enforcing OpenGL like :warning:
 ```bash
 export MESA_GL_VERSION_OVERRIDE=3.3
 ```
+:warning: in newer versions this will cause failures. :warning:
 -----
 
 ## MacOS
