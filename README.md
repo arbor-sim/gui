@@ -144,16 +144,21 @@ their Windows machine and use X11-forwarding to display the GUI.
 
 1.  Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/).
     Make sure you add the right firewall rules and a subnet mask for the
-    incoming connections.
+    incoming connections. An alternative is to disable access control when
+    you start the XServer but this could have security implications for you.
     [This](https://github.com/cascadium/wsl-windows-toolbar-launcher#firewall-rules)
     is a great write-up of all the pitfalls you can encounter.
+    
+    Key to the XServer forwarding are the extra settings during XServer startup:
+    
+    ![image](https://user-images.githubusercontent.com/28923979/132318568-7877810a-c73a-4062-a712-91746bdc6266.png)
+
 
 2.  Add the following to `.bashrc`. Please note that it is similar
     but not identical to snippets you\'ll find elsewhere:
     ```bash
     export DISPLAY=$(awk '/nameserver / {print $2; exit}' /etc/resolv.conf 2\>/dev/null):0
     export LIBGL_ALWAYS_INDIRECT=0
-    export MESA_GL_VERSION_OVERRIDE=3.3
     ```
 
 ## MacOS
