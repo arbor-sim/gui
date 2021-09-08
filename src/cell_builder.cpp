@@ -45,7 +45,7 @@ void cell_builder::make_label_dict(std::vector<ls_def>& locsets, std::vector<rg_
 std::vector<arb::msegment> cell_builder::make_segments(const arb::region& region) {
   auto concrete = thingify(region, provider);
   auto result = pwlin.all_segments(concrete);
-  std::remove_if(result.begin(), result.end(), [](const auto& s) { return s.dist == s.prox; });
+  std::erase_if(result, [](const auto& s) { return distance(s.dist, s.prox) <= std::numeric_limits<double>::epsilon(); });
   return result;
 }
 
