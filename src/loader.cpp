@@ -2,7 +2,9 @@
 #include <string>
 #include <tuple>
 #include <filesystem>
+#include <variant>
 
+#include <arborio/cableio.hpp>
 #include <arborio/neurolucida.hpp>
 #include <arborio/neuroml.hpp>
 #include <arborio/swcio.hpp>
@@ -59,6 +61,22 @@ loaded_morphology load_asc(const std::filesystem::path &fn) {
     return result;
 }
 
+loaded_morphology load_acc(const std::filesystem::path &fn) {
+    if (auto m = arborio::parse_component(slurp(fn))) {
+       try {
+           return loaded_morphology{.morph=std::get<arb::morphology>(m.value().component)};
+       }
+       catch (std::bad_variant_access const& ex) {
+          log_error("ACC file {} doesn't describe a morphology.", fn.string());
+       }
+    }
+    else {
+       log_error("Error: {} in ACC file {}.", m.error().what(), fn.string());
+    }
+    return {};
+}
+
+
 static std::unordered_map<std::string,
                           std::unordered_map<std::string,
                                              std::function<loaded_morphology(const std::filesystem::path &fn)>>>
@@ -66,7 +84,8 @@ loaders{{".swc", {{"Arbor",   load_arbor_swc},
                   {"Neuron",  load_neuron_swc}}},
         {".nml", {{"Cell",    load_neuroml_cell},
                   {"Morph",   load_neuroml_morph}}},
-        {".asc", {{"Default", load_asc}}}};
+        {".asc", {{"Default", load_asc}}},
+        {".acc", {{"Default", load_acc}}}};
 
 const std::vector<std::string>& get_suffixes() {
     static std::vector<std::string> result;
