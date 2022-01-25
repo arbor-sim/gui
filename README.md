@@ -4,6 +4,8 @@
 
 # Introduction
 
+![images/full.png](images/full.png)
+
 This project aims to be a comprehensive tool for building single cell
 models using Arbor. It strives to be self-contained, fast, and easy to
 use.
@@ -19,19 +21,20 @@ use.
 -   Import cable cells in ACC format
 
 This project is under active development and welcomes early feedback.
-Currently, Arbor master as of March 2021 is supported and bundled with
+Currently, Arbor master as of August 2021 is supported and bundled with
 the project. Note that the screenshots below are updated less frequently
 than the actual project. We aim for a formal release with Arbor 0.6 at
 which point the project will stabilise and receive regular updates
 alongside Arbor.
 
+To get a feel for the workflow with Arbor-GUI, you can take a look
+at the tutorial
+https://github.com/arbor-sim/arbor/wiki/Single-Modelling-with-Arbor's-GUI
+
 We welcome bug reports and feature requests, please use the issue
 tracker here on GitHub for these purposes. Building network simulation
 is out of scope for this project (we might offer a different tool,
 though).
-
-*Note* The screenshots below are somewhat outdated, the current
-status offers quite a bit more.
 
 ## Interactive Definition of Regions and Locsets
 
@@ -42,9 +45,9 @@ status offers quite a bit more.
     -   Live feedback by Arbor\'s parser.
     -   Well-formed expressions are rendered immediately.
 -   Navigate with
-    -   pan: arrow keys or C-drag,
+    -   pan: arrow keys or hold [CTRL],
     -   zoom: +/- or mouse wheel,
-    -   rotate: mouse drag.
+    -   rotate: hold [SHIFT].
 -   Right-click to
     -   reset camera,
     -   snap-to a defined locset,
@@ -52,6 +55,7 @@ status offers quite a bit more.
     -   tweak morphology orientation,
     -   toggle orientation guide,
     -   save the currently rendered image to disk.
+    -   enter auto-rotation mode
 -   Hover a segment to show
     -   containing branch and regions,
     -   geometry information.
@@ -108,7 +112,7 @@ If you wish to build and perhaps modify Arbor GUI, start out by cloning
 the repository and creating a build directory:
 
 ```bash
-git clone --recursive https://github.com/thorstenhater/arbor-gui.git
+git clone --recursive https://github.com/arbor-sim/gui.git
 cd arbor-gui
 mkdir build
 cd build
@@ -146,17 +150,30 @@ their Windows machine and use X11-forwarding to display the GUI.
 
 1.  Install [VcXsrv](https://sourceforge.net/projects/vcxsrv/).
     Make sure you add the right firewall rules and a subnet mask for the
-    incoming connections.
+    incoming connections. An alternative is to disable access control when
+    you start the XServer but this could have security implications for you.
     [This](https://github.com/cascadium/wsl-windows-toolbar-launcher#firewall-rules)
     is a great write-up of all the pitfalls you can encounter.
+    
+    Key to the XServer forwarding are the extra settings during XServer startup:
+    
+    ![image](https://user-images.githubusercontent.com/28923979/132318568-7877810a-c73a-4062-a712-91746bdc6266.png)
+
 
 2.  Add the following to `.bashrc`. Please note that it is similar
     but not identical to snippets you\'ll find elsewhere:
     ```bash
     export DISPLAY=$(awk '/nameserver / {print $2; exit}' /etc/resolv.conf 2\>/dev/null):0
     export LIBGL_ALWAYS_INDIRECT=0
-    export MESA_GL_VERSION_OVERRIDE=3.3
     ```
+
+-----
+:warning: Older versions required manually enforcing OpenGL versions using :warning:
+```bash
+export MESA_GL_VERSION_OVERRIDE=3.3
+```
+:warning: in newer versions this will cause failures. :warning:
+-----
 
 ## MacOS
 
@@ -166,7 +183,7 @@ and Catalina using this line
 
 ```bash
 cmake .. -DCMAKE_CXX_COMPILER=/usr/local/opt/llvm/bin/clang++ \
-         -DCMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang      \
+         -DCMAKE_C_COMPILER=/usr/local/opt/llvm/bin/clang     \
          -DCMAKE_BUILD_TYPE=release
 ```
 # Acknowledgements

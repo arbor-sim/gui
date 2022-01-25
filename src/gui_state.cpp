@@ -80,7 +80,6 @@ namespace {
   }
 
   inline void gui_read_acc(gui_state& state, bool& open) {
-
     with_id id{"reading acc"};
     ImGui::OpenPopup("Load");
     static std::vector<std::string> suffixes{".acc"};
@@ -320,7 +319,7 @@ namespace {
             if (ImGui::Button(icon_docs, {25.0f, 25.0f})) state.cwd = state.docs;
             ImGui::EndChild();
     }
-    ImGui::SameLine();
+    ImGui::SameLine(40.0f);
     // Draw the current dir
     {
       ImGui::BeginChild("Files",
@@ -464,12 +463,21 @@ namespace {
           vs.zoom = std::clamp(vs.zoom + delta_zoom, 1.0f, 45.0f);
         }
       }
+
+      static float t_last = 0.0;
+      float t_now = glfwGetTime();
+      if (state.demo_mode) vs.rotate = glm::rotate(vs.rotate, state.auto_omega*(t_now - t_last), glm::vec3{0.0f, 1.0f, 0.0f});
+      t_last = t_now;
+
       state.object = state.renderer.get_id();
 
       if (ImGui::BeginPopupContextWindow()) {
         ImGui::Text("%s Camera", icon_camera);
         {
           with_indent indent{};
+          ImGui::SliderFloat("Auto-rotate", &state.auto_omega, 0.1f, 2.0f);
+          gui_right_margin();
+          gui_toggle(icon_on, icon_off, state.demo_mode);
           ImGui::InputFloat3("Target", &state.view.target[0]);
           ImGui::ColorEdit3("Background",& (state.renderer.cell.clear_color.x), ImGuiColorEditFlags_NoInputs);
           if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {

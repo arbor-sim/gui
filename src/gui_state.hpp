@@ -56,6 +56,9 @@ struct gui_state {
     bool open_demo       = false;
     bool open_about      = false;
 
+    bool demo_mode       = false;
+    float auto_omega     = 0.5f;
+
     simulation sim;
 
     cv_def      cv_policy_def;
