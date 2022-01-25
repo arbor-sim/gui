@@ -945,7 +945,7 @@ namespace {
         for(const auto& [k, v]: item.parameters) {
           mech.set(k, v);
         }
-        decor.paint(rg.data.value(), mech);
+        decor.paint(rg.data.value(), arb::density{mech});
       }
     }
     return {state.builder.morph, state.builder.labels, decor};
@@ -1062,8 +1062,8 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       data.tag       = tag;
       for (const auto& [k, v]: t.envelope) data.envelope.emplace_back(k, v);
     }
-    void operator()(const arb::mechanism_desc& t)     { log_error("Cannot handle mech."); }
-    void operator()(const arb::gap_junction_site& t)  { log_error("Cannot handle GJ."); }
+    void operator()(const arb::synapse& t)  { log_error("Cannot handle synapse mech."); }
+    void operator()(const arb::junction& t) { log_error("Cannot handle GJ."); }
   };
 
   struct rg_visitor {
@@ -1104,7 +1104,8 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       if (ion == state->ions.end()) log_error("Unknown ion");
       state->ion_par_defs[{region, *ion}].Er = t.value;
     }
-    void operator()(const arb::mechanism_desc& t) {
+    void operator()(const arb::density& d) {
+      const auto& t = d.mech;
       auto id    = state->mechanisms.add(region);
       auto& data = state->mechanisms[id];
       auto cat   = t.name();
