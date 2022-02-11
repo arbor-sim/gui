@@ -137,7 +137,7 @@ Window::~Window() {
 
 bool Window::running() { return !glfwWindowShouldClose(handle); }
 
-void Window::begin_frame() {
+void Window::begin_frame(std::string open_morph_name) {
     // Poll and handle events (inputs, window resize, etc.)
     // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
     // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -149,6 +149,7 @@ void Window::begin_frame() {
     ImGui::NewFrame();
     ImGuizmo::BeginFrame();
     ImGui::PushFont(font);
+    glfwSetWindowTitle(handle, ("arbor-gui "+open_morph_name).c_str());
 }
 
 void Window::end_frame() {

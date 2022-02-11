@@ -21,7 +21,7 @@ struct Window {
 
     bool running();
     bool visible();
-    void begin_frame();
+    void begin_frame(std::string);
     void end_frame();
 
     void set_style_dark();
