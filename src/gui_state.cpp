@@ -104,6 +104,7 @@ namespace {
       try {
         if (ok) {
           state.deserialize(state.acc_chooser.file);
+          state.open_morph_name = state.acc_chooser.file;
           open = false;
         }
       } catch (const arb::arbor_exception& e) {

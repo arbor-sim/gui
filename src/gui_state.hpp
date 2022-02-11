@@ -73,7 +73,7 @@ struct gui_state {
     file_chooser_state acc_chooser;
     file_chooser_state cat_chooser;
     std::string open_cat_name;
-    std::string open_morph_name = "";
+    std::optional<std::string> open_morph_name;
 
     view_state view;
 
