@@ -1,7 +1,3 @@
-**⚠️ This project is now part of the arbor organisation ⚠️**
-
-**⚠️ Please look here: https://github.com/arbor-sim/gui ⚠️**
-
 # Introduction
 
 ![images/full.png](images/full.png)
