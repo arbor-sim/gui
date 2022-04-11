@@ -109,6 +109,9 @@ namespace {
       } catch (const arb::arbor_exception& e) {
         log_debug("Failed to load ACC: {}", e.what());
         loader_error = e.what();
+      } catch (const std::runtime_error& e) {
+        log_debug("Failed to load ACC: {}", e.what());
+        loader_error = e.what();
       }
 
       if (!loader_error.empty()) {
@@ -1062,7 +1065,7 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       data.tag       = tag;
       for (const auto& [k, v]: t.envelope) data.envelope.emplace_back(k, v);
     }
-    void operator()(const arb::synapse& t)  { log_error("Cannot handle mech."); }
+    void operator()(const arb::synapse& t)  { log_error("Cannot handle synapse mech."); }
     void operator()(const arb::junction& t) { log_error("Cannot handle GJ."); }
   };
 
@@ -1105,7 +1108,7 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       state->ion_par_defs[{region, *ion}].Er = t.value;
     }
     void operator()(const arb::density& d) {
-      auto t     = d.mech;
+      const auto& t = d.mech;
       auto id    = state->mechanisms.add(region);
       auto& data = state->mechanisms[id];
       auto cat   = t.name();
