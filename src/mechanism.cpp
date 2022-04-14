@@ -2,6 +2,7 @@
 
 #include <fmt/format.h>
 
+#include "utils.hpp"
 #include "gui.hpp"
 
 std::unordered_map<std::string, arb::mechanism_catalogue> catalogues = default_catalogues;
@@ -9,10 +10,13 @@ std::unordered_map<std::string, arb::mechanism_catalogue> catalogues = default_c
 void make_mechanism(mechanism_def& data,
                     const std::string& cat_name, const std::string& name,
                     const std::unordered_map<std::string, double>& values) {
+    if (name.empty()) log_error("Empty mechanism name. Selector must be 'cat::mech'.");
     data.name = name;
     data.cat  = cat_name;
-    auto cat = catalogues.at(cat_name);
-    auto info = cat[name];
+    if (!catalogues.contains(data.cat)) log_error(fmt::format("Unknown catalogue: {}", data.cat));
+    auto cat = catalogues[data.cat];
+    if (!cat.has(data.name)) log_error(fmt::format("Unknown mechanism {} in catalogue {}", data.name, data.cat));
+    auto info = cat[data.name];
     data.globals.clear();
     data.parameters.clear();
     data.states.clear();

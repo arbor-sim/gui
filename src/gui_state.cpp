@@ -109,6 +109,9 @@ namespace {
       } catch (const arb::arbor_exception& e) {
         log_debug("Failed to load ACC: {}", e.what());
         loader_error = e.what();
+      } catch (const std::runtime_error& e) {
+        log_debug("Failed to load ACC: {}", e.what());
+        loader_error = e.what();
       }
 
       if (!loader_error.empty()) {
@@ -1105,16 +1108,19 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       state->ion_par_defs[{region, *ion}].Er = t.value;
     }
     void operator()(const arb::density& d) {
-      const auto& t = d.mech;
+      auto& t    = d.mech;
       auto id    = state->mechanisms.add(region);
       auto& data = state->mechanisms[id];
-      auto cat   = t.name();
       auto name  = t.name();
-      { auto sep = std::find(name.begin(), name.end(), ':'); name.erase(name.begin(), sep + 2); }
-      { auto sep = std::find(cat.begin(),  cat.end(),  ':'); cat.erase(sep, cat.end()); }
-      log_debug("Loading mech {} from cat {} ({})", name, cat, t.name());
+      auto pos   = name.find("::");
+      if (pos == std::string::npos
+       || pos == 0
+       || pos + 2 >= name.size()) log_error(fmt::format("Mechanism specifier '{}' is not in format 'cat::name'.", name));
+      auto cat   = name.substr(0, pos);
+      auto mech  = name.substr(pos+2);
+      log_debug("Loading mech {} from cat {} ({})", mech, cat, name);
       // TODO What about derived mechs?
-      make_mechanism(data, cat, name, t.values());
+      make_mechanism(data, cat, mech, t.values());
     }
   };
 
