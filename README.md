@@ -120,9 +120,18 @@ Next, follow the platform specific instructions.
 1.  Install build dependencies
     ``` bash
     sudo apt update
-    sudo apt install libxml2-dev libxrandr-dev libxinerama-dev \
+    sudo apt install build-essential libssl-dev \ 
+                     libxml2-dev libxrandr-dev libxinerama-dev \
                      libxcursor-dev libxi-dev libglu1-mesa-dev \
                      freeglut3-dev mesa-common-dev gcc-10 g++-10
+    ```
+    If your cmake version is less than 3.18, you will need to update it
+    as well
+    ``` bash
+    cmake --version
+      3.16 # default on Ubunte 20.04 LTS
+    # if pip is present
+    pip install --update cmake
     ```
 2.  Add GCC10 as alternative to GCC and select it:
     ``` bash
@@ -162,14 +171,6 @@ their Windows machine and use X11-forwarding to display the GUI.
     export DISPLAY=$(awk '/nameserver / {print $2; exit}' /etc/resolv.conf 2\>/dev/null):0
     export LIBGL_ALWAYS_INDIRECT=0
     ```
-
------
-:warning: Older versions required manually enforcing OpenGL versions using :warning:
-```bash
-export MESA_GL_VERSION_OVERRIDE=3.3
-```
-:warning: in newer versions this will cause failures. :warning:
------
 
 ## MacOS
 
