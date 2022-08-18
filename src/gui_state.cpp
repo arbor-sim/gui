@@ -1456,7 +1456,7 @@ bool gui_state::store_snapshot() {
 }
 
 void gui_state::handle_keys() {
-  if (ImGui::IsKeyPressed('O') && ImGui::GetIO().KeyCtrl) open_morph_read = true;
+  if (ImGui::IsKeyPressed(ImGuiKey_O) && (ImGui::IsKeyDown(ImGuiKey_ModCtrl) || ImGui::IsKeyDown(ImGuiKey_ModSuper))) open_morph_read = true;
 }
 
 void gui_state::run_simulation() {
