@@ -31,7 +31,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if ((key == GLFW_KEY_EQUAL) && (action == GLFW_PRESS)) delta_zoom  = -2.0f;
 }
 
-
 bool Window::visible() { return glfwGetWindowAttrib(handle, GLFW_FOCUSED); }
 
 Window::Window() {
@@ -54,7 +53,6 @@ Window::Window() {
     glfwSetScrollCallback(handle, scroll_callback);
     glfwSetCursorPosCallback(handle, mouse_callback);
     glfwSetKeyCallback(handle, key_callback);
-    // if (gl3wInit()) log_fatal("Failed to initialize OpenGL loader");
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -72,8 +70,6 @@ Window::Window() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     if (!(io.ConfigFlags & ImGuiConfigFlags_DockingEnable)) log_error("ImGui docking disabled");
 
-    // ImGui::StyleColorsDark();
-    //ImGui::StyleColorsClassic();
     set_style_dark();
 
     ini_file = get_resource_path("imgui.ini");

@@ -16,7 +16,7 @@
 struct iexpr_info {
     float min = std::numeric_limits<float>::max();
     float max = std::numeric_limits<float>::min();
-    std::unordered_map<unsigned, float> values;
+    std::unordered_map<unsigned, std::pair<float, float>> values;
 };
 
 struct ie_def {

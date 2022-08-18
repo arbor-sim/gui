@@ -624,16 +624,21 @@ void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r
 }
 
 void geometry::make_iexpr(const iexpr_info& iexpr, renderable& r) {
-    std::vector<float> cols(segments.size()*n_vertices, -1.0f);
-    std::vector<unsigned> idcs(segments.size()*n_indices, -1);
+    std::vector<float> cols;
+    std::vector<unsigned> idcs;
     for (const auto& segment: segments) {
         auto idx = id_to_index[segment.id];
-        auto col = iexpr.values.at(segment.id);
+        auto [pc, dc] = iexpr.values.at(segment.id);
         for (auto idy = n_indices*idx; idy < n_indices*(idx + 1); ++idy) {
-            idcs[idy] = indices[idy];
+            idcs.push_back(indices[idy]);
         }
-        for (auto idy = n_vertices*idx; idy < n_vertices*(idx + 1); ++idy) {
-            cols[idy] = col;
+        cols.push_back(pc);
+        cols.push_back(dc);
+        for (auto face = 0ul; face < n_faces; ++face) {
+            cols.push_back(pc);
+            cols.push_back(pc);
+            cols.push_back(dc);
+            cols.push_back(dc);
         }
     }
 

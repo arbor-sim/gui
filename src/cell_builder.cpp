@@ -70,25 +70,38 @@ iexpr_info cell_builder::make_iexpr(const arb::iexpr& expr) {
   auto all    = pwlin.all_segments(thingify(arb::reg::all(), provider));
   auto iex    = arb::thingify(expr, provider);
   auto result = iexpr_info{};
-
   for (const auto& seg: all) {
     const auto& [px, py, pz, pr] = seg.prox;
     const auto& [dx, dy, dz, dr] = seg.dist;
-    const auto& [ploc, pdel]     = pwlin.closest(px, py, pz);
-    const auto& [dloc, ddel]     = pwlin.closest(dx, dy, dz);
-    float dval = iex->eval(provider, {dloc.branch, dloc.pos, dloc.pos});
-    float pval = iex->eval(provider, {ploc.branch, ploc.pos, ploc.pos});
-    float val = 0.5*(dval + pval);
-    result.min = std::min(val, result.min);
-    result.max = std::max(val, result.max);
-    result.values[seg.id] = val;
+    const auto& [plocs, pdel]    = pwlin.all_closest(px, py, pz);
+    const auto& [dlocs, ddel]    = pwlin.all_closest(dx, dy, dz);
+    bool found = false;
+    for (const auto& dloc: dlocs) {
+      for (const auto& ploc: plocs) {
+        if (dloc.branch == ploc.branch) {
+          float dval = iex->eval(provider, {dloc.branch, dloc.pos, dloc.pos});
+          float pval = iex->eval(provider, {ploc.branch, ploc.pos, ploc.pos});
+          // TODO: This is rather adhoc
+
+          result.min = std::min(std::min(pval, dval), result.min);
+          result.max = std::max(std::max(pval, dval), result.max);
+          result.values[seg.id] = {pval, dval};
+          found = true;
+          break;
+        }
+      }
+    }
+    if (!found) log_error("no matching");
   }
 
   // Normalise colour lookups
   auto scal = 0.0f;
   if (result.min != result.max) scal = 1/(result.max - result.min);
   log_debug("IExpr has min {} max {} scale {}", result.min, result.max, scal);
-  for (auto& it: result.values) it.second = (it.second - result.min)*scal;
+  for (auto& [k, v]: result.values) {
+    v.first  = (v.first  - result.min)*scal;
+    v.second = (v.second - result.min)*scal;
+  }
   return result;
 }
 

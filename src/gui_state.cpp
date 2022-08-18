@@ -230,6 +230,7 @@ namespace {
       state.open_about = gui_menu_item("About",   icon_about);
       state.open_debug = gui_menu_item("Metrics", icon_bug);
       state.open_style = gui_menu_item("Style",   icon_paint);
+      ImGui::GetIO().WantSaveIniSettings |= gui_menu_item("Save .ini", icon_save);
       ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
@@ -539,9 +540,7 @@ namespace {
   }
 
   inline void gui_cell_info(gui_state& state) {
-
-    if (ImGui::Begin("Info")) {
-      ImGui::Text("%s Selection", icon_branch);
+    if (ImGui::Begin(fmt::format("{} Morphology##info", icon_branch).c_str())) {
       if (state.object) {
         auto& object = state.object.value();
         ImGui::BulletText("Segment %u", object.data.id);
@@ -554,15 +553,6 @@ namespace {
           ImGui::BulletText("Extent (%.1f, %.1f, %.1f) -- (%.1f, %.1f, %.1f)", px, py, pz, dx, dy, dz);
           ImGui::BulletText("Radii  %g µm %g µm", object.data.prox.radius, object.data.dist.radius);
           ImGui::BulletText("Length %g µm", std::sqrt(lx*lx + ly*ly + lz*lz));
-        }
-        ImGui::BulletText("IExprs");
-        for (const auto& iex: state.iexpr_defs.items) {
-          if (iex.state == def_state::good) {
-            auto& info = iex.info;
-            ImGui::SameLine();
-            auto val = info.values.at(object.data.id);
-            ImGui::Text("%s %f", iex.name.c_str(), val);
-          }
         }
         ImGui::BulletText("Branch %zu", object.branch);
         {
@@ -580,10 +570,27 @@ namespace {
           }
           ImGui::BulletText("Count %zu", count);
         }
+      }
+      ImGui::End();
+    }
+    if (ImGui::Begin(fmt::format("{} Locations##info", icon_location).c_str())) {
+      if (state.object) {
+        auto& object = state.object.value();
+        ImGui::BulletText("IExprs");
+        {
+          with_indent indent;
+          for (const auto& iex: state.iexpr_defs.items) {
+            if (iex.state == def_state::good) {
+              auto& info = iex.info;
+              const auto& [pv, dv] = info.values.at(object.data.id);
+              ImGui::BulletText("%s: %f -- %f", iex.name.c_str(), pv, dv);
+            }
+          }
+        }
         ImGui::BulletText("Regions");
         {
+          with_indent indent;
           for (const auto& region: state.segment_to_regions[object.data.id]) {
-            ImGui::SameLine();
             ImGui::ColorButton("", to_imvec(state.renderer.regions[region].color));
             ImGui::SameLine();
             ImGui::AlignTextToFramePadding();
@@ -591,8 +598,8 @@ namespace {
           }
         }
       }
+      ImGui::End();
     }
-    ImGui::End();
   }
 
   template<typename Item>
@@ -869,7 +876,6 @@ namespace {
   }
 
   inline void gui_simulation(gui_state& state) {
-
     if (ImGui::Begin(fmt::format("{} Simulation", icon_sim).c_str())) {
       ImGui::Separator();
       gui_sim(state.sim);
@@ -1040,12 +1046,12 @@ namespace {
 void gui_state::gui() {
   update();
   gui_main(*this);
-  gui_locations(*this);
-  gui_cell(*this);
   gui_traces(*this);
+  gui_cell(*this);
   gui_cell_info(*this);
-  gui_parameters(*this);
   gui_simulation(*this);
+  gui_parameters(*this);
+  gui_locations(*this);
   handle_keys();
 }
 
