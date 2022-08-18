@@ -22,7 +22,9 @@ set(ARB_USE_BUNDLED_LIBS ON  CACHE BOOL "use internal deps" FORCE)
 add_subdirectory(3rd-party/arbor)
 
 # Add OpenGL loader
-# add_subdirectory(3rd-party/gl3w)
+set(OPTION_BUILD_EXAMPLES      OFF CACHE BOOL "" FORCE)
+set(OPTION_BUILD_TOOLs         OFF CACHE BOOL "" FORCE)
+set(OPTION_USE_GIT_INFORMATION OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rd-party/glbinding EXCLUDE_FROM_ALL)
 
 # Tweak GLFW
