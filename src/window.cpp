@@ -1,5 +1,8 @@
 #include "window.hpp"
 
+#include <glbinding/gl/gl.h>
+#include <glbinding/glbinding.h>
+
 #include <filesystem>
 
 #include "ImGuizmo.h"
@@ -38,7 +41,7 @@ Window::Window() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, 1);
     glsl_version = "#version 410";
     handle = glfwCreateWindow(1280, 720, "arbor-gui", NULL, NULL);
     if (handle == nullptr) log_fatal("Failed to obtain window");
@@ -46,11 +49,12 @@ Window::Window() {
              glfwGetWindowAttrib(handle, GLFW_CONTEXT_VERSION_MAJOR),
              glfwGetWindowAttrib(handle, GLFW_CONTEXT_VERSION_MINOR));
     glfwMakeContextCurrent(handle);
+    glbinding::initialize(glfwGetProcAddress);
     glfwSwapInterval(1); // Enable vsync
     glfwSetScrollCallback(handle, scroll_callback);
     glfwSetCursorPosCallback(handle, mouse_callback);
     glfwSetKeyCallback(handle, key_callback);
-    if (gl3wInit()) log_fatal("Failed to initialize OpenGL loader");
+    // if (gl3wInit()) log_fatal("Failed to initialize OpenGL loader");
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

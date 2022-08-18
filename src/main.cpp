@@ -7,7 +7,6 @@
 
 int main(int, char**) {
     log_init();
-
     log_info("Rendering locked to {} us/frame", to_us(frame_time));
 
     Window window{};
@@ -26,7 +25,7 @@ int main(int, char**) {
         {
             auto t1 = timer::now();
             auto dt = t1 - t0;
-            // log_debug("Frame took {} us", to_us(dt));
+            log_debug("Frame took {} us", to_us(dt));
             if (dt < frame_time) std::this_thread::sleep_for(frame_time - dt);
             auto t2 = timer::now();
         }

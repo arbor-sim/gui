@@ -32,3 +32,6 @@
 [submodule "3rd-party/ImGuizmo"]
 	path = 3rd-party/ImGuizmo
 	url = https://github.com/CedricGuillemet/ImGuizmo.git
+[submodule "3rd-party/glbinding"]
+	path = 3rd-party/glbinding
+	url = https://github.com/cginternals/glbinding

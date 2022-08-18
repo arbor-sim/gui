@@ -14,7 +14,6 @@ uniform vec4 object_color;
 uniform float zorder;
 
 out vec4 color;
-// out float gl_FragDepth;
 
 void main() {
     // ambient

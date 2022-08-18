@@ -46,7 +46,6 @@ namespace {
   inline void gui_demo(bool&);
 
   inline void gui_save_acc(gui_state& state, bool& open) {
-
     with_id id{"writing acc"};
     ImGui::OpenPopup("Save");
     static std::vector<std::string> suffixes{".acc"};
@@ -454,7 +453,7 @@ namespace {
         if (shft || ctrl) {
           auto what = shft ? ImGuizmo::ROTATE : ImGuizmo::TRANSLATE;
           glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
-          glm::mat4 V  = glm::lookAt(vs.camera, (vs.target - state.renderer.root)/state.renderer.rescale + shift, vs.up);
+          glm::mat4 V  = glm::lookAt(vs.camera, vs.target/state.renderer.rescale + shift, vs.up);
           glm::mat4 P  = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
           ImGuizmo::SetDrawlist();
           ImGuizmo::SetRect(win_pos.x, win_pos.y, size.x, size.y);
@@ -480,6 +479,16 @@ namespace {
           gui_toggle(icon_on, icon_off, state.demo_mode);
           ImGui::InputFloat3("Target", &state.view.target[0]);
           ImGui::ColorEdit3("Background",& (state.renderer.cell.clear_color.x), ImGuiColorEditFlags_NoInputs);
+          {
+            ImGui::SameLine();
+            if (ImGui::BeginCombo("Colormap", state.renderer.cmap.c_str())) {
+              with_item_width iw(80.0f);
+              for (const auto& [k, v]: state.renderer.cmaps) {
+                if (ImGui::Selectable(k.c_str(), k == state.renderer.cmap)) state.renderer.cmap = k;
+              }
+              ImGui::EndCombo();
+            }
+          }
           if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {
             for (const auto& id: state.locsets) {
               const auto& ls = state.locset_defs[id];
@@ -546,6 +555,15 @@ namespace {
           ImGui::BulletText("Radii  %g µm %g µm", object.data.prox.radius, object.data.dist.radius);
           ImGui::BulletText("Length %g µm", std::sqrt(lx*lx + ly*ly + lz*lz));
         }
+        ImGui::BulletText("IExprs");
+        for (const auto& iex: state.iexpr_defs.items) {
+          if (iex.state == def_state::good) {
+            auto& info = iex.info;
+            ImGui::SameLine();
+            auto val = info.values.at(object.data.id);
+            ImGui::Text("%s %f", iex.name.c_str(), val);
+          }
+        }
         ImGui::BulletText("Branch %zu", object.branch);
         {
           with_indent indent;
@@ -582,7 +600,8 @@ namespace {
                           entity& ids,
                           component_unique<Item>& items,
                           component_unique<renderable>& renderables,
-                          event_queue& events) {
+                          event_queue& events,
+                          bool show_color=true) {
 
     with_id guard{name};
     auto from = -1, to = -1;
@@ -598,8 +617,10 @@ namespace {
         ImGui::SameLine();
         auto beg = ImGui::GetCursorPos();
         if (ImGui::InputText("##locdef-name", &item.name, ImGuiInputTextFlags_AutoSelectAll)) events.push_back(evt_upd_locdef<Item>{id});
-        ImGui::SameLine();
-        ImGui::ColorEdit3("##locdef-color", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+        if (show_color) {
+          ImGui::SameLine();
+          ImGui::ColorEdit3("##locdef-color", &render.color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+        }
         ImGui::SameLine();
         gui_toggle(icon_show, icon_hide, render.active);
         ImGui::SameLine();
@@ -619,7 +640,7 @@ namespace {
         }
         auto end = ImGui::GetCursorPos();
         ImGui::SetCursorPos(beg);
-        ImGui::InvisibleButton("drag area", ImVec2(ImGui::GetContentRegionAvailWidth(), end.y - beg.y));
+        ImGui::InvisibleButton("drag area", ImVec2(ImGui::GetContentRegionAvail().x, end.y - beg.y));
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoHoldToOpenOthers)) {
           ImGui::Text("%s", item.name.c_str());
           ImGui::SetDragDropPayload(name.c_str(), &ix, sizeof(ix));
@@ -663,6 +684,8 @@ namespace {
       gui_locdefs(fmt::format("{} Regions", icon_region), state.regions, state.region_defs, state.renderer.regions, state.events);
       ImGui::Separator();
       gui_locdefs(fmt::format("{} Locsets", icon_locset), state.locsets, state.locset_defs, state.renderer.locsets, state.events);
+      ImGui::Separator();
+      gui_locdefs(fmt::format("{} Inhomogeneous", icon_iexpr), state.iexprs, state.iexpr_defs, state.renderer.iexprs, state.events, false);
     }
     ImGui::End();
   }
@@ -704,7 +727,7 @@ namespace {
         if (open) {
           with_item_width width{120.0f};
           for (const auto& child: state.mechanisms.get_children(region)) {
-            gui_mechanism(child, state.mechanisms[child], state.events);
+            gui_mechanism(child, state.mechanisms[child], state.iexpr_defs.items, state.events);
           }
           ImGui::TreePop();
         }
@@ -945,7 +968,18 @@ namespace {
         for(const auto& [k, v]: item.parameters) {
           mech.set(k, v);
         }
-        decor.paint(rg.data.value(), arb::density{mech});
+        std::unordered_map<std::string, arb::iexpr> scale;
+        for (const auto& [k, v]: item.scales) {
+          if (v) scale.insert_or_assign(k, arb::iexpr::named(v.value()));
+        }
+        if (scale.empty()) {
+          decor.paint(rg.data.value(), arb::density{mech});
+        }
+        else {
+          auto s = arb::scaled_mechanism<arb::density>{arb::density{mech}};
+          s.scale_expr = scale;
+          decor.paint(rg.data.value(), s);
+        }
       }
     }
     return {state.builder.morph, state.builder.labels, decor};
@@ -958,27 +992,23 @@ namespace {
         if (to_plot) {
           auto probe = to_plot.value();
           auto trace = state.sim.traces.at(probe);
+          const auto& [lo, hi] = std::accumulate(trace.values.begin(),
+                                                 trace.values.end(),
+                                                 std::make_pair(std::numeric_limits<float>::max(), std::numeric_limits<float>::min()),
+                                                 [] (const auto& p, auto x) -> std::pair<float, float> { return { std::min(x, p.first), std::max(x, p.second)};});
           auto probe_def = state.probes[probe];
           auto var = fmt::format("{} {}", probe_def.kind, probe_def.variable);
 
           if (ImPlot::BeginPlot(fmt::format("Probe {} @ branch {} ({})", probe.value, trace.branch, trace.location).c_str(),
-                                "Time (ms)",
-                                var.c_str(),
-                                ImVec2(-1, -20),
-                                ImPlotFlags_NoLegend,
-                                ImPlotAxisFlags_AutoFit,
-                                ImPlotAxisFlags_AutoFit)) {
+                                ImVec2(-1, -20))) {
+            ImPlot::SetupAxes("Time (t/ms)", var.c_str());
+            ImPlot::SetupAxesLimits(0, state.sim.until, lo, hi);
+            ImPlot::SetupFinish();
             ImPlot::PlotLine(var.c_str(), trace.times.data(), trace.values.data(), trace.values.size());
             ImPlot::EndPlot();
           }
         } else {
-          if (ImPlot::BeginPlot("Please select a probe below",
-                                "Time (ms)",
-                                "Unknown",
-                                ImVec2(-1, -20),
-                                ImPlotFlags_NoLegend,
-                                ImPlotAxisFlags_AutoFit,
-                                ImPlotAxisFlags_AutoFit)) {
+          if (ImPlot::BeginPlot("Please select a probe below")) {
             ImPlot::EndPlot();
           }
         }
@@ -1020,6 +1050,7 @@ void gui_state::gui() {
 }
 
 void gui_state::serialize(const std::filesystem::path& fn) {
+  log_info("Writing acc to {}", fn.string());
   std::ofstream fd(fn);
   auto cell = make_cable_cell(*this);
   arborio::write_component(fd, cell);
@@ -1104,6 +1135,16 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       if (ion == state->ions.end()) log_error("Unknown ion");
       state->ion_par_defs[{region, *ion}].Er = t.value;
     }
+    void operator()(const arb::ion_diffusivity& t) {
+      auto ion = std::find_if(state->ions.begin(), state->ions.end(),
+                              [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
+      if (ion == state->ions.end()) log_error("Unknown ion");
+      // state->ion_par_defs[{region, *ion}]. = t.value;
+    }
+    void operator()(const arb::scaled_mechanism<arb::density>& d) {
+
+    }
+
     void operator()(const arb::density& d) {
       const auto& t = d.mech;
       auto id    = state->mechanisms.add(region);
@@ -1128,6 +1169,7 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
     void operator()(const arb::init_ext_concentration& t)        { log_error("Cannot handle this"); }
     void operator()(const arb::init_reversal_potential& t)       { log_error("Cannot handle this"); }
     void operator()(const arb::ion_reversal_potential_method& t) { log_error("Cannot handle this"); }
+    void operator()(const arb::ion_diffusivity& t)               { log_error("Cannot handle this"); }
     void operator()(const arb::cv_policy& t)                     { log_error("Cannot handle this"); }
   };
 
@@ -1205,6 +1247,8 @@ void gui_state::reset() {
   probes.clear();
   detectors.clear();
   ion_defaults.clear();
+  iexpr_defs.clear();
+  iexprs.clear();
   mechanisms.clear();
   segment_to_regions.clear();
   renderer.clear();
@@ -1262,7 +1306,7 @@ void gui_state::update() {
           def.set_error(e.what()); rnd.active = false;
         }
       }
-      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items, state->iexpr_defs.items);
     }
     void operator()(const evt_del_locdef<ls_def>& c) {
       auto id = c.id;
@@ -1272,7 +1316,45 @@ void gui_state::update() {
       state->probes.del_children(id);
       state->detectors.del_children(id);
       state->locsets.del(id);
-      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items, state->iexpr_defs.items);
+    }
+    void operator()(const evt_add_locdef<ie_def>& c) {
+      auto id = state->iexprs.add();
+      state->iexpr_defs.add(id, {c.name.empty() ? fmt::format("Iexpr {}", id.value) : c.name, c.definition});
+      // TODO rendering?
+      state->renderer.iexprs.add(id);
+      state->renderer.iexprs[id].color = next_color();
+      state->update_iexpr(id);
+    }
+    void operator()(const evt_upd_locdef<ie_def>& c) {
+      auto& def = state->iexpr_defs[c.id];
+      auto& rnd = state->renderer.iexprs[c.id];
+      def.update();
+      if (def.state == def_state::good) {
+        try {
+          log_info("Making iexpr {} '{}'", def.name, def.definition);
+          def.info = state->builder.make_iexpr(def.data.value());
+          state->renderer.make_iexpr(def.info, rnd);
+        } catch (const arb::arbor_exception& e) {
+          def.set_error(e.what()); rnd.active = false;
+        }
+      }
+      def.update();
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items, state->iexpr_defs.items);
+    }
+    void operator()(const evt_del_locdef<ie_def>& c) {
+      auto id = c.id;
+      log_debug("Erasing iexpr {}", id.value);
+      auto nm = state->iexpr_defs[id].name;
+      for(auto& m: state->mechanisms.items) {
+        for (auto& [k, v]: m.scales) {
+          if (v == nm) v = {};
+        }
+      }
+      state->iexpr_defs.del(id);
+      state->iexprs.del(id);
+      state->renderer.iexprs.del(id);
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items, state->iexpr_defs.items);
     }
     void operator()(const evt_add_locdef<rg_def>& c) {
       auto id = state->regions.add();
@@ -1303,7 +1385,7 @@ void gui_state::update() {
           def.set_error(e.what()); rnd.active = false;
         }
       }
-      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items, state->iexpr_defs.items);
     }
     void operator()(const evt_del_locdef<rg_def>& c) {
       auto id = c.id;
@@ -1315,7 +1397,7 @@ void gui_state::update() {
       // TODO This is quite expensive ... see if we can keep it this way
       for(auto& [segment, regions]: state->segment_to_regions) regions.erase(id);
       state->regions.del(id);
-      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items);
+      state->builder.make_label_dict(state->locset_defs.items, state->region_defs.items, state->iexpr_defs.items);
     }
     void operator()(const evt_add_ion& c) {
       auto id = state->ions.add();
@@ -1383,7 +1465,7 @@ void gui_state::run_simulation() {
 
   auto cat = arb::mechanism_catalogue{};
   for (const auto& [k, v]: catalogues) cat.import(v, k + "::");
-  prop.catalogue = &cat;
+  prop.catalogue = cat;
 
   for (const auto& ion: ions) {
     const auto& data   = ion_defs[ion];
@@ -1423,9 +1505,7 @@ void gui_state::run_simulation() {
     }
   }
   // Make simulation
-  auto ctx = arb::make_context();
-  auto dd  = arb::partition_load_balance(rec, ctx);
-  auto sm  = arb::simulation(rec, dd, ctx);
+  auto sm  = arb::simulation(rec);
   sim.traces.clear();
   sm.add_sampler(arb::all_probes,
                  arb::regular_schedule(this->sim.dt),

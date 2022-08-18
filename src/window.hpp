@@ -2,7 +2,10 @@
 
 #include <string>
 
-#include <GL/gl3w.h>
+// #include <GL/gl3w.h>
+#include <glbinding/gl/gl.h>
+using namespace gl;
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 #include <imgui.h>
