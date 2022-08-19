@@ -15,6 +15,7 @@ struct loaded_morphology {
     arb::morphology morph;
     std::vector<std::pair<std::string, std::string>> regions;
     std::vector<std::pair<std::string, std::string>> locsets;
+    std::vector<std::pair<std::string, std::string>> iexprs;
 };
 
 loaded_morphology load_neuron_swc(const std::filesystem::path&);

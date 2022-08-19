@@ -101,4 +101,12 @@ inline std::string trim_copy(std::string s) {
     return s;
 }
 
+inline std::string split_off(std::string& str, const std::string& by) {
+  auto sep = str.find(by);
+  if (sep == std::string::npos) sep = str.size();
+  auto result = str.substr(0, sep);
+  str.erase(0, sep + by.size());
+  return result;
+}
+
 glm::vec4 next_color();

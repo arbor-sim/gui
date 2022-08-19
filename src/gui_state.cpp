@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <regex>
+#include <string>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -104,7 +105,12 @@ namespace {
           state.deserialize(state.acc_chooser.file);
           open = false;
         }
-      } catch (const arb::arbor_exception& e) {
+      }
+      catch (const arb::arbor_exception& e) {
+        log_debug("Failed to load ACC: {}", e.what());
+        loader_error = e.what();
+      }
+      catch (const std::runtime_error& e) {
         log_debug("Failed to load ACC: {}", e.what());
         loader_error = e.what();
       }
@@ -1019,7 +1025,6 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       if (res == state->locsets.end()) log_error("Unknown locset");
       locset = *res;
     }
-
     void operator()(const arb::threshold_detector& t) {
       auto id = state->detectors.add(locset);
       auto& data = state->detectors[id];
@@ -1050,8 +1055,29 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
                                 auto nm = fmt::format("(region \"{}\")", it.name);
                                 return ((it.definition == ls) || (nm == ls));
                               });
-      if (res == state->regions.end()) log_error("Unknown region");
+      if (res == state->regions.end()) log_error("Unknown region; we handle only the 'named' kind.");
       region = *res;
+    }
+
+    // helper
+    id_type make_density(const arb::density& d) {
+      const auto& t = d.mech;
+      auto id    = state->mechanisms.add(region);
+      auto& data = state->mechanisms[id];
+      auto raw = t.name();
+      auto cat = split_off(raw, "::");
+      if (raw.empty()) log_error("Need 'catalogue::name', got 'name'.");
+      auto name = split_off(raw, "/");
+      auto values = t.values();
+      for (;raw.size();) {
+        auto val = split_off(raw, ",");
+        auto key = split_off(val, "=");
+        if (val.empty()) log_error("Need 'key=val', got 'val'.");
+        values[key] = std::stod(val);
+      }
+      log_debug("Loading mech {} from cat {} ({})", name, cat, t.name());
+      make_mechanism(data, cat, name, values);
+      return id;
     }
 
     void operator()(const arb::init_membrane_potential& t) { state->parameter_defs[region].Vm = t.value; }
@@ -1080,24 +1106,17 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      // state->ion_par_defs[{region, *ion}]. = t.value;
+      state->ion_par_defs[{region, *ion}].D = t.value;
     }
-    void operator()(const arb::scaled_mechanism<arb::density>& d) {
-
+    void operator()(const arb::scaled_mechanism<arb::density>& s) {
+      auto id = make_density(s.t_mech);
+      auto& m = state->mechanisms[id];
+      for (const auto& [k, v]: s.scale_expr) {
+        if (v.type() != arb::iexpr_type::named) log_error("We only handle named iexpr/locset/regions.");
+        m.scales[k] = std::any_cast<std::string>(v.args());
+      }
     }
-
-    void operator()(const arb::density& d) {
-      const auto& t = d.mech;
-      auto id    = state->mechanisms.add(region);
-      auto& data = state->mechanisms[id];
-      auto cat   = t.name();
-      auto name  = t.name();
-      { auto sep = std::find(name.begin(), name.end(), ':'); name.erase(name.begin(), sep + 2); }
-      { auto sep = std::find(cat.begin(),  cat.end(),  ':'); cat.erase(sep, cat.end()); }
-      log_debug("Loading mech {} from cat {} ({})", name, cat, t.name());
-      // TODO What about derived mechs?
-      make_mechanism(data, cat, name, t.values());
-    }
+    void operator()(const arb::density& d) { make_density(d); }
   };
 
   struct df_visitor {
@@ -1119,21 +1138,19 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
 
     void operator()(const arb::morphology& m) {
       log_debug("Morphology from ACC");
-      arb::morphology morph = m;
-      std::vector<std::pair<std::string, std::string>> regions;
-      std::vector<std::pair<std::string, std::string>> locsets;
-      arb::decor decor;
-      state->reload({morph, regions, locsets});
+      state->reload({m, {}, {}, {}});
     }
     void operator()(const arb::label_dict& l) {
       log_debug("Label dict from ACC");
       arb::morphology morph;
       std::vector<std::pair<std::string, std::string>> regions;
       std::vector<std::pair<std::string, std::string>> locsets;
+      std::vector<std::pair<std::string, std::string>> iexprs;
       arb::decor decor;
       for (const auto& [k, v]: l.regions()) regions.emplace_back(k, to_string(v));
       for (const auto& [k, v]: l.locsets()) locsets.emplace_back(k, to_string(v));
-      state->reload({morph, regions, locsets});
+      for (const auto& [k, v]: l.iexpressions()) iexprs.emplace_back(k, to_string(v));
+      state->reload({morph, regions, locsets, iexprs});
     }
     void operator()(const arb::decor& d) {
       log_debug("Decor from ACC");
@@ -1144,9 +1161,11 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       arb::morphology morph;
       std::vector<std::pair<std::string, std::string>> regions;
       std::vector<std::pair<std::string, std::string>> locsets;
+      std::vector<std::pair<std::string, std::string>> iexprs;
       for (const auto& [k, v]: c.labels().regions()) regions.emplace_back(k, to_string(v));
       for (const auto& [k, v]: c.labels().locsets()) locsets.emplace_back(k, to_string(v));
-      state->reload({c.morphology(), regions, locsets});
+      for (const auto& [k, v]: l.iexpressions()) iexprs.emplace_back(k, to_string(v));
+      state->reload({c.morphology(), regions, locsets, iexprs});
       state->update(); // process events here
       arb::decor decor = c.decorations();
       for (const auto& [k, v, t]: decor.placements()) std::visit(ls_visitor{state, k, t}, v);
@@ -1203,6 +1222,7 @@ void gui_state::reload(const io::loaded_morphology& result) {
   renderer.load_geometry(result.morph, true);
   for (const auto& [k, v]: result.regions) add_region(k, v);
   for (const auto& [k, v]: result.locsets) add_locset(k, v);
+  for (const auto& [k, v]: result.iexprs) add_iexpr(k, v);
   cv_policy_def.definition = "";
   update_cv_policy();
 }
