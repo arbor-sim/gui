@@ -1164,7 +1164,7 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       std::vector<std::pair<std::string, std::string>> iexprs;
       for (const auto& [k, v]: c.labels().regions()) regions.emplace_back(k, to_string(v));
       for (const auto& [k, v]: c.labels().locsets()) locsets.emplace_back(k, to_string(v));
-      for (const auto& [k, v]: l.iexpressions()) iexprs.emplace_back(k, to_string(v));
+      for (const auto& [k, v]: c.labels().iexpressions()) iexprs.emplace_back(k, to_string(v));
       state->reload({c.morphology(), regions, locsets, iexprs});
       state->update(); // process events here
       arb::decor decor = c.decorations();
