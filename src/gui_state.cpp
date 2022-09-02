@@ -113,6 +113,9 @@ namespace {
       catch (const std::runtime_error& e) {
         log_debug("Failed to load ACC: {}", e.what());
         loader_error = e.what();
+      } catch (const std::runtime_error& e) {
+        log_debug("Failed to load ACC: {}", e.what());
+        loader_error = e.what();
       }
 
       if (!loader_error.empty()) {

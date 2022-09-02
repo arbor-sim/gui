@@ -1,0 +1,35 @@
+(arbor-component
+  (meta-data
+    (version "0.1-dev"))
+  (cable-cell
+    (morphology
+      (branch 0 -1
+        (segment 0
+          (point -5.000000 0.000000 0.000000 5.000000)
+          (point 0.000000 0.000000 0.000000 5.000000)
+          1)
+        (segment 1
+          (point 0.000000 0.000000 0.000000 5.000000)
+          (point 5.000000 0.000000 0.000000 5.000000)
+          1)))
+    (label-dict
+      (region-def "all"
+        (all))
+      (region-def "apic"
+        (tag 4))
+      (region-def "axon"
+        (tag 2))
+      (region-def "dend"
+        (tag 3))
+      (region-def "soma"
+        (tag 1)))
+    (decor
+      (paint
+        (region "soma")
+        (membrane-capacitance 1.000000))
+      (paint
+        (region "soma")
+        (density
+          (mechanism "hh"
+            ("gkbar" 0.027125)
+            ("gnabar" 0.102993)))))))
