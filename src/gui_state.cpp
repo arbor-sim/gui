@@ -104,6 +104,7 @@ namespace {
       try {
         if (ok) {
           state.deserialize(state.acc_chooser.file);
+          state.open_morph_name = state.acc_chooser.file;
           open = false;
         }
       } catch (const arb::arbor_exception& e) {
@@ -406,6 +407,7 @@ namespace {
               auto result = loader.load.value()(state.file_chooser.file);
               state.reload(result);
               open_file = false;
+              state.open_morph_name = state.file_chooser.file;
             } catch (const arborio::swc_error& e) {
               loader_error = e.what();
             } catch (const arborio::neuroml_exception& e) {
@@ -1014,8 +1016,8 @@ void gui_state::gui() {
   update();
   gui_main(*this);
   gui_locations(*this);
-  gui_cell(*this);
   gui_traces(*this);
+  gui_cell(*this);
   gui_cell_info(*this);
   gui_parameters(*this);
   gui_simulation(*this);

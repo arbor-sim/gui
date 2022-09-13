@@ -40,7 +40,7 @@ Window::Window() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glsl_version = "#version 410";
-    handle = glfwCreateWindow(1280, 720, "arbor-gui", NULL, NULL);
+    handle = glfwCreateWindow(1280, 720, appname.c_str(), NULL, NULL);
     if (handle == nullptr) log_fatal("Failed to obtain window");
     log_info("OpenGL version instantiated {}.{}",
              glfwGetWindowAttrib(handle, GLFW_CONTEXT_VERSION_MAJOR),
@@ -137,7 +137,7 @@ Window::~Window() {
 
 bool Window::running() { return !glfwWindowShouldClose(handle); }
 
-void Window::begin_frame() {
+void Window::begin_frame(std::optional<std::string> open_morph_name) {
     // Poll and handle events (inputs, window resize, etc.)
     // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
     // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -149,6 +149,7 @@ void Window::begin_frame() {
     ImGui::NewFrame();
     ImGuizmo::BeginFrame();
     ImGui::PushFont(font);
+    glfwSetWindowTitle(handle, (appname+(open_morph_name?std::string{" - "}+open_morph_name.value():"")).c_str());
 }
 
 void Window::end_frame() {

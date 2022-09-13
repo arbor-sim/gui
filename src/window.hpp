@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <optional>
 
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
@@ -21,13 +22,14 @@ struct Window {
 
     bool running();
     bool visible();
-    void begin_frame();
+    void begin_frame(std::optional<std::string>);
     void end_frame();
 
     void set_style_dark();
     void set_style_light();
 
     private:
+        std::string appname = "arbor-gui";
         ImFont* font = nullptr;
         std::string ini_file = "";
         void load_font();

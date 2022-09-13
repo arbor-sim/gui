@@ -20,7 +20,7 @@ int main(int, char**) {
             continue;
         }
         auto t0 = timer::now();
-        window.begin_frame();
+        window.begin_frame(state.open_morph_name);
         state.gui();
         window.end_frame();
         {
