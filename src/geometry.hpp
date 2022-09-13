@@ -1,7 +1,9 @@
 #pragma once
 
 // needs to be at the top
-#include <GL/gl3w.h>
+// #include <GL/gl3w.h>
+#include <glbinding/gl/gl.h>
+using namespace gl;
 
 #include <vector>
 #include <optional>
@@ -11,9 +13,12 @@
 #include <memory>
 
 #include <arbor/morph/morphology.hpp>
+#include <arbor/iexpr.hpp>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+#include "cell_builder.hpp"
 #include "id.hpp"
 #include "view_state.hpp"
 #include "utils.hpp"
@@ -29,6 +34,7 @@ struct renderable {
   size_t    count     = 0;
   size_t    instances = 0;
   unsigned  vao       = 0;
+  unsigned  cbo       = 0;
   bool      active    = false;
   float     zorder    = 0.0f;
   glm::vec4 color     = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -74,6 +80,7 @@ struct geometry {
   void render(const view_state& view, const glm::vec2&);
   void make_marker(const std::vector<glm::vec3>& points, renderable&);
   void make_region(const std::vector<arb::msegment>& segments, renderable&);
+  void make_iexpr(const iexpr_info& expr, renderable&);
   void make_ruler();
   std::optional<object_id> get_id();
   void clear();
@@ -86,9 +93,9 @@ struct geometry {
   std::unordered_map<size_t, size_t> id_to_branch;  // map segment id to branch id
   std::unordered_map<size_t, std::vector<std::pair<size_t, size_t>>> branch_to_ids; // map branch to segment ids
 
-
   component_unique<renderable> locsets;
   component_unique<renderable> regions;
+  component_unique<renderable> iexprs;
   renderable                   cv_boundaries;
 
   render_ctx pick;
@@ -100,8 +107,12 @@ struct geometry {
   unsigned pbo            = 0;
   unsigned vbo            = 0;
   unsigned region_program = 0;
+  unsigned iexpr_program  = 0;
   unsigned object_program = 0;
   unsigned marker_program = 0;
+
+  std::unordered_map<std::string, unsigned> cmaps;
+  std::string cmap = "inferno";
 
   // Geometry
   size_t n_faces     = 16;             // Faces on frustrum mantle

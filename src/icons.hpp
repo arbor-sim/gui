@@ -48,4 +48,5 @@ const char * icon_clone    = (const char *)ICON_FK_CLONE;
 const char * icon_home     = (const char *)ICON_FK_HOME;
 const char * icon_desk     = (const char *)ICON_FK_DESKTOP;
 const char * icon_docs     = (const char *)ICON_FK_SUITCASE;
+const char * icon_iexpr    = (const char *)ICON_FK_EXPAND;
 }

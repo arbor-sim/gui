@@ -11,13 +11,15 @@ void gui_ion_parameter(id_type id,
         with_item_width width{120.0f};
         if (preset.contains(name)) {
             auto p = preset.at(name);
-            gui_defaulted_double("Int. Concentration", "mM", data.Xi, fallback.Xi, p.init_int_concentration);
-            gui_defaulted_double("Ext. Concentration", "mM", data.Xo, fallback.Xo, p.init_ext_concentration);
-            gui_defaulted_double("Reversal Potential", "mV", data.Er, fallback.Er, p.init_reversal_potential);
+            gui_defaulted_double("Int. Concentration", "mM",   data.Xi, fallback.Xi, p.init_int_concentration);
+            gui_defaulted_double("Ext. Concentration", "mM",   data.Xo, fallback.Xo, p.init_ext_concentration);
+            gui_defaulted_double("Reversal Potential", "mV",   data.Er, fallback.Er, p.init_reversal_potential);
+            gui_defaulted_double("Diffusion coeff.",   "m²/s", data.D,  fallback.D,  p.diffusivity);
         } else {
-            gui_defaulted_double("Int. Concentration", "mM", data.Xi, fallback.Xi);
-            gui_defaulted_double("Ext. Concentration", "mM", data.Xo, fallback.Xo);
-            gui_defaulted_double("Reversal Potential", "mV", data.Er, fallback.Er);
+            gui_defaulted_double("Int. Concentration", "mM",   data.Xi, fallback.Xi);
+            gui_defaulted_double("Ext. Concentration", "mM",   data.Xo, fallback.Xo);
+            gui_defaulted_double("Reversal Potential", "mV",   data.Er, fallback.Er);
+            gui_defaulted_double("Diffusion coeff.",   "m²/s", data.D,  fallback.D);
         }
         ImGui::TreePop();
     }
@@ -37,12 +39,13 @@ void gui_ion_default(id_type id, ion_def& definition, ion_default& data, const s
             auto p = preset.at(name);
             auto indent = gui_tree_indent();
             ImGui::InputInt("Charge", &definition.charge);
-            gui_defaulted_double("Int. Concentration", "mM", data.Xi, p.init_int_concentration);
-            gui_defaulted_double("Ext. Concentration", "mM", data.Xo, p.init_ext_concentration);
+            gui_defaulted_double("Int. Concentration", "mM",   data.Xi, p.init_int_concentration);
+            gui_defaulted_double("Ext. Concentration", "mM",   data.Xo, p.init_ext_concentration);
+            gui_defaulted_double("Diffusion coeff.",   "m²/s", data.D,  p.diffusivity);
             gui_choose("##rev-pot-method", data.method, ion_default::methods);
             ImGui::SameLine();
             {
-                with_item_width width{40.0f};
+                with_item_width width{60.0f};
                 gui_defaulted_double("Reversal Potential", "mV", data.Er, p.init_reversal_potential);
             }
         } else {
@@ -50,10 +53,11 @@ void gui_ion_default(id_type id, ion_def& definition, ion_default& data, const s
             ImGui::InputInt("Charge", &definition.charge);
             gui_input_double("Int. Concentration", data.Xi, "mM");
             gui_input_double("Ext. Concentration", data.Xo, "mM");
+            gui_input_double("Diffusion coeff.",   data.D,  "m²/s");
             gui_choose("##rev-pot-method", data.method, ion_default::methods);
             ImGui::SameLine();
             {
-                with_item_width width{40.0f};
+                with_item_width width{60.0f};
                 gui_input_double("Reversal Potential", data.Er, "mV");
             }
         }

@@ -19,11 +19,11 @@ struct ion_def {
 };
 
 struct ion_parameter {
-    std::optional<double> Xi, Xo, Er;
+    std::optional<double> Xi, Xo, Er, D;
 };
 
 struct ion_default {
-    std::optional<double> Xi, Xo, Er;
+    std::optional<double> Xi, Xo, Er, D;
     std::string method = methods.front();
     constexpr static std::array<const char*, 2> methods{"const.", "Nernst"};
 };

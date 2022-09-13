@@ -26,7 +26,7 @@ void make_mechanism(mechanism_def& data,
     for (const auto& [k, v]: info.state)      data.states[k]     = values.contains(k) ? values.at(k) : v.default_value;
 }
 
-void gui_mechanism(id_type id, mechanism_def& data, event_queue& evts) {
+void gui_mechanism(id_type id, mechanism_def& data, const std::vector<ie_def>& ies, event_queue& evts) {
     with_id mech_guard{id};
     auto open = gui_tree("##mechanism-tree");
     ImGui::SameLine();
@@ -35,6 +35,7 @@ void gui_mechanism(id_type id, mechanism_def& data, event_queue& evts) {
             ImGui::Selectable(cat_name.c_str(), false);
             with_indent ind{};
             for (const auto& name: cat.mechanism_names()) {
+                if (cat[name].kind != arb_mechanism_kind_density) continue;
                 if (gui_select(fmt::format("  {}##{}", name, cat_name), data.name)) make_mechanism(data, cat_name, name);
             }
         }
@@ -56,7 +57,25 @@ void gui_mechanism(id_type id, mechanism_def& data, event_queue& evts) {
         if (!data.parameters.empty()) {
             ImGui::BulletText("Parameters");
             with_indent ind{};
-            for (auto& [k, v]: data.parameters) gui_input_double(k, v);
+            for (auto& [k, v]: data.parameters) {
+                {
+                    with_id id(k);
+                    with_item_width iw(80.0f);
+                    auto none = data.scales.contains(k);
+                    auto lbl  = data.scales[k].value_or("-");
+                    if (ImGui::BeginCombo("Scale", lbl.c_str())) {
+                        if (ImGui::Selectable("-", lbl == "-")) data.scales[k] = {};
+                        for (const auto& ie: ies) {
+                            if (ie.state != def_state::good) continue;
+                            auto& nm = ie.name;
+                            if (ImGui::Selectable(nm.c_str(), nm == lbl)) data.scales[k] = nm;
+                        }
+                        ImGui::EndCombo();
+                    }
+                }
+                ImGui::SameLine();
+                gui_input_double(k, v);
+            }
         }
         ImGui::TreePop();
     }

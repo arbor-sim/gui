@@ -28,6 +28,7 @@ using event = std::variant<evt_upd_cv,
                            evt_add_probe,                                    evt_del_probe,
                            evt_add_stimulus,                                 evt_del_stimulus,
                            evt_add_detector,                                 evt_del_detector,
+                           evt_add_locdef<ie_def>,  evt_upd_locdef<ie_def>,  evt_del_locdef<ie_def>,
                            evt_add_locdef<rg_def>,  evt_upd_locdef<rg_def>,  evt_del_locdef<rg_def>,
                            evt_add_locdef<ls_def>,  evt_upd_locdef<ls_def>,  evt_del_locdef<ls_def>>;
 

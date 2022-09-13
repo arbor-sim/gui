@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+#include <unordered_map>
+
 #include <arbor/cable_cell.hpp>
 #include <arbor/morph/place_pwlin.hpp>
 #include <arbor/morph/mprovider.hpp>
@@ -24,5 +27,8 @@ struct cell_builder {
     std::vector<arb::msegment> make_segments(const arb::region&);
     std::vector<glm::vec3>     make_points(const arb::locset&);
     std::vector<glm::vec3>     make_boundary(const arb::cv_policy&);
-    void                       make_label_dict(std::vector<ls_def>& locsets, std::vector<rg_def>& regions);
+    iexpr_info                 make_iexpr(const arb::iexpr&);
+    void                       make_label_dict(std::vector<ls_def>& locsets,
+                                               std::vector<rg_def>& regions,
+                                               std::vector<ie_def>& iexprs);
 };

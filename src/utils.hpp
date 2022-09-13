@@ -17,16 +17,34 @@ enum class def_state { empty, error, good };
 using timer = std::chrono::high_resolution_clock;
 constexpr auto frame_time = std::chrono::seconds(1)/60.0;
 
-inline double to_us(auto dt) { return std::chrono::duration_cast<std::chrono::microseconds>(dt).count(); }
+inline constexpr double
+to_us(auto dt) { return std::chrono::duration_cast<std::chrono::microseconds>(dt).count(); }
 
 // Logging
 void log_init();
 
-template <typename... T> void log_debug(T... t) { spdlog::debug(t...); }
-template <typename... T> void log_info(T... t)  { spdlog::info(t...); }
-template <typename... T> void log_warn(T... t)  { spdlog::warn(t...); }
-template <typename... T> void log_error(T... t) { spdlog::error(t...); throw std::runtime_error(fmt::format(t...)); }
-template <typename... T> void log_fatal(T... t) { spdlog::error(t...); abort(); }
+template <typename T, typename... Ts>
+void log_debug(T t, Ts... ts) {
+  spdlog::debug(fmt::runtime(t), ts...);
+}
+template <typename T, typename... Ts>
+void log_info(T t, Ts... ts)  {
+  spdlog::info(fmt::runtime(t), ts...);
+}
+template <typename T, typename... Ts>
+void log_warn(T t, Ts... ts)  {
+  spdlog::warn(fmt::runtime(t), ts...);
+}
+template <typename T, typename... Ts>
+void log_error(T t, Ts... ts) {
+  spdlog::error(fmt::runtime(t), ts...);
+  throw std::runtime_error(fmt::format(fmt::runtime(t), ts...));
+}
+template <typename T, typename... Ts>
+void log_fatal(T t, Ts... ts) {
+  spdlog::error(fmt::runtime(t), ts...);
+  abort();
+}
 
 ImVec4 to_imvec(const glm::vec4& v);
 ImVec4 to_imvec(const glm::vec3& v);
@@ -81,6 +99,14 @@ inline std::string rtrim_copy(std::string s) {
 inline std::string trim_copy(std::string s) {
     trim(s);
     return s;
+}
+
+inline std::string split_off(std::string& str, const std::string& by) {
+  auto sep = str.find(by);
+  if (sep == std::string::npos) sep = str.size();
+  auto result = str.substr(0, sep);
+  str.erase(0, sep + by.size());
+  return result;
 }
 
 glm::vec4 next_color();

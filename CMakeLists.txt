@@ -19,13 +19,20 @@ set(ARBORGUI_BUILD_BUNDLE OFF CACHE BOOL "Make an OSX package")
 set(ARB_WITH_NEUROML     ON  CACHE BOOL "enable neuroml"    FORCE)
 set(ARB_WITH_PYTHON      OFF CACHE BOOL "disable pyarb"     FORCE)
 set(ARB_USE_BUNDLED_LIBS ON  CACHE BOOL "use internal deps" FORCE)
-add_subdirectory(3rd-party/arbor EXCLUDE_FROM_ALL)
+add_subdirectory(3rd-party/arbor)
+
+# Add OpenGL loader
+set(OPTION_BUILD_EXAMPLES      OFF CACHE BOOL "" FORCE)
+set(OPTION_BUILD_TOOLs         OFF CACHE BOOL "" FORCE)
+set(OPTION_USE_GIT_INFORMATION OFF CACHE BOOL "" FORCE)
+add_subdirectory(3rd-party/glbinding EXCLUDE_FROM_ALL)
 
 # Tweak GLFW
 set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
+set(GLFW_INCLUDE_NONE   ON  CACHE BOOL "" FORCE)
 add_subdirectory(3rd-party/glfw)
 
 # Set up sanitizer targets
@@ -89,11 +96,11 @@ if (APPLE)
   list(APPEND ARBORGUI_LIBS ${cf_library} ${cocoa_library} ${iokit_library})
   mark_as_advanced(cocoa_library iokit_library)
   find_library(corevideo_library CoreVideo)
-  find_library(opengl_library OpenGL)
+  # find_library(opengl_library OpenGL)
   # Disable OpenGL deprecation warnings
   add_definitions(-DGL_SILENCE_DEPRECATION=1)
-  list(APPEND ARBORGUI_LIBS ${opengl_library} ${corevideo_library})
-  mark_as_advanced(opengl_library corevideo_library)
+  list(APPEND ARBORGUI_LIBS ${corevideo_library})
+  # mark_as_advanced( corevideo_library)
 elseif (CMAKE_SYSTEM MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "BSD")
   list(APPEND ARBORGUI_LIBS X11 pthread)
   list(APPEND ARBORGUI_LIBS GL)
@@ -105,9 +112,8 @@ elseif (CMAKE_SYSTEM MATCHES "Linux" OR CMAKE_SYSTEM_NAME MATCHES "BSD")
   endif()
 endif()
 
-add_compile_definitions(IMGUI_IMPL_OPENGL_LOADER_GL3W="ON")
-
 add_library(arbor-gui-deps INTERFACE)
+target_link_libraries(arbor-gui-deps INTERFACE glbinding)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/fmt/include)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/icons)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/spdlog/include)
@@ -118,9 +124,7 @@ target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/ImGuizmo)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/glm)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/stb)
 target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui/backends)
-target_include_directories(arbor-gui-deps SYSTEM INTERFACE 3rd-party/imgui/examples/libs/gl3w)
 add_library(imgui OBJECT
-  3rd-party/imgui/examples/libs/gl3w/GL/gl3w.c
   3rd-party/imgui/backends/imgui_impl_opengl3.cpp
   3rd-party/imgui/backends/imgui_impl_glfw.cpp
   3rd-party/imgui/imgui.cpp
@@ -132,7 +136,6 @@ add_library(imgui OBJECT
   3rd-party/ImGuizmo/ImGuizmo.cpp
   3rd-party/implot/implot.cpp
   3rd-party/implot/implot_items.cpp)
-target_include_directories(imgui PRIVATE 3rd-party/imgui/examples/libs/gl3w)
 target_include_directories(imgui PRIVATE 3rd-party/imgui)
 target_include_directories(imgui PUBLIC 3rd-party/implot)
 target_include_directories(imgui PUBLIC 3rd-party/ImGuizmo/)
@@ -165,7 +168,7 @@ set(gui_srcs
   src/cv_policy.hpp src/cv_policy.cpp
   src/mechanism.hpp src/mechanism.cpp
   src/component.hpp
-  src/file_chooser.hpp
+  src/file_chooser.hpp src/file_chooser.cpp
   src/loader.hpp src/loader.cpp
   src/geometry.hpp src/geometry.cpp
   src/location.hpp)
@@ -182,9 +185,9 @@ if(ARBORGUI_BUILD_BUNDLE)
 
     add_executable(arbor-gui MACOSX_BUNDLE ${ARBORGUI_ICON_PATH} ${gui_srcs} $<TARGET_OBJECTS:imgui>)
     set_target_properties(arbor-gui PROPERTIES MACOSX_BUNDLE_ICONFILE ${ARBORGUI_ICON})
-
+    target_compile_definitions(arbor-gui PUBLIC FMT_HEADER_ONLY)
     target_include_directories(arbor-gui PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glfw arbor-gui-deps)
+    target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glbinding glfw arbor-gui-deps)
 
     install(TARGETS arbor-gui
         BUNDLE DESTINATION . COMPONENT Runtime
@@ -206,9 +209,9 @@ else()
   add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
 
   add_executable(arbor-gui ${gui_srcs} $<TARGET_OBJECTS:imgui>)
-
   target_include_directories(arbor-gui PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
   target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glfw arbor-gui-deps)
+  target_compile_definitions(arbor-gui PUBLIC FMT_HEADER_ONLY)
 
   # Set icon on output
   if (APPLE)

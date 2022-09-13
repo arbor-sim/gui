@@ -4,6 +4,11 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <glbinding/gl/gl.h>
+#include <glbinding/gl/extension.h>
+
+using namespace gl;
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -13,7 +18,7 @@
 void gl_check_error(const std::string& where) {
     auto rc = glGetError();
     if (rc != GL_NO_ERROR) {
-        log_error("OpenGL error @ {}: {}", where, rc);
+        log_error("OpenGL error @ {}: {}", where, (unsigned) rc);
     }
 }
 #else
@@ -29,6 +34,19 @@ inline glm::vec3 pack_id(size_t id) {
     result.y =          ((id/id_scale)%id_scale)/float{id_scale - 1};
     result.z =                     (id%id_scale)/float{id_scale - 1};
     return result;
+}
+
+inline unsigned
+make_colormap(const std::vector<glm::vec4>& colors) {
+    unsigned map = 0;
+    glGenTextures(1, &map);
+    glBindTexture(GL_TEXTURE_1D, map);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, colors.size(), 0, GL_RGBA, GL_FLOAT, colors.data());
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);    // linear interpolation when too small
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);    // linear interpolation when too big
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // do not wrap
+    glBindTexture(GL_TEXTURE_1D, 0);
+    return map;
 }
 
 inline size_t unpack_id(const glm::vec3& id) {
@@ -69,7 +87,7 @@ auto get_value_pixel_buffer(unsigned pbo) {
 auto randf() { return (float)rand()/(float)RAND_MAX; }
 
 template<typename T>
-unsigned make_buffer_object(const std::vector<T>& v, unsigned type) {
+unsigned make_buffer_object(const std::vector<T>& v, GLenum type) {
     unsigned int VBO;
     glGenBuffers(1, &VBO);
     glBindBuffer(type, VBO);
@@ -142,6 +160,41 @@ inline void render(unsigned program,
 }
 
 inline void render(unsigned program,
+                   const glm::mat4& model,  const glm::mat4& view,
+                   const glm::vec3& camera, const glm::vec3& light_color,
+                   const std::vector<renderable>& render,
+                   GLuint colormap) {
+    gl_check_error("render init");
+    auto light = glm::vec4(camera, 1.0f) + glm::vec4{0.0f, 1.5f, 0.0f, 0.0f};
+    auto key   = glm::rotate(glm::mat4(1.0f), 0.25f*PI, glm::vec3{0.0f, 1.0f, 0.0f})*light;
+    auto fill  = glm::rotate(glm::mat4(1.0f), 0.74f*PI, glm::vec3{0.0f, 1.0f, 0.0f})*light;
+    auto back  = glm::rotate(glm::mat4(1.0f), 1.25f*PI, glm::vec3{0.0f, 1.0f, 0.0f})*light;
+    glUseProgram(program);
+    set_uniform(program, "model",      model);
+    set_uniform(program, "view",       view);
+    set_uniform(program, "camera",     camera);
+    set_uniform(program, "key",        glm::vec3(key));
+    set_uniform(program, "key_color",  light_color);
+    set_uniform(program, "back",       glm::vec3(back));
+    set_uniform(program, "back_color", light_color*0.2f);
+    set_uniform(program, "fill",       glm::vec3(fill));
+    set_uniform(program, "fill_color", light_color*0.5f);
+    glBindTexture(GL_TEXTURE_1D, colormap);
+    for (const auto& v: render) {
+        if (v.active) {
+            set_uniform(program, "object_color", v.color);
+            set_uniform(program, "zorder", v.zorder*1e-5f);
+            glBindVertexArray(v.vao);
+            glDrawElementsInstanced(GL_TRIANGLES, v.count, GL_UNSIGNED_INT, 0, v.instances);
+            glBindVertexArray(0);
+        }
+    }
+    glBindTexture(GL_TEXTURE_1D, 0);
+    glUseProgram(0);
+    gl_check_error("render end");
+}
+
+inline void render(unsigned program,
                    const glm::mat4& model, const glm::mat4& view,
                    const std::vector<renderable>& render) {
     gl_check_error("render init");
@@ -164,13 +217,13 @@ inline void render(unsigned program,
     gl_check_error("render end");
 }
 
-inline auto make_shader(const std::filesystem::path& dn, unsigned shader_type) {
+inline auto make_shader(const std::filesystem::path& dn, GLenum shader_type) {
     std::filesystem::path fn{"glsl"};
     fn /= dn;
     switch (shader_type) {
         case GL_VERTEX_SHADER:   fn /= "vertex.glsl";   break;
         case GL_FRAGMENT_SHADER: fn /= "fragment.glsl"; break;
-        default:                 log_error("No such shader type {}", shader_type);
+        default:                 log_error("Unknown shader type {}", (unsigned) shader_type);
     };
     auto path = get_resource_path(fn);
     auto dsrc = slurp(path);
@@ -190,7 +243,13 @@ inline auto make_shader(const std::filesystem::path& dn, unsigned shader_type) {
     return shader;
 }
 
-inline auto make_vao(unsigned vbo, const std::vector<unsigned>& idx, const std::vector<glm::vec3>& off) {
+inline auto make_vao(unsigned vbo,
+                     const std::vector<unsigned>& idx,
+                     const std::vector<glm::vec3>& off,
+                     unsigned cvbo=0) {
+
+
+
     log_debug("Setting up VAO");
     unsigned vao = 0;
     glGenVertexArrays(1, &vao);
@@ -198,13 +257,26 @@ inline auto make_vao(unsigned vbo, const std::vector<unsigned>& idx, const std::
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, position))); glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, normal)));   glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, id)));       glEnableVertexAttribArray(2);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, position)));
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, normal)));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(point), (void*) (offsetof(point, id)));
+    glEnableVertexAttribArray(2);
 
     unsigned ivbo = make_buffer_object(off, GL_ARRAY_BUFFER);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr); glEnableVertexAttribArray(3);
+
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
+    glEnableVertexAttribArray(3);
     glVertexAttribDivisor(3, 1);
+
+    if (cvbo) {
+        glBindBuffer(GL_ARRAY_BUFFER, cvbo);
+        glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(float), nullptr);
+        glEnableVertexAttribArray(4);
+    }
 
     unsigned int ebo = make_buffer_object(idx, GL_ELEMENT_ARRAY_BUFFER);
 
@@ -325,6 +397,7 @@ void make_frustrum_vertices(const glm::vec3& p, float rp,
 }
 
 void make_frustrum_indices(size_t base, std::vector<unsigned>& indices, size_t n_faces) {
+    auto sz = indices.size();
     // A frustrum is generated from triangles like this:
     //        *   c0
     //       / \
@@ -358,6 +431,7 @@ void make_frustrum_indices(size_t base, std::vector<unsigned>& indices, size_t n
     indices.push_back(f01); indices.push_back(f10); indices.push_back(f11); // Face 1
     indices.push_back(c0);  indices.push_back(p1);  indices.push_back(p0);  // Proximal cap
     indices.push_back(c1);  indices.push_back(d0);  indices.push_back(d1);  // Distal cap
+    if (indices.size() - sz != n_faces*12) log_error("Invariant!");
 }
 
 void make_axes(axes& ax, float rescale) {
@@ -410,6 +484,33 @@ geometry::geometry() {
     make_program("region", region_program);
     make_program("branch", object_program);
     make_program("marker", marker_program);
+    make_program("iexpr",  iexpr_program);
+
+    // matplotlib inferno
+    cmaps["inferno"] = make_colormap({{0.001462, 0.000466, 0.013866, 1.0},
+                                      {0.087411, 0.044556, 0.224813, 1.0},
+                                      {0.258234, 0.038571, 0.406485, 1.0},
+                                      {0.416331, 0.090203, 0.432943, 1.0},
+                                      {0.578304, 0.148039, 0.404411, 1.0},
+                                      {0.735683, 0.215906, 0.330245, 1.0},
+                                      {0.865006, 0.316822, 0.226055, 1.0},
+                                      {0.954506, 0.468744, 0.099874, 1.0},
+                                      {0.987622, 0.64532, 0.039886, 1.0},
+                                      {0.964394, 0.843848, 0.273391, 1.0},
+                                      {0.988362, 0.998364, 0.644924, 1.0}});
+    cmaps["viridis"] = make_colormap({{0.267004, 0.004874, 0.329415, 1.0},
+                                      {0.282623, 0.140926, 0.457517, 1.0},
+                                      {0.253935, 0.265254, 0.529983, 1.0},
+                                      {0.206756, 0.371758, 0.553117, 1.0},
+                                      {0.163625, 0.471133, 0.558148, 1.0},
+                                      {0.127568, 0.566949, 0.550556, 1.0},
+                                      {0.134692, 0.658636, 0.517649, 1.0},
+                                      {0.266941, 0.748751, 0.440573, 1.0},
+                                      {0.477504, 0.821444, 0.318195, 1.0},
+                                      {0.741388, 0.873449, 0.149561, 1.0},
+                                      {0.993248, 0.906157, 0.143936, 1.0}});
+    // b-w gradient
+    cmaps["gradient"] = make_colormap({{0, 0, 0, 1}, {1,1,1,1}});
     cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
     ::make_marker(mark);
     make_ruler();
@@ -420,7 +521,7 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
     make_fbo(vs.size.x, vs.size.y, pick);
 
     glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
-    glm::mat4 view  = glm::lookAt(vs.camera, (vs.target - root)/rescale + shift, vs.up);
+    glm::mat4 view  = glm::lookAt(vs.camera, vs.target/rescale + shift, vs.up);
     glm::mat4 proj  = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
     view = proj*view; // pre-multiply view matrices
 
@@ -459,6 +560,13 @@ void geometry::render(const view_state& vs, const glm::vec2& where) {
             glFrontFace(GL_CW);
             glEnable(GL_CULL_FACE);
             ::render(region_program, model, view, vs.camera, light_color, regions.items);
+            glDisable(GL_CULL_FACE);
+        }
+        // ... color mapped values ...
+        {
+            glFrontFace(GL_CW);
+            glEnable(GL_CULL_FACE);
+            ::render(iexpr_program, model, view, vs.camera, light_color, iexprs.items, cmaps[cmap]);
             glDisable(GL_CULL_FACE);
         }
         // ... axes ...
@@ -501,7 +609,7 @@ void geometry::make_marker(const std::vector<glm::vec3>& points, renderable& r) 
 }
 
 void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r) {
-    std::vector<unsigned> idcs{};
+    std::vector<unsigned> idcs;
     for (const auto& seg: segs) {
         const auto idx = id_to_index[seg.id];
         for (auto idy = n_indices*idx; idy < n_indices*(idx + 1); ++idy) {
@@ -515,6 +623,34 @@ void geometry::make_region(const std::vector<arb::msegment>& segs, renderable& r
     r.active    = true;
 }
 
+void geometry::make_iexpr(const iexpr_info& iexpr, renderable& r) {
+    std::vector<float> cols;
+    std::vector<unsigned> idcs;
+    for (const auto& segment: segments) {
+        auto idx = id_to_index[segment.id];
+        auto [pc, dc] = iexpr.values.at(segment.id);
+        for (auto idy = n_indices*idx; idy < n_indices*(idx + 1); ++idy) {
+            idcs.push_back(indices[idy]);
+        }
+        cols.push_back(pc);
+        cols.push_back(dc);
+        for (auto face = 0ul; face < n_faces; ++face) {
+            cols.push_back(pc);
+            cols.push_back(pc);
+            cols.push_back(dc);
+            cols.push_back(dc);
+        }
+    }
+
+    glDeleteVertexArrays(1, &r.vao);
+    glDeleteVertexArrays(1, &r.cbo);
+    r.cbo       = make_buffer_object(cols, GL_ARRAY_BUFFER);
+    r.vao       = make_vao(vbo, idcs, {{0.0f, 0.0f, 0.0f}}, r.cbo);
+    r.count     = idcs.size();
+    r.instances = 1;
+    r.active    = true;
+}
+
 void geometry::make_ruler() {
     make_axes(ax, rescale);
 }
@@ -523,6 +659,7 @@ void geometry::load_geometry(const arb::morphology& morph, bool reset) {
     if (reset) {
         locsets.clear();
         regions.clear();
+        iexprs.clear();
         cv_boundaries.active = false;
     }
     clear();
@@ -569,10 +706,12 @@ void geometry::load_geometry(const arb::morphology& morph, bool reset) {
         return;
     }
     root = {(float) segments[0].prox.x, (float) segments[0].prox.y, (float) segments[0].prox.z};
+    log_debug("New root x={} y={} z={}", root.x, root.y, root.z);
     {
         vertices.reserve(segments.size()*n_vertices);
         indices.reserve(segments.size()*n_indices);
         for (auto ix = 0ul; ix < segments.size(); ++ix) {
+            if (indices.size() != segments[ix].id*n_indices)  log_error("Size mismatch: indices ./. segments");
             const auto& [id, prox, dist, tag] = segments[ix];
             // Shift to root and find vector along the segment
             auto c_prox = glm::vec3{prox.x, prox.y, prox.z} - root;

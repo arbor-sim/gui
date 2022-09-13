@@ -6,6 +6,7 @@
 
 #include <arbor/mechcat.hpp>
 
+#include "component.hpp"
 #include "events.hpp"
 
 struct mechanism_def {
@@ -14,6 +15,7 @@ struct mechanism_def {
     std::unordered_map<std::string, double> parameters = {};
     std::unordered_map<std::string, double> states     = {};
     std::unordered_map<std::string, double> globals    = {};
+    std::unordered_map<std::string, std::optional<std::string>> scales = {};
 };
 
 inline std::strong_ordering operator<=>(const mechanism_def& l, const mechanism_def& r) {
@@ -33,4 +35,4 @@ void make_mechanism(mechanism_def& data,
                     const std::string& cat_name, const std::string& name,
                     const std::unordered_map<std::string, double>& values={});
 
-void gui_mechanism(id_type, mechanism_def&, event_queue&);
+void gui_mechanism(id_type, mechanism_def&, const std::vector<ie_def>&, event_queue&);

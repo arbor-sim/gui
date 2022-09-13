@@ -2,6 +2,7 @@
 
 in vec3 position;
 in vec3 normal;
+in float alpha;
 
 uniform vec3 key;
 uniform vec3 key_color;
@@ -12,6 +13,7 @@ uniform vec3 fill_color;
 uniform vec3 camera;
 uniform vec4 object_color;
 uniform float zorder;
+uniform sampler1D cmap;
 
 out vec4 color;
 
@@ -36,7 +38,7 @@ void main() {
     float spec       = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0f);
     vec3 specular    = specular_str*spec*key_color;
 
-    color = vec4(ambient + diffuse + specular, 1.0f)*object_color;
+    color = vec4(ambient + diffuse + specular, 1.0f)*texture(cmap, clamp(alpha, 0.0, 1.0));
 
     gl_FragDepth = clamp(gl_FragCoord.z + zorder, 0.0f, 1.0f);
 }

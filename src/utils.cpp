@@ -29,8 +29,7 @@ std::filesystem::path get_resource_path(const std::filesystem::path& fn) {
 }
 
 void log_init() {
-  // auto logger = spdlog::basic_logger_mt("basic_logger", "logs/basic-log.txt");
-  spdlog::set_level(spdlog::level::debug);
+    spdlog::set_level(spdlog::level::warn);
 }
 
 
