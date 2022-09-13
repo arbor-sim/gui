@@ -185,7 +185,7 @@ if(ARBORGUI_BUILD_BUNDLE)
 
     add_executable(arbor-gui MACOSX_BUNDLE ${ARBORGUI_ICON_PATH} ${gui_srcs} $<TARGET_OBJECTS:imgui>)
     set_target_properties(arbor-gui PROPERTIES MACOSX_BUNDLE_ICONFILE ${ARBORGUI_ICON})
-    target_compile_definitions(arbor-gui FMT_HEADER_ONLY)
+    target_compile_definitions(arbor-gui PUBLIC FMT_HEADER_ONLY)
     target_include_directories(arbor-gui PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
     target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glbinding glfw arbor-gui-deps)
 
@@ -209,9 +209,9 @@ else()
   add_compile_definitions(ARBORGUI_RESOURCES_BASE="${resource_path}")
 
   add_executable(arbor-gui ${gui_srcs} $<TARGET_OBJECTS:imgui>)
-  target_compile_definitions(arbor-gui FMT_HEADER_ONLY)
   target_include_directories(arbor-gui PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
   target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glfw arbor-gui-deps)
+  target_compile_definitions(arbor-gui PUBLIC FMT_HEADER_ONLY)
 
   # Set icon on output
   if (APPLE)
