@@ -9,14 +9,13 @@ on:
 jobs:
   build_appimage:
     name: "Make Linux AppImage Nightly"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - name: install dependencies
         run: |
-          sudo apt install -y software-properties-common
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-          sudo apt install -y build-essential python3-pip libxml2-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev gcc-10 g++-10
-          sudo pip3 install --upgrade pip cmake
+          sudo apt update
+          sudo apt install -y python3-pip libxml2-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
+          sudo pip install --upgrade pip cmake
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
       - name: "Clone w/ submodules"
@@ -33,7 +32,7 @@ jobs:
 
   build_diskim:
     name: "Make Apple Disk Image Nightly"
-    runs-on: macos-10.15
+    runs-on: macos-latest
     steps:
       - name: "Clone w/ submodules"
         uses: actions/checkout@v2
