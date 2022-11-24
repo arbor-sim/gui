@@ -932,7 +932,7 @@ namespace {
         }
       }
     }
-    return {state.builder.morph, state.builder.labels, decor};
+    return {state.builder.morph, decor, state.builder.labels};
   }
 
   void gui_traces(gui_state& state) {
