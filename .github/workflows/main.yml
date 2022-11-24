@@ -34,8 +34,12 @@ jobs:
         run: sudo apt update
       - name: Install missing packages
         run: sudo apt install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
+      - name: Check config
+        run: |
+          $CC --version
+          $CXX --version
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -DCMAKE_C_COMPILER=${{ matrix.config.cc }}
       - name: Build
         run: cmake --build build
   build_macos:
