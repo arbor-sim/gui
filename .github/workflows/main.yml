@@ -22,9 +22,10 @@ jobs:
         - { 
             name: "Ubuntu LLVM X",
             os:   "ubuntu-latest",
-            cc:   "clang-10",
-            cxx:  "clang++-10"
+            cc:   "clang",
+            cxx:  "clang++"
           }
+      fail-fast: false
     env:
         CC:         ${{ matrix.config.cc }}
         CXX:        ${{ matrix.config.cxx }}
@@ -42,7 +43,7 @@ jobs:
           $CC --version
           $CXX --version
       - name: Configure
-        run: cmake -S . -B build
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC
       - name: Build
         run: cmake --build build
   build_macos:
@@ -53,8 +54,8 @@ jobs:
         config:
         - {
             name: "MacOS 10",
-            os:   "macos-10.15",
-            cc:   "c",
+            os:   "macos-latest",
+            cc:   "clang",
             cxx:  "clang++-10"
           }
     steps:
