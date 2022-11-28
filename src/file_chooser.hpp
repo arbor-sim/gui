@@ -5,6 +5,7 @@
 #include <array>
 #include <filesystem>
 #include <variant>
+#include <optional>
 
 #include "utils.hpp"
 
