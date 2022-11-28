@@ -98,7 +98,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: linux
-          path: './*.AppImage*'
+          path: './*.tar.gz*'
 
   build_diskim:
     name: "Make Apple Disk Image Nightly"

@@ -16,6 +16,8 @@ chmod +x linuxdeploy-x86_64.AppImage
 #     export ARCH=x86_64
 #     export UPDATE_INFORMATION="gh-releases-zsync|${GITHUB_REPOSITORY//\//|}|${VERSION:-"continuous"}|CPU-X-*$ARCH.AppImage.zsync"
 # fi
-./linuxdeploy-x86_64.AppImage --appdir "$app_dir" --output appimage
-rm ./linuxdeploy-x86_64.AppImage
-mv ./*.AppImage* "$back_again"
+tar -zcvf arbor-appdir "$app_dir"
+mv ./*.tar.gz* "$back_again"
+# ./linuxdeploy-x86_64.AppImage --appdir "$app_dir" --output appimage
+# rm ./linuxdeploy-x86_64.AppImage
+# mv ./*.AppImage* "$back_again"
