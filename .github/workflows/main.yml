@@ -33,6 +33,7 @@ jobs:
       - name: "Clone w/ submodules"
         uses: actions/checkout@v2
         with:
+          fetch-depth: 0
           submodules: "recursive"
       - name: Update apt
         run: sudo apt update
@@ -65,6 +66,7 @@ jobs:
       - name: "Clone w/ submodules"
         uses: actions/checkout@v2
         with:
+          fetch-depth: 0
           submodules: "recursive"
       - name: Check config
         run: |
@@ -78,14 +80,14 @@ jobs:
   build_appimage:
     name: "Make Linux AppImage Nightly"
     runs-on: ubuntu-latest
+    env:
+        CC: gcc-10
+        CXX: g++-10
     steps:
       - name: install dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip libfuse2 libxml2-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
-          sudo pip install --upgrade pip cmake
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
+          sudo apt install libfuse2 libxml2-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
       - name: "Clone w/ submodules"
         uses: actions/checkout@v2
         with:

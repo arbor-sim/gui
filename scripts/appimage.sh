@@ -3,7 +3,7 @@ back_again=$(pwd)
 bld_dir=$(mktemp -d)
 app_dir=$(mktemp -d)
 tmp_dir=$(mktemp -d)
-cmake -S . -B $bld_dir --install-prefix $app_dir/usr -DARB_ARCH=x86-64-v2
+cmake -S . -B $bld_dir -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC --install-prefix $app_dir/usr -DARB_ARCH=x86-64-v2
 # cmake -S . -B $bld_dir "$CMAKECOMP" --install-prefix $app_dir/usr -DARB_ARCH=x86-64-v2
 cmake --build $bld_dir -j 4
 cmake --install $bld_dir
