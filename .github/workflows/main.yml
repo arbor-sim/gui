@@ -99,30 +99,3 @@ jobs:
         with:
           name: apple dmg
           path: build/*.dmg
-
-  build_appimage:
-    name: "Make Linux AppImage Nightly"
-    runs-on: ubuntu-20.04
-    env:
-        CC: gcc-10
-        CXX: g++-10
-    steps:
-      - name: install dependencies
-        run: |
-          sudo apt update
-          sudo apt install libfuse2 libxml2-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
-      - name: "Clone w/ submodules"
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          submodules: recursive
-      - name: Make AppImage
-        run: sh ./scripts/appimage.sh
-      - uses: actions/upload-artifact@v3
-        with:
-          name: linux appimage
-          path: './*.AppImage*'
-      - uses: actions/upload-artifact@v3
-        with:
-          name: linux-tar-gz
-          path: './*.tar.gz*'
