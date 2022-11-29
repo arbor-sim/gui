@@ -18,6 +18,6 @@ chmod +x linuxdeploy-x86_64.AppImage
 # fi
 tar -zcvf arbor-appdir.tar.gz "$app_dir"
 mv ./*.tar.gz* "$back_again"
-# ./linuxdeploy-x86_64.AppImage --appdir "$app_dir" --output appimage
-# rm ./linuxdeploy-x86_64.AppImage
-# mv ./*.AppImage* "$back_again"
+./linuxdeploy-x86_64.AppImage --appdir "$app_dir" --output appimage
+rm ./linuxdeploy-x86_64.AppImage
+mv ./*.AppImage* "$back_again"
