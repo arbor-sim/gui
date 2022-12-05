@@ -29,7 +29,7 @@ jobs:
     env:
         CC:         ${{ matrix.config.cc }}
         CXX:        ${{ matrix.config.cxx }}
-        app_dir:    app_dir
+        app_dir:    /tmp/tmp.JbLDI6xwc5
         bld_dir:    build_dir
     steps:
       - name: "Clone w/ submodules"
