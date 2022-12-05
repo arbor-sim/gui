@@ -29,11 +29,8 @@ jobs:
     env:
         CC:         ${{ matrix.config.cc }}
         CXX:        ${{ matrix.config.cxx }}
+        app_dir:    /tmp/tmp.JbLDI6xwc5
     steps:
-      - name: set env var
-        run: |
-          app_dir=$(mktemp -d)
-          echo $app_dir
       - name: "Clone w/ submodules"
         uses: actions/checkout@v3
         with:
