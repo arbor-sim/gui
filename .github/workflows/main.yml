@@ -56,8 +56,10 @@ jobs:
         run: wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
       - name: Mark executable
         run: chmod +x ./linuxdeploy-x86_64.AppImage
+      - name: package AppImage check
+        run: echo ./linuxdeploy-x86_64.AppImage --appdir="$app_dir" --output=appimage
       - name: package AppImage
-        run: ./linuxdeploy-x86_64.AppImage --appdir $app_dir --output appimage
+        run: ./linuxdeploy-x86_64.AppImage --appdir="$app_dir" --output=appimage
       - uses: actions/upload-artifact@v3
         with:
           name: linux appimage
