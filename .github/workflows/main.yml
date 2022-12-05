@@ -30,6 +30,10 @@ jobs:
         CC:         ${{ matrix.config.cc }}
         CXX:        ${{ matrix.config.cxx }}
     steps:
+      - name: set env var
+        run: |
+          app_dir=$(mktemp -d)
+          echo $app_dir
       - name: "Clone w/ submodules"
         uses: actions/checkout@v3
         with:
@@ -45,17 +49,15 @@ jobs:
           $CXX --version
       - name: Configure
         # run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC
-        run: |
-          app_dir=$(mktemp -d)
-          cmake -S . -B build_dir -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC --install-prefix $app_dir/usr -DARB_ARCH=x86-64-v2 -DBUILD_SHARED_LIBS=OFF
+        run: cmake -S . -B build_dir -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC --install-prefix $app_dir/usr -DARB_ARCH=x86-64-v2 -DBUILD_SHARED_LIBS=OFF
       - name: Build
         run: cmake --build build_dir -j 2
-      - name: Package
-        run: |
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x ./linuxdeploy-x86_64.AppImage
-          echo "$app_dir"
-          ./linuxdeploy-x86_64.AppImage --appdir $app_dir --output appimage
+      - name: Get Linuxdeploy
+        run: wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+      - name: Mark executable
+        run: chmod +x ./linuxdeploy-x86_64.AppImage
+      - name: package AppImage
+        run: ./linuxdeploy-x86_64.AppImage --appdir $app_dir --output appimage
       - uses: actions/upload-artifact@v3
         with:
           name: linux appimage
