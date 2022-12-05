@@ -29,7 +29,8 @@ jobs:
     env:
         CC:         ${{ matrix.config.cc }}
         CXX:        ${{ matrix.config.cxx }}
-        app_dir:    /tmp/tmp.JbLDI6xwc5
+        app_dir:    app_dir
+        bld_dir:    build_dir
     steps:
       - name: "Clone w/ submodules"
         uses: actions/checkout@v3
@@ -46,16 +47,18 @@ jobs:
           $CXX --version
       - name: Configure
         # run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC
-        run: cmake -S . -B build_dir -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC --install-prefix $app_dir/usr -DARB_ARCH=x86-64-v2 -DBUILD_SHARED_LIBS=OFF
+        run: cmake -S . -B $bld_dir -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC --install-prefix $app_dir/usr -DARB_ARCH=x86-64-v2 -DBUILD_SHARED_LIBS=OFF
       - name: Build
-        run: cmake --build build_dir -j 2
+        run: cmake --build $bld_dir -j 2
+      - name: Install
+        run: cmake --install $bld_dir
       - name: Get Linuxdeploy
         run: wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
       - name: Mark executable
         run: chmod +x ./linuxdeploy-x86_64.AppImage
-      - name: package AppImage check
+      - name: Package Arbor GUI AppImage check
         run: echo ./linuxdeploy-x86_64.AppImage --appdir="$app_dir" --output=appimage
-      - name: package AppImage
+      - name: Package Arbor GUI AppImage
         run: ./linuxdeploy-x86_64.AppImage --appdir="$app_dir" --output=appimage
       - uses: actions/upload-artifact@v3
         with:
