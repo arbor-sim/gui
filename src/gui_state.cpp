@@ -113,9 +113,6 @@ namespace {
       catch (const std::runtime_error& e) {
         log_debug("Failed to load ACC: {}", e.what());
         loader_error = e.what();
-      } catch (const std::runtime_error& e) {
-        log_debug("Failed to load ACC: {}", e.what());
-        loader_error = e.what();
       }
 
       if (!loader_error.empty()) {
@@ -932,7 +929,7 @@ namespace {
         }
       }
     }
-    return {state.builder.morph, state.builder.labels, decor};
+    return {state.builder.morph, decor, state.builder.labels};
   }
 
   void gui_traces(gui_state& state) {

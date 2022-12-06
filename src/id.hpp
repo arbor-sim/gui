@@ -5,7 +5,7 @@
 #include <vector>
 
 struct id_type {
-    size_t value;
+    std::size_t value;
     auto operator<=>(const id_type&) const = default;
 };
 

@@ -118,6 +118,6 @@ std::vector<glm::vec3> cell_builder::make_points(const arb::locset& locset) {
 }
 
 std::vector<glm::vec3> cell_builder::make_boundary(const arb::cv_policy& cv) {
-  auto cell = arb::cable_cell(morph, labels, {});
+  auto cell = arb::cable_cell(morph, {}, labels);
   return make_points(cv.cv_boundary_points(cell));
 }

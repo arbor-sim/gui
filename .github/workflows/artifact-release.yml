@@ -6,48 +6,92 @@ on:
     tags:
       - v*
 
+name: CI
+
 jobs:
   build_appimage:
-    name: "Make Linux AppImage Nightly"
-    runs-on: ubuntu-18.04
+    name: "Build on Ubuntu"
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config:
+        - { 
+            name: "Ubuntu",
+            os:   "ubuntu-20.04",
+            cc:   "gcc-10",
+            cxx:  "g++-10"
+          }
+      fail-fast: false
+    env:
+        CC:         ${{ matrix.config.cc }}
+        CXX:        ${{ matrix.config.cxx }}
+        app_dir:    /tmp/tmp.JbLDI6xwc5
+        bld_dir:    build_dir
     steps:
-      - name: install dependencies
+      - name: "Clone w/ submodules"
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: "recursive"
+      - name: Update apt
+        run: sudo apt update
+      - name: Install missing packages
+        run: sudo apt install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
+      - name: Check config
         run: |
-          sudo apt install -y software-properties-common
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-          sudo apt install -y build-essential python3-pip libxml2-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev gcc-10 g++-10
-          sudo pip3 install --upgrade pip cmake
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
-          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
-      - name: "Clone w/ submodules"
-        uses: actions/checkout@v2
+          $CC --version
+          $CXX --version
+      - name: Configure
+        run: cmake -S . -B $bld_dir -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC --install-prefix $app_dir/usr -DARB_ARCH=x86-64-v2
+      - name: Build
+        run: cmake --build $bld_dir -j 2
+      - name: Install
+        run: cmake --install $bld_dir
+      - name: Get Linuxdeploy
+        run: wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+      - name: Mark executable
+        run: chmod +x ./linuxdeploy-x86_64.AppImage
+      - name: Package Arbor GUI AppImage
+        run: ./linuxdeploy-x86_64.AppImage --appdir="$app_dir" --output=appimage
+      - name: Delete Linuxdeploy
+        run: rm -f ./linuxdeploy-x86_64.AppImage
+      - uses: actions/upload-artifact@v3
         with:
-          fetch-depth: 0
-          submodules: recursive
-      - name: Make AppImage
-        run: sh ./scripts/appimage.sh
-      - uses: actions/upload-artifact@v2
-        with:
-          name: linux
+          name: linux appimage
           path: './*.AppImage*'
-
   build_diskim:
-    name: "Make Apple Disk Image Nightly"
-    runs-on: macos-10.15
+    name: "Build on MacOS"
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config:
+        - {
+            name: "MacOS",
+            os:   "macos-11",
+            cc:   "clang",
+            cxx:  "clang++"
+          }
+    env:
+        CC:         ${{ matrix.config.cc }}
+        CXX:        ${{ matrix.config.cxx }}
     steps:
       - name: "Clone w/ submodules"
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          submodules: recursive
+          submodules: "recursive"
+      - name: Check config
+        run: |
+          $CC --version
+          $CXX --version
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++ -DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang -DARBORGUI_BUILD_BUNDLE=ON
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC -DARBORGUI_BUILD_BUNDLE=ON
       - name: Build
-        run: cmake --build build --target package
+        run: cmake --build build -j 2 --target package
       - name: Upload .dmg
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
-          name: apple
+          name: apple dmg
           path: build/*.dmg
 
   make_rel:

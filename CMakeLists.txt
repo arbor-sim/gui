@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.19)
 
 find_package(Git)
 
@@ -22,16 +22,17 @@ set(ARB_USE_BUNDLED_LIBS ON  CACHE BOOL "use internal deps" FORCE)
 add_subdirectory(3rd-party/arbor)
 
 # Add OpenGL loader
-set(OPTION_BUILD_EXAMPLES      OFF CACHE BOOL "" FORCE)
-set(OPTION_BUILD_TOOLs         OFF CACHE BOOL "" FORCE)
-set(OPTION_USE_GIT_INFORMATION OFF CACHE BOOL "" FORCE)
-add_subdirectory(3rd-party/glbinding EXCLUDE_FROM_ALL)
+set(OPTION_BUILD_EXAMPLES          OFF CACHE BOOL "" FORCE)
+set(OPTION_BUILD_TOOLs             OFF CACHE BOOL "" FORCE)
+set(OPTION_USE_GIT_INFORMATION     OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS              OFF CACHE BOOL "" FORCE)
+add_subdirectory(3rd-party/glbinding)
 
 # Tweak GLFW
 set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL        ON  CACHE BOOL "" FORCE)
 set(GLFW_INCLUDE_NONE   ON  CACHE BOOL "" FORCE)
 add_subdirectory(3rd-party/glfw)
 
@@ -210,7 +211,7 @@ else()
 
   add_executable(arbor-gui ${gui_srcs} $<TARGET_OBJECTS:imgui>)
   target_include_directories(arbor-gui PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
-  target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glfw arbor-gui-deps)
+  target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glbinding glfw arbor-gui-deps)
   target_compile_definitions(arbor-gui PUBLIC FMT_HEADER_ONLY)
 
   # Set icon on output
