@@ -8,12 +8,6 @@ on:
 
 name: CI
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
 jobs:
   build_appimage:
     name: "Build on Ubuntu"
