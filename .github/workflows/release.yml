@@ -6,8 +6,6 @@ on:
     tags:
       - v*
 
-name: CI
-
 jobs:
   build_appimage:
     name: "Build on Ubuntu"
