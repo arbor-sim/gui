@@ -25,6 +25,7 @@ add_subdirectory(3rd-party/arbor)
 set(OPTION_BUILD_EXAMPLES          OFF CACHE BOOL "" FORCE)
 set(OPTION_BUILD_TOOLs             OFF CACHE BOOL "" FORCE)
 set(OPTION_USE_GIT_INFORMATION     OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS              OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rd-party/glbinding)
 
 # Tweak GLFW
