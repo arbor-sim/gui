@@ -53,21 +53,21 @@ jobs:
         run: cmake --build $bld_dir -j 2
       - name: Install
         run: cmake --install $bld_dir
-        if: ${{ startsWith(matrix.config.cc, "gcc") }}
+        if: ${{ startsWith(matrix.config.cc, 'gcc') }}
       - name: Get Linuxdeploy
-        if: ${{ startsWith(matrix.config.cc, "gcc") }}
+        if: ${{ startsWith(matrix.config.cc, 'gcc') }}
         run: wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
       - name: Mark executable
-        if: ${{ startsWith(matrix.config.cc, "gcc") }}
+        if: ${{ startsWith(matrix.config.cc, 'gcc') }}
         run: chmod +x ./linuxdeploy-x86_64.AppImage
       - name: Package Arbor GUI AppImage
-        if: ${{ startsWith(matrix.config.cc, "gcc") }}
+        if: ${{ startsWith(matrix.config.cc, 'gcc') }}
         run: ./linuxdeploy-x86_64.AppImage --appdir="$app_dir" --output=appimage
       - name: Delete Linuxdeploy
-        if: ${{ startsWith(matrix.config.cc, "gcc") }}
+        if: ${{ startsWith(matrix.config.cc, 'gcc') }}
         run: rm -f ./linuxdeploy-x86_64.AppImage
       - uses: actions/upload-artifact@v3
-        if: ${{ startsWith(matrix.config.cc, "gcc") }}
+        if: ${{ startsWith(matrix.config.cc, 'gcc') }}
         with:
           name: linux appimage
           path: './*.AppImage*'
@@ -107,7 +107,7 @@ jobs:
       - name: Build
         run: cmake --build build -j 2 --target package
       - name: Upload .dmg
-        if: ${{ matrix.config.os == "macos-11" }}
+        if: ${{ matrix.config.os == 'macos-11' }}
         uses: actions/upload-artifact@v3
         with:
           name: apple dmg
