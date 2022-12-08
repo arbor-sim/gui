@@ -103,12 +103,21 @@ jobs:
         run: mv */*.AppImage arbor-gui.AppImage
       - name: Move and rename dmg
         run: mv */*.dmg arbor-gui.dmg
+      - name: "Clone w/ submodules"
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: "recursive"
+          path: gui
+      - name: Make tarball
+        run: |
+          arbor/scripts/create_tarball $GITHUB_WORKSPACE/gui ${{ github.event.release.tag_name }} arbor-gui-${{ github.event.release.tag_name }}-full.tar.gz
       - name: "Make Release"
         uses: ncipollo/release-action@v1
         with:
           omitBody: true
           draft: true
           prerelease: false
-          artifacts: '*.dmg,*.AppImage'
+          artifacts: '*.dmg,*.AppImage,*.tar.gz'
           token: ${{ secrets.GITHUB_TOKEN }}
           
