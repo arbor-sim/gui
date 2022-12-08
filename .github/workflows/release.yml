@@ -97,11 +97,8 @@ jobs:
     needs: [build_diskim, build_appimage]
     runs-on: ubuntu-latest
     steps:
-      - name: Get current date
-        id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
       - name: "Get artifacts"
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
       - name: Move and rename appimage
         run: mv */*.AppImage arbor-gui.AppImage
       - name: Move and rename dmg
