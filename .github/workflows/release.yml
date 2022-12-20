@@ -110,7 +110,9 @@ jobs:
           path: gui
       - name: Make tarball
         run: |
-          $GITHUB_WORKSPACE/gui/scripts/create_tarball $GITHUB_WORKSPACE/gui ${{ github.ref }} arbor-gui-${{ github.ref }}-full.tar.gz
+          the_ref=${{ github.ref }}
+          the_tag="${the_ref/refs\/tags\//}"
+          $GITHUB_WORKSPACE/gui/scripts/create_tarball $GITHUB_WORKSPACE/gui $the_tag arbor-gui-$the_tag-full.tar.gz
       - name: "Make Release"
         uses: ncipollo/release-action@v1
         with:
