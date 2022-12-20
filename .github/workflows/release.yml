@@ -2,7 +2,6 @@ name: Release
 
 on:
   push:
-    branches: [ master ]
     tags:
       - v*
 
@@ -111,13 +110,16 @@ jobs:
           path: gui
       - name: Make tarball
         run: |
-          arbor/scripts/create_tarball $GITHUB_WORKSPACE/gui ${{ github.event.release.tag_name }} arbor-gui-${{ github.event.release.tag_name }}-full.tar.gz
+          the_ref=${{ github.ref }}
+          the_tag="${the_ref/refs\/tags\//}"
+          $GITHUB_WORKSPACE/gui/scripts/create_tarball $GITHUB_WORKSPACE/gui $the_tag $GITHUB_WORKSPACE/arbor-gui-$the_tag-full.tar.gz
       - name: "Make Release"
         uses: ncipollo/release-action@v1
         with:
-          omitBody: true
+          omitBody: false
           draft: true
           prerelease: false
+          generateReleaseNotes: true
           artifacts: '*.dmg,*.AppImage,*.tar.gz'
           token: ${{ secrets.GITHUB_TOKEN }}
           
