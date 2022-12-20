@@ -206,3 +206,7 @@ Test and example datasets include:
 -   A morphology model `dend-C060114A2_axon-C060114A5.asc` copyright of
     the BBP, licensed under the [CC BY-NC-SA 4.0
     license](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+### Citing Arbor GUI
+
+The Arbor GUI entry on Zenodo can be cited, see [CITATION.bib](CITATION.bib).
