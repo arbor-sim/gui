@@ -116,9 +116,10 @@ jobs:
       - name: "Make Release"
         uses: ncipollo/release-action@v1
         with:
-          omitBody: true
+          omitBody: false
           draft: true
           prerelease: false
+          generateReleaseNotes: true
           artifacts: '*.dmg,*.AppImage,*.tar.gz'
           token: ${{ secrets.GITHUB_TOKEN }}
           
