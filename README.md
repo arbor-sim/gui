@@ -17,15 +17,14 @@ use.
 -   Import cable cells in ACC format
 
 This project is under active development and welcomes early feedback.
-Currently, Arbor master as of August 2021 is supported and bundled with
-the project. Note that the screenshots below are updated less frequently
-than the actual project. We aim for a formal release with Arbor 0.6 at
-which point the project will stabilise and receive regular updates
-alongside Arbor.
+As of v0.8, releases of Arbor-GUI follow the version numbering of Arbor,
+e.g. Arbor-GUI v0.8 includes Arbor v0.8. Release can be found [here](https://github.com/arbor-sim/gui/releases/).
+Precompiled and self-contained versions for Macos and Linux are available
+at the same locations.
 
-To get a feel for the workflow with Arbor-GUI, you can take a look
-at the tutorial
-https://github.com/arbor-sim/arbor/wiki/Single-Modelling-with-Arbor's-GUI
+Note that the screenshots below are updated less frequently than the
+actual project. To get a feel for the workflow with Arbor-GUI, you can
+take a look at [the tutorial](https://docs.arbor-sim.org/en/latest/tutorial/single_cell_gui.html).
 
 We welcome bug reports and feature requests, please use the issue
 tracker here on GitHub for these purposes. Building network simulation
