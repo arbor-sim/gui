@@ -2,7 +2,7 @@
 
 ![images/full.png](images/full.png)
 
-This project aims to be a comprehensive tool for building single cell
+Arbor GUI is a comprehensive tool for building single cell
 models using Arbor. It strives to be self-contained, fast, and easy to
 use.
 
@@ -18,7 +18,7 @@ use.
 
 This project is under active development and welcomes early feedback.
 As of v0.8, releases of Arbor-GUI follow the version numbering of Arbor,
-e.g. Arbor-GUI v0.8 includes Arbor v0.8. Release can be found [here](https://github.com/arbor-sim/gui/releases/).
+e.g. Arbor-GUI v0.8 includes Arbor v0.8. Releases can be found [here](https://github.com/arbor-sim/gui/releases/).
 Precompiled and self-contained versions for Macos and Linux are available
 at the same locations.
 
