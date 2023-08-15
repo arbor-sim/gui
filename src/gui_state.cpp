@@ -1080,33 +1080,33 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       return id;
     }
 
-    void operator()(const arb::init_membrane_potential& t) { state->parameter_defs[region].Vm = t.value; }
-    void operator()(const arb::axial_resistivity& t)       { state->parameter_defs[region].RL = t.value; }
-    void operator()(const arb::temperature_K& t)           { state->parameter_defs[region].TK = t.value; }
-    void operator()(const arb::membrane_capacitance& t)    { state->parameter_defs[region].Cm = t.value; }
+    void operator()(const arb::init_membrane_potential& t) { state->parameter_defs[region].Vm = t.value.get_scalar(); }
+    void operator()(const arb::axial_resistivity& t)       { state->parameter_defs[region].RL = t.value.get_scalar(); }
+    void operator()(const arb::temperature_K& t)           { state->parameter_defs[region].TK = t.value.get_scalar(); }
+    void operator()(const arb::membrane_capacitance& t)    { state->parameter_defs[region].Cm = t.value.get_scalar(); }
     void operator()(const arb::init_int_concentration& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].Xi = t.value;
+      state->ion_par_defs[{region, *ion}].Xi = t.value.get_scalar();
     }
     void operator()(const arb::init_ext_concentration& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].Xo = t.value;
+      state->ion_par_defs[{region, *ion}].Xo = t.value.get_scalar();
     }
     void operator()(const arb::init_reversal_potential& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].Er = t.value;
+      state->ion_par_defs[{region, *ion}].Er = t.value.get_scalar();
     }
     void operator()(const arb::ion_diffusivity& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].D = t.value;
+      state->ion_par_defs[{region, *ion}].D = t.value.get_scalar();
     }
     void operator()(const arb::scaled_mechanism<arb::density>& s) {
       auto id = make_density(s.t_mech);
@@ -1479,8 +1479,7 @@ void gui_state::run_simulation() {
                       t.values.push_back(*value);
                     }
                     sim.traces[t.id] = t;                    
-                  },
-                 arb::sampling_policy::exact);
+                  });
   try {
     sm.run(sim.until, sim.dt);
   } catch (...) {
