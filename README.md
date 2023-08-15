@@ -120,9 +120,9 @@ Next, follow the platform specific instructions.
     ``` bash
     sudo apt update
     sudo apt install build-essential libssl-dev \ 
-                     libxml2-dev libxrandr-dev libxinerama-dev \
+                     libxrandr-dev libxinerama-dev \
                      libxcursor-dev libxi-dev libglu1-mesa-dev \
-                     freeglut3-dev mesa-common-dev gcc-10 g++-10
+                     freeglut3-dev mesa-common-dev
     ```
     If your cmake version is less than 3.18, you will need to update it
     as well
