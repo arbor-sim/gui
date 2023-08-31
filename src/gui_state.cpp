@@ -736,8 +736,11 @@ namespace {
           }
         }
       }
-      std::sort(state_vars.begin(), state_vars.end());
-      std::unique(state_vars.begin(), state_vars.end());
+      {
+        std::sort(state_vars.begin(), state_vars.end());
+        auto last = std::unique(state_vars.begin(), state_vars.end());
+        state_vars.erase(last, state_vars.end());
+      }
 
       for (const auto& locset: state.locsets) {
         with_id id{locset};
