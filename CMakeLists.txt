@@ -141,6 +141,7 @@ target_include_directories(imgui PRIVATE 3rd-party/imgui)
 target_include_directories(imgui PUBLIC 3rd-party/implot)
 target_include_directories(imgui PUBLIC 3rd-party/ImGuizmo/)
 target_link_libraries(imgui PRIVATE glfw)
+target_compile_definitions(arbor-gui-deps INTERFACE SPDLOG_FMT_EXTERNAL)
 
 # Get commit hashes from git and inject into config
 execute_process(COMMAND ${GIT_EXECUTABLE} -C ${PROJECT_SOURCE_DIR} describe --always --dirty --abbrev=0
