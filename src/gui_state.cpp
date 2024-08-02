@@ -1,7 +1,6 @@
 #include "gui_state.hpp"
 
 #include <cmath>
-#include <regex>
 #include <string>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -390,8 +389,8 @@ namespace {
       state.renderer.render(vs, {mouse.x - win_pos.x, size.y + win_pos.y - mouse.y});
       ImGui::Image(reinterpret_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
       if (ImGui::IsItemHovered()) {
-        auto shft = ImGui::IsKeyDown(GLFW_KEY_LEFT_SHIFT) || ImGui::IsKeyDown(GLFW_KEY_RIGHT_SHIFT);
-        auto ctrl = ImGui::IsKeyDown(GLFW_KEY_LEFT_CONTROL) || ImGui::IsKeyDown(GLFW_KEY_RIGHT_CONTROL);
+        auto shft = ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift);
+        auto ctrl = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl);
         if (shft || ctrl) {
           auto what = shft ? ImGuizmo::ROTATE : ImGuizmo::TRANSLATE;
           glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
@@ -1083,33 +1082,33 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       return id;
     }
 
-    void operator()(const arb::init_membrane_potential& t) { state->parameter_defs[region].Vm = t.value; }
-    void operator()(const arb::axial_resistivity& t)       { state->parameter_defs[region].RL = t.value; }
-    void operator()(const arb::temperature_K& t)           { state->parameter_defs[region].TK = t.value; }
-    void operator()(const arb::membrane_capacitance& t)    { state->parameter_defs[region].Cm = t.value; }
+    void operator()(const arb::init_membrane_potential& t) { state->parameter_defs[region].Vm = t.value.get_scalar(); }
+    void operator()(const arb::axial_resistivity& t)       { state->parameter_defs[region].RL = t.value.get_scalar(); }
+    void operator()(const arb::temperature_K& t)           { state->parameter_defs[region].TK = t.value.get_scalar(); }
+    void operator()(const arb::membrane_capacitance& t)    { state->parameter_defs[region].Cm = t.value.get_scalar(); }
     void operator()(const arb::init_int_concentration& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].Xi = t.value;
+      state->ion_par_defs[{region, *ion}].Xi = t.value.get_scalar();
     }
     void operator()(const arb::init_ext_concentration& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].Xo = t.value;
+      state->ion_par_defs[{region, *ion}].Xo = t.value.get_scalar();
     }
     void operator()(const arb::init_reversal_potential& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].Er = t.value;
+      state->ion_par_defs[{region, *ion}].Er = t.value.get_scalar();
     }
     void operator()(const arb::ion_diffusivity& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].D = t.value;
+      state->ion_par_defs[{region, *ion}].D = t.value.get_scalar();
     }
     void operator()(const arb::scaled_mechanism<arb::density>& s) {
       auto id = make_density(s.t_mech);
@@ -1120,20 +1119,7 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       }
     }
     void operator()(const arb::density& d) { make_density(d); }
-  };
-
-  struct df_visitor {
-    gui_state* state;
-    void operator()(const arb::init_membrane_potential& t)       { log_error("Cannot handle this"); }
-    void operator()(const arb::axial_resistivity& t)             { log_error("Cannot handle this"); }
-    void operator()(const arb::temperature_K& t)                 { log_error("Cannot handle this"); }
-    void operator()(const arb::membrane_capacitance& t)          { log_error("Cannot handle this"); }
-    void operator()(const arb::init_int_concentration& t)        { log_error("Cannot handle this"); }
-    void operator()(const arb::init_ext_concentration& t)        { log_error("Cannot handle this"); }
-    void operator()(const arb::init_reversal_potential& t)       { log_error("Cannot handle this"); }
-    void operator()(const arb::ion_reversal_potential_method& t) { log_error("Cannot handle this"); }
-    void operator()(const arb::ion_diffusivity& t)               { log_error("Cannot handle this"); }
-    void operator()(const arb::cv_policy& t)                     { log_error("Cannot handle this"); }
+    void operator()(const arb::voltage_process& d) { log_error("Cannot handle this"); }
   };
 
   struct acc_visitor {
@@ -1482,8 +1468,7 @@ void gui_state::run_simulation() {
                       t.values.push_back(*value);
                     }
                     sim.traces[t.id] = t;                    
-                  },
-                 arb::sampling_policy::exact);
+                  });
   try {
     sm.run(sim.until, sim.dt);
   } catch (...) {
