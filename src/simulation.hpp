@@ -5,9 +5,9 @@
 #include <string>
 
 #include "id.hpp"
-#include "utils.hpp"
 
 struct trace {
+    std::string tag;
     id_type id;
     size_t index;
     double location;
@@ -15,6 +15,10 @@ struct trace {
     bool show = true;
     std::vector<float> times;
     std::vector<float> values;
+
+    trace(const std::string t, const id_type i, size_t x, const double l, const size_t b):
+        tag{std::move(t)}, id{i}, index{x}, location{l}, branch{b}
+    {}
 };
 
 
@@ -25,7 +29,8 @@ struct simulation {
     bool should_run = false;
     bool show_trace = false;
 
-    std::unordered_map<id_type, trace> traces;
+    std::unordered_map<std::string, id_type> tag_to_id;
+    std::vector<trace> traces;
 };
 
 void gui_sim(simulation&);

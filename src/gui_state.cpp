@@ -23,6 +23,7 @@
 #include <arbor/simulation.hpp>
 #include <arbor/context.hpp>
 #include <arbor/load_balance.hpp>
+#include <arbor/units.hpp>
 
 #include "gui.hpp"
 #include "utils.hpp"
@@ -36,6 +37,7 @@ extern float delta_zoom;
 extern glm::vec2 mouse;
 
 using namespace std::literals;
+namespace U = arb::units;
 
 namespace {
   inline void gui_read_morphology(gui_state& state, bool& open);
@@ -852,20 +854,22 @@ namespace {
         i_clamp.frequency = item.frequency;
         i_clamp.phase     = item.phase;
         std::sort(item.envelope.begin(), item.envelope.end());
-        for (const auto& [t, i]: item.envelope) i_clamp.envelope.emplace_back(arb::i_clamp::envelope_point{t, i});
+        for (const auto& [t, i]: item.envelope) {
+          i_clamp.envelope.emplace_back(arb::i_clamp::envelope_point{t * U::ms , i * U::nA });
+        }
         decor.place(locset, i_clamp, item.tag);
       }
       for (const auto child: state.detectors.get_children(id)) {
         auto item = state.detectors[child];
-        decor.place(locset, arb::threshold_detector{item.threshold}, item.tag);
+        decor.place(locset, arb::threshold_detector{item.threshold * U::mV}, item.tag);
       }
     }
 
     auto param = state.parameter_defaults;
-    if (param.RL) decor.set_default(arb::axial_resistivity{param.RL.value()});
-    if (param.Cm) decor.set_default(arb::membrane_capacitance{param.Cm.value()});
-    if (param.TK) decor.set_default(arb::temperature_K{param.TK.value()});
-    if (param.Vm) decor.set_default(arb::init_membrane_potential{param.Vm.value()});
+    if (param.RL) decor.set_default(arb::axial_resistivity{param.RL.value() * U::Ohm * U::cm});
+    if (param.Cm) decor.set_default(arb::membrane_capacitance{param.Cm.value() * U::F / U::m2});
+    if (param.TK) decor.set_default(arb::temperature{param.TK.value() * U::Kelvin });
+    if (param.Vm) decor.set_default(arb::init_membrane_potential{param.Vm.value() * U::mV});
 
     for (const auto& ion: state.ions) {
       const auto& data = state.ion_defaults[ion];
@@ -878,13 +882,13 @@ namespace {
 
       if (state.presets.ion_data.contains(name)) {
         auto p = state.presets.ion_data.at(name);
-        decor.set_default(arb::init_int_concentration{name,  data.Xi.value_or(p.init_int_concentration.value())});
-        decor.set_default(arb::init_ext_concentration{name,  data.Xo.value_or(p.init_ext_concentration.value())});
-        decor.set_default(arb::init_reversal_potential{name, data.Er.value_or(p.init_reversal_potential.value())});
+        decor.set_default(arb::init_int_concentration{name,  data.Xi.value_or(p.init_int_concentration.value()) * U::mM});
+        decor.set_default(arb::init_ext_concentration{name,  data.Xo.value_or(p.init_ext_concentration.value()) * U::mM});
+        decor.set_default(arb::init_reversal_potential{name, data.Er.value_or(p.init_reversal_potential.value())* U::mV});
       } else {
-        decor.set_default(arb::init_int_concentration{name,  data.Xi.value()});
-        decor.set_default(arb::init_ext_concentration{name,  data.Xo.value()});
-        decor.set_default(arb::init_reversal_potential{name, data.Er.value()});
+        decor.set_default(arb::init_int_concentration{name,  data.Xi.value() * U::mM});
+        decor.set_default(arb::init_ext_concentration{name,  data.Xo.value() * U::mM});
+        decor.set_default(arb::init_reversal_potential{name, data.Er.value() * U::mV});
       }
     }
 
@@ -892,17 +896,17 @@ namespace {
       auto rg = state.region_defs[id];
       if (!rg.data) continue;
       auto param  = state.parameter_defs[id];
-      if (param.RL) decor.paint(rg.data.value(), arb::axial_resistivity{param.RL.value()});
-      if (param.Cm) decor.paint(rg.data.value(), arb::membrane_capacitance{param.Cm.value()});
-      if (param.TK) decor.paint(rg.data.value(), arb::temperature_K{param.TK.value()});
-      if (param.Vm) decor.paint(rg.data.value(), arb::init_membrane_potential{param.Vm.value()});
+      if (param.RL) decor.paint(rg.data.value(), arb::axial_resistivity{param.RL.value() * U::Ohm * U::cm});
+      if (param.Cm) decor.paint(rg.data.value(), arb::membrane_capacitance{param.Cm.value() * U::F / U::m2});
+      if (param.TK) decor.paint(rg.data.value(), arb::temperature{param.TK.value() * U::Kelvin});
+      if (param.Vm) decor.paint(rg.data.value(), arb::init_membrane_potential{param.Vm.value() * U::mV});
 
       for (const auto& ion: state.ions) {
         const auto& data = state.ion_par_defs[{id, ion}];
         const auto& name = state.ion_defs[ion].name;
-        if (data.Xi) decor.paint(rg.data.value(), arb::init_int_concentration{name,  data.Xi.value()});
-        if (data.Xo) decor.paint(rg.data.value(), arb::init_ext_concentration{name,  data.Xo.value()});
-        if (data.Er) decor.paint(rg.data.value(), arb::init_reversal_potential{name, data.Er.value()});
+        if (data.Xi) decor.paint(rg.data.value(), arb::init_int_concentration{name,  data.Xi.value() * U::mM});
+        if (data.Xo) decor.paint(rg.data.value(), arb::init_ext_concentration{name,  data.Xo.value() * U::mM});
+        if (data.Er) decor.paint(rg.data.value(), arb::init_reversal_potential{name, data.Er.value() * U::mV});
       }
 
       for (const auto child: state.mechanisms.get_children(id)) {
@@ -940,7 +944,7 @@ namespace {
       if (ImGui::BeginChild("TracePlot", {-180.0f, 0.0f})) {
         if (to_plot) {
           auto probe = to_plot.value();
-          auto trace = state.sim.traces.at(probe);
+          auto trace = state.sim.traces.at(probe.value);
           const auto& [lo, hi] = std::accumulate(trace.values.begin(),
                                                  trace.values.end(),
                                                  std::make_pair(std::numeric_limits<float>::max(), std::numeric_limits<float>::min()),
@@ -1014,9 +1018,9 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
   struct ls_visitor {
     gui_state* state;
     id_type locset;
-    std::string tag;
+    arb::hash_type tag;
 
-    ls_visitor(gui_state* s, const arb::locset& l, const std::string& t): state{s}, tag{t} {
+    ls_visitor(gui_state* s, const arb::locset& l, const arb::hash_type& t): state{s}, tag{t} {
       auto ls = to_string(l);
       auto res = std::find_if(state->locsets.begin(), state->locsets.end(),
                               [&](const auto& id) {
@@ -1082,33 +1086,33 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       return id;
     }
 
-    void operator()(const arb::init_membrane_potential& t) { state->parameter_defs[region].Vm = t.value.get_scalar(); }
-    void operator()(const arb::axial_resistivity& t)       { state->parameter_defs[region].RL = t.value.get_scalar(); }
-    void operator()(const arb::temperature_K& t)           { state->parameter_defs[region].TK = t.value.get_scalar(); }
-    void operator()(const arb::membrane_capacitance& t)    { state->parameter_defs[region].Cm = t.value.get_scalar(); }
+    void operator()(const arb::init_membrane_potential& t) { state->parameter_defs[region].Vm = t.value; }
+    void operator()(const arb::axial_resistivity& t)       { state->parameter_defs[region].RL = t.value; }
+    void operator()(const arb::temperature& t)             { state->parameter_defs[region].TK = t.value; }
+    void operator()(const arb::membrane_capacitance& t)    { state->parameter_defs[region].Cm = t.value; }
     void operator()(const arb::init_int_concentration& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].Xi = t.value.get_scalar();
+      state->ion_par_defs[{region, *ion}].Xi = t.value;
     }
     void operator()(const arb::init_ext_concentration& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].Xo = t.value.get_scalar();
+      state->ion_par_defs[{region, *ion}].Xo = t.value;
     }
     void operator()(const arb::init_reversal_potential& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].Er = t.value.get_scalar();
+      state->ion_par_defs[{region, *ion}].Er = t.value;
     }
     void operator()(const arb::ion_diffusivity& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
                               [&](const auto& id) { return state->ion_defs[id].name == t.ion; });
       if (ion == state->ions.end()) log_error("Unknown ion");
-      state->ion_par_defs[{region, *ion}].D = t.value.get_scalar();
+      state->ion_par_defs[{region, *ion}].D = t.value;
     }
     void operator()(const arb::scaled_mechanism<arb::density>& s) {
       auto id = make_density(s.t_mech);
@@ -1426,15 +1430,15 @@ void gui_state::run_simulation() {
       auto p = presets.ion_data.at(name);
       prop.add_ion(name,
                    data.charge,
-                   def.Xi.value_or(p.init_int_concentration.value()),
-                   def.Xo.value_or(p.init_ext_concentration.value()),
-                   def.Er.value_or(p.init_reversal_potential.value()));
+                   def.Xi.value_or(p.init_int_concentration.value()) * U::mM,
+                   def.Xo.value_or(p.init_ext_concentration.value()) * U::mM,
+                   def.Er.value_or(p.init_reversal_potential.value())* U::mV);
     } else {
       prop.add_ion(name,
                    data.charge,
-                   def.Xi.value(),
-                   def.Xo.value(),
-                   def.Er.value());
+                   def.Xi.value() * U::mM,
+                   def.Xo.value() * U::mM,
+                   def.Er.value() * U::mV);
     }
   }
   auto rec = make_recipe(prop, cell);
@@ -1444,33 +1448,42 @@ void gui_state::run_simulation() {
       const auto& where = locset_defs[ls];
       if (!where.data) continue;
       auto loc = where.data.value();
+      // TODO this is quite crude...
+      auto tag = std::to_string(pb.value);
       if (data.kind == "Voltage") {
-        rec.probes.emplace_back(arb::cable_probe_membrane_voltage{loc}, pb.value);
+        rec.probes.emplace_back(arb::cable_probe_membrane_voltage{loc}, tag);
       } else if (data.kind == "Axial Current") {
-        rec.probes.emplace_back(arb::cable_probe_axial_current{loc}, pb.value);
+        rec.probes.emplace_back(arb::cable_probe_axial_current{loc}, tag);
       } else if (data.kind == "Membrane Current") {
-        rec.probes.emplace_back(arb::cable_probe_total_ion_current_density{loc}, pb.value);
+        rec.probes.emplace_back(arb::cable_probe_total_ion_current_density{loc}, tag);
       }
       // TODO Finish
     }
   }
   // Make simulation
-  auto sm  = arb::simulation(rec);
+  auto sm = arb::simulation(rec);
   sim.traces.clear();
+  sim.tag_to_id.clear();
   sm.add_sampler(arb::all_probes,
-                 arb::regular_schedule(this->sim.dt),
-                 [&](arb::probe_metadata pm, std::size_t n, const arb::sample_record* samples) {
-                    auto loc = arb::util::any_cast<const arb::mlocation*>(pm.meta); 
-                    trace t{(size_t)pm.tag, pm.index, loc->pos, loc->branch, {}, {}};
+                 arb::regular_schedule(this->sim.dt * U::ms),
+                 [&](const arb::probe_metadata pm, std::size_t n, const arb::sample_record* samples) {
+                    auto loc = arb::util::any_cast<const arb::mlocation*>(pm.meta);
+                    auto tag = pm.id.tag;
+                    if (sim.tag_to_id.count(tag) == 0) {
+                      id_type id = {sim.traces.size()};
+                      sim.tag_to_id[tag] = id;
+                      sim.traces.emplace_back(tag, id, pm.index, loc->pos, loc->branch);
+                    }
+                    auto id = sim.tag_to_id[tag];
+                    auto& t = sim.traces.at(id.value);
                     for (std::size_t i = 0; i<n; ++i) {
                       const double* value = arb::util::any_cast<const double*>(samples[i].data);
                       t.times.push_back(samples[i].time);
                       t.values.push_back(*value);
                     }
-                    sim.traces[t.id] = t;                    
                   });
   try {
-    sm.run(sim.until, sim.dt);
+    sm.run(sim.until * U::ms, sim.dt * U::ms);
   } catch (...) {
       ImGui::OpenPopup("Error");
   }

@@ -22,7 +22,7 @@ struct recipe: arb::recipe {
     std::any get_global_properties(arb::cell_kind) const override { return properties; }
 };
 
-
+inline
 recipe make_recipe(const arb::cable_cell_global_properties& properties,
                    const arb::cable_cell& cell) {
     recipe result;
