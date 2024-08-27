@@ -17,15 +17,15 @@ jobs:
         config:
         - { 
             name: "Ubuntu Low (AppImage)",
-            os:   "ubuntu-20.04",
-            cc:   "gcc-10",
-            cxx:  "g++-10"
+            os:   "ubuntu-22.04",
+            cc:   "gcc-11",
+            cxx:  "g++-11"
           }
         - { 
             name: "Ubuntu High",
-            os:   "ubuntu-22.04",
-            cc:   "clang-14",
-            cxx:  "clang++-14"
+            os:   "ubuntu-24.04",
+            cc:   "clang-18",
+            cxx:  "clang++-18"
           }
       fail-fast: false
     env:
