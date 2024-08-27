@@ -15,17 +15,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS "YES")
 # Do we want to generate a OSX thing?
 set(ARBORGUI_BUILD_BUNDLE OFF CACHE BOOL "Make an OSX package")
 
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
 # Tweak Arbor
 set(ARB_WITH_NEUROML     ON  CACHE BOOL "enable neuroml"    FORCE)
 set(ARB_WITH_PYTHON      OFF CACHE BOOL "disable pyarb"     FORCE)
+set(ARB_USE_BUNDLED_LIBS ON  CACHE BOOL "use internal deps" FORCE)
 set(ARB_USE_BUNDLED_LIBS ON  CACHE BOOL "use internal deps" FORCE)
 add_subdirectory(3rd-party/arbor)
 
 # Add OpenGL loader
 set(OPTION_BUILD_EXAMPLES          OFF CACHE BOOL "" FORCE)
-set(OPTION_BUILD_TOOLs             OFF CACHE BOOL "" FORCE)
+set(OPTION_BUILD_TOOLS             OFF CACHE BOOL "" FORCE)
 set(OPTION_USE_GIT_INFORMATION     OFF CACHE BOOL "" FORCE)
-set(BUILD_SHARED_LIBS              OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rd-party/glbinding)
 
 # Tweak GLFW
