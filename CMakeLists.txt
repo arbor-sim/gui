@@ -35,6 +35,7 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL        ON  CACHE BOOL "" FORCE)
 set(GLFW_INCLUDE_NONE   ON  CACHE BOOL "" FORCE)
 set(GLFW_USE_WAYLAND    ON  CACHE BOOL "" FORCE)
+set(GLFW_USE_WAYLAND    ON  CACHE BOOL "" FORCE)
 add_subdirectory(3rd-party/glfw)
 
 # Set up sanitizer targets
