@@ -1,6 +1,5 @@
 #include <vector>
 #include <string>
-#include <tuple>
 #include <filesystem>
 
 #include <arborio/neurolucida.hpp>
@@ -28,6 +27,7 @@ loaded_morphology load_neuron_swc(const std::filesystem::path &fn) {
     loaded_morphology res{.morph=loaded.morphology};
     for (const auto& [k, v]: loaded.labels.regions()) res.regions.emplace_back(k, to_string(v));
     for (const auto& [k, v]: loaded.labels.locsets()) res.locsets.emplace_back(k, to_string(v));
+    log_info("Loaded SWC (Neuron) {} branches {} ", loaded.segment_tree.size(), loaded.morphology.num_branches());
     return res;
 }
 
@@ -36,6 +36,7 @@ loaded_morphology load_arbor_swc(const std::filesystem::path &fn) {
     loaded_morphology res{.morph=loaded.morphology};
     for (const auto& [k, v]: loaded.labels.regions()) res.regions.emplace_back(k, to_string(v));
     for (const auto& [k, v]: loaded.labels.locsets()) res.locsets.emplace_back(k, to_string(v));
+    log_info("Loaded SWC (Arbor) {} branches {} ", loaded.segment_tree.size(), loaded.morphology.num_branches());
     return res;
 }
 

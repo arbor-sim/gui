@@ -128,16 +128,14 @@ namespace {
           loader_error.clear();
           ImGui::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
-      }
+      } // load error
 
       if (ko) open = false;
       ImGui::EndPopup();
-    }
+    } // Load
   }
 
   inline void gui_read_cat(gui_state& state, bool& open) {
-
     with_id id{"loading cat"};
     ImGui::OpenPopup("Load");
     static std::vector<std::string> suffixes{".so"};
@@ -250,7 +248,6 @@ namespace {
   }
 
   inline void gui_main(gui_state& state) {
-
     static bool opt_fullscreen = true;
     static bool opt_padding = false;
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
@@ -297,7 +294,7 @@ namespace {
       ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
     }
     gui_menu_bar(state);
-    ImGui::End();
+    ImGui::End(); // dockspace
   }
 
   inline void gui_read_morphology(gui_state& state, bool& open_file) {
@@ -376,172 +373,181 @@ namespace {
   inline bool gui_axes(axes& ax) {
     ImGui::Text("%s Axes", icon_axes);
     gui_right_margin();
-    gui_toggle(icon_on, icon_off, ax.active);
+    gui_toggle(fmt::format("{}##{}", icon_on, "ax").c_str(), fmt::format("{}##{}", icon_off, "ax").c_str(), ax.active);
     auto mv = ImGui::InputFloat3("Position", &ax.origin[0]);
     auto sz = ImGui::InputFloat("Size", &ax.scale, 0, 0, "%f µm");
     return mv || sz;
   }
 
+  inline void gui_cell_context_menu(gui_state& state) {
+    if (ImGui::BeginPopupContextWindow()) {
+      ImGui::Text("%s Camera", icon_camera);
+      {
+        with_indent indent{};
+        ImGui::SliderFloat("Auto-rotate", &state.auto_omega, 0.1f, 2.0f);
+        gui_right_margin();
+        gui_toggle(icon_on, icon_off, state.demo_mode);
+        ImGui::InputFloat3("Target", &state.view.target[0]);
+        ImGui::ColorEdit3("Background",& (state.renderer.cell.clear_color.x), ImGuiColorEditFlags_NoInputs);
+        {
+          ImGui::SameLine();
+          if (ImGui::BeginCombo("Colormap", state.renderer.cmap.c_str())) {
+            with_item_width iw(80.0f);
+            for (const auto& [k, v]: state.renderer.cmaps) {
+              if (ImGui::Selectable(k.c_str(), k == state.renderer.cmap)) state.renderer.cmap = k;
+            }
+            ImGui::EndCombo();
+          }
+        }
+        if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {
+          for (const auto& id: state.locsets) {
+            const auto& ls = state.locset_defs[id];
+            if (ls.state != def_state::good) continue;
+            if (ImGui::BeginMenu(fmt::format("{} {}", icon_locset, ls.name).c_str())) {
+              auto points = state.builder.make_points(ls.data.value());
+              for (const auto& point: points) {
+                const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
+                if (ImGui::MenuItem(lbl.c_str())) {
+                  state.view.offset = {0.0, 0.0};
+                  state.view.target = point;
+                }
+              }
+              ImGui::EndMenu();
+            }
+          }
+          ImGui::EndMenu();
+        }
+        if (gui_menu_item("Reset##camera", icon_refresh)) {
+          state.view.offset = {0.0f, 0.0f};
+          state.view.rotate = glm::mat4(1.0f);
+          state.view.target = {0.0f, 0.0f, 0.0f};
+          state.renderer.cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
+        }
+      }
+      ImGui::Separator();
+      if(gui_axes(state.renderer.ax)) state.renderer.make_ruler();
+      ImGui::Separator();
+      ImGui::Text("%s Model", icon_cell);
+      {
+        with_indent indent{};
+        int tmp = state.renderer.n_faces;
+        if (ImGui::DragInt("Frustrum Resolution", &tmp, 1.0f, 8, 64, "%d", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp)) {
+          state.renderer.n_faces = tmp;
+          state.renderer.load_geometry(state.builder.morph);
+          for (const auto& rg: state.regions) state.update_region(rg);
+          for (const auto& ls: state.locsets) state.update_locset(ls);
+        }
+      }
+      ImGui::Separator();
+      if (gui_menu_item("Snapshot", icon_paint)) state.store_snapshot();
+      ImGui::InputText("Output",& state.snapshot_path);
+      ImGui::EndPopup();
+    }
+  }
+
   inline void gui_cell(gui_state& state) {
     if (ImGui::Begin("Cell")) {
-      ImGui::BeginChild("Cell Render");
-      auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
-      auto& vs = state.view;
-      vs.size = to_glmvec(size);
-      state.renderer.render(vs, {mouse.x - win_pos.x, size.y + win_pos.y - mouse.y});
-      ImGui::Image(reinterpret_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
-      if (ImGui::IsItemHovered()) {
-        auto shft = ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift);
-        auto ctrl = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl);
-        if (shft || ctrl) {
-          auto what = shft ? ImGuizmo::ROTATE : ImGuizmo::TRANSLATE;
-          glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
-          glm::mat4 V  = glm::lookAt(vs.camera, vs.target/state.renderer.rescale + shift, vs.up);
-          glm::mat4 P  = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
-          ImGuizmo::SetDrawlist();
-          ImGuizmo::SetRect(win_pos.x, win_pos.y, size.x, size.y);
-          ImGuizmo::Manipulate(glm::value_ptr(V), glm::value_ptr(P), what, ImGuizmo::LOCAL, glm::value_ptr(vs.rotate));
-        } else {
-          vs.zoom = std::clamp(vs.zoom + delta_zoom, 1.0f, 45.0f);
-        }
-      }
-
-      static float t_last = 0.0;
-      float t_now = glfwGetTime();
-      if (state.demo_mode) vs.rotate = glm::rotate(vs.rotate, state.auto_omega*(t_now - t_last), glm::vec3{0.0f, 1.0f, 0.0f});
-      t_last = t_now;
-
-      state.object = state.renderer.get_id();
-
-      if (ImGui::BeginPopupContextWindow()) {
-        ImGui::Text("%s Camera", icon_camera);
-        {
-          with_indent indent{};
-          ImGui::SliderFloat("Auto-rotate", &state.auto_omega, 0.1f, 2.0f);
-          gui_right_margin();
-          gui_toggle(icon_on, icon_off, state.demo_mode);
-          ImGui::InputFloat3("Target", &state.view.target[0]);
-          ImGui::ColorEdit3("Background",& (state.renderer.cell.clear_color.x), ImGuiColorEditFlags_NoInputs);
-          {
-            ImGui::SameLine();
-            if (ImGui::BeginCombo("Colormap", state.renderer.cmap.c_str())) {
-              with_item_width iw(80.0f);
-              for (const auto& [k, v]: state.renderer.cmaps) {
-                if (ImGui::Selectable(k.c_str(), k == state.renderer.cmap)) state.renderer.cmap = k;
-              }
-              ImGui::EndCombo();
-            }
+      if (ImGui::BeginChild("Cell Render")) {
+        auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
+        auto& vs = state.view;
+        vs.size = to_glmvec(size);
+        state.renderer.render(vs, {mouse.x - win_pos.x, size.y + win_pos.y - mouse.y});
+        ImGui::Image(static_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
+        if (ImGui::IsItemHovered()) {
+          auto shft = ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift);
+          auto ctrl = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl);
+          if (shft || ctrl) {
+            auto what = shft ? ImGuizmo::ROTATE : ImGuizmo::TRANSLATE;
+            glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
+            glm::mat4 V = glm::lookAt(vs.camera, vs.target/state.renderer.rescale + shift, vs.up);
+            glm::mat4 P = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
+            ImGuizmo::SetDrawlist();
+            ImGuizmo::SetRect(win_pos.x, win_pos.y, size.x, size.y);
+            ImGuizmo::Manipulate(glm::value_ptr(V), glm::value_ptr(P), what, ImGuizmo::LOCAL, glm::value_ptr(vs.rotate));
           }
-          if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {
-            for (const auto& id: state.locsets) {
-              const auto& ls = state.locset_defs[id];
-              if (ls.state != def_state::good) continue;
-              if (ImGui::BeginMenu(fmt::format("{} {}", icon_locset, ls.name).c_str())) {
-                auto points = state.builder.make_points(ls.data.value());
-                for (const auto& point: points) {
-                  const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
-                  if (ImGui::MenuItem(lbl.c_str())) {
-                    state.view.offset = {0.0, 0.0};
-                    state.view.target = point;
-                  }
-                }
-                ImGui::EndMenu();
-              }
-            }
-            ImGui::EndMenu();
-          }
-          if (gui_menu_item("Reset##camera", icon_refresh)) {
-            state.view.offset = {0.0f, 0.0f};
-            state.view.rotate = glm::mat4(1.0f);
-            state.view.target = {0.0f, 0.0f, 0.0f};
-            state.renderer.cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
+          else {
+            vs.zoom = std::clamp(vs.zoom + delta_zoom, 1.0f, 45.0f);
           }
         }
-        ImGui::Separator();
-        if(gui_axes(state.renderer.ax)) state.renderer.make_ruler();
-        ImGui::Separator();
-        ImGui::Text("%s Model", icon_cell);
-        {
-          with_indent indent{};
-          int tmp = state.renderer.n_faces;
-          if (ImGui::DragInt("Frustrum Resolution", &tmp, 1.0f, 8, 64, "%d", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp)) {
-            state.renderer.n_faces = tmp;
-            state.renderer.load_geometry(state.builder.morph);
-            for (const auto& rg: state.regions) state.update_region(rg);
-            for (const auto& ls: state.locsets) state.update_locset(ls);
-          }
-        }
-        ImGui::Separator();
-        if (gui_menu_item("Snapshot", icon_paint)) state.store_snapshot();
-        ImGui::InputText("Output",& state.snapshot_path);
-        ImGui::EndPopup();
-      }
+
+        //
+        static float t_last = 0.0;
+        float t_now = glfwGetTime();
+        if (state.demo_mode) vs.rotate = glm::rotate(vs.rotate, state.auto_omega*(t_now - t_last), glm::vec3{0.0f, 1.0f, 0.0f});
+        t_last = t_now;
+
+        state.object = state.renderer.get_id();
+      } // cell render
       ImGui::EndChild();
-    }
+    } // cell
     ImGui::End();
+  }
+
+  inline void gui_morph_info(gui_state& state) {
+    auto& object = state.object.value();
+    ImGui::BulletText("Segment %u", object.data.id);
+    {
+      with_indent indent;
+      auto
+        px = object.data.prox.x, dx = object.data.dist.x, lx = dx - px,
+        py = object.data.prox.y, dy = object.data.dist.y, ly = dy - py,
+        pz = object.data.prox.z, dz = object.data.dist.z, lz = dz - pz;
+      ImGui::BulletText("Extent (%.1f, %.1f, %.1f) -- (%.1f, %.1f, %.1f)", px, py, pz, dx, dy, dz);
+      ImGui::BulletText("Radii  %g µm %g µm", object.data.prox.radius, object.data.dist.radius);
+      ImGui::BulletText("Length %g µm", std::sqrt(lx*lx + ly*ly + lz*lz));
+    }
+    ImGui::BulletText("Branch %zu", object.branch);
+    {
+      with_indent indent;
+      ImGui::BulletText("Segments");
+      auto count = 0ul;
+      for (const auto& [lo, hi]: *object.segment_ids) {
+        ImGui::SameLine();
+        if (lo == hi) {
+          ImGui::Text("%zu", lo);
+        } else {
+          ImGui::Text("%zu-%zu", lo, hi);
+        }
+        count += hi - lo + 1;
+      }
+      ImGui::BulletText("Count %zu", count);
+    }
+  }
+
+  inline void gui_loc_info(gui_state& state) {
+    auto& object = state.object.value();
+    ImGui::BulletText("IExprs");
+    {
+      with_indent indent;
+      for (const auto& iex: state.iexpr_defs.items) {
+        if (iex.state == def_state::good) {
+          auto& info = iex.info;
+          const auto& [pv, dv] = info.values.at(object.data.id);
+          ImGui::BulletText("%s: %f -- %f", iex.name.c_str(), pv, dv);
+        }
+      }
+    }
+    ImGui::BulletText("Regions");
+    {
+      with_indent indent;
+      for (const auto& region: state.segment_to_regions[object.data.id]) {
+        ImGui::ColorButton("", to_imvec(state.renderer.regions[region].color));
+        ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("%s", state.region_defs[region].name.c_str());
+      }
+    }
   }
 
   inline void gui_cell_info(gui_state& state) {
     if (ImGui::Begin(fmt::format("{} Morphology##info", icon_branch).c_str())) {
-      if (state.object) {
-        auto& object = state.object.value();
-        ImGui::BulletText("Segment %u", object.data.id);
-        {
-          with_indent indent;
-          auto
-            px = object.data.prox.x, dx = object.data.dist.x, lx = dx - px,
-            py = object.data.prox.y, dy = object.data.dist.y, ly = dy - py,
-            pz = object.data.prox.z, dz = object.data.dist.z, lz = dz - pz;
-          ImGui::BulletText("Extent (%.1f, %.1f, %.1f) -- (%.1f, %.1f, %.1f)", px, py, pz, dx, dy, dz);
-          ImGui::BulletText("Radii  %g µm %g µm", object.data.prox.radius, object.data.dist.radius);
-          ImGui::BulletText("Length %g µm", std::sqrt(lx*lx + ly*ly + lz*lz));
-        }
-        ImGui::BulletText("Branch %zu", object.branch);
-        {
-          with_indent indent;
-          ImGui::BulletText("Segments");
-          auto count = 0ul;
-          for (const auto& [lo, hi]: *object.segment_ids) {
-            ImGui::SameLine();
-            if (lo == hi) {
-              ImGui::Text("%zu", lo);
-            } else {
-              ImGui::Text("%zu-%zu", lo, hi);
-            }
-            count += hi - lo + 1;
-          }
-          ImGui::BulletText("Count %zu", count);
-        }
-      }
-      ImGui::End();
+      if (state.object) gui_morph_info(state);
     }
+    ImGui::End();
     if (ImGui::Begin(fmt::format("{} Locations##info", icon_location).c_str())) {
-      if (state.object) {
-        auto& object = state.object.value();
-        ImGui::BulletText("IExprs");
-        {
-          with_indent indent;
-          for (const auto& iex: state.iexpr_defs.items) {
-            if (iex.state == def_state::good) {
-              auto& info = iex.info;
-              const auto& [pv, dv] = info.values.at(object.data.id);
-              ImGui::BulletText("%s: %f -- %f", iex.name.c_str(), pv, dv);
-            }
-          }
-        }
-        ImGui::BulletText("Regions");
-        {
-          with_indent indent;
-          for (const auto& region: state.segment_to_regions[object.data.id]) {
-            ImGui::ColorButton("", to_imvec(state.renderer.regions[region].color));
-            ImGui::SameLine();
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("%s", state.region_defs[region].name.c_str());
-          }
-        }
-      }
-      ImGui::End();
+      if (state.object) gui_loc_info(state);
     }
+    ImGui::End();
   }
 
   template<typename Item>
@@ -551,7 +557,6 @@ namespace {
                           component_unique<renderable>& renderables,
                           event_queue& events,
                           bool show_color=true) {
-
     with_id guard{name};
     auto from = -1, to = -1;
     auto open = gui_tree_add(name, [&](){ events.emplace_back(evt_add_locdef<Item>{}); });
@@ -636,7 +641,7 @@ namespace {
       ImGui::Separator();
       gui_locdefs(fmt::format("{} Inhomogeneous", icon_iexpr), state.iexprs, state.iexpr_defs, state.renderer.iexprs, state.events, false);
     }
-    ImGui::End();
+    ImGui::End(); // locations
   }
 
   inline void gui_ion_settings(gui_state& state) {
@@ -656,7 +661,6 @@ namespace {
   }
 
   inline void gui_ion_defaults(gui_state& state) {
-
     with_id guard{"ion-defaults"};
     auto open = gui_tree_add(fmt::format("{} Default", icon_default), [&]() { state.add_ion(); });
     if (open) {
@@ -686,7 +690,6 @@ namespace {
   }
 
   inline void gui_parameters(gui_state& state) {
-
     with_id id{"parameters"};
     if (ImGui::Begin(fmt::format("{} Parameters", icon_list).c_str())) {
       if (gui_tree(fmt::format("{} Cable Cell Properties", icon_sliders))) {
@@ -716,7 +719,7 @@ namespace {
       }
       ImGui::Separator();
       gui_mechanisms(state);
-    }
+    } // parameter
     ImGui::End();
   }
 
@@ -779,13 +782,11 @@ namespace {
   inline void gui_debug(bool& open) {  ImGui::ShowMetricsWindow(&open); }
 
   inline void gui_style(bool& open) {
-
     if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
     ImGui::End();
   }
 
   inline void gui_about(bool& open) {
-
     if (ImGui::Begin("About", &open)) {
       ImGui::Text("Version: %s", gui_git_commit);
       ImGui::Text("Webpage: %s", gui_web_page);
@@ -794,15 +795,12 @@ namespace {
     ImGui::End();
   }
 
-
   inline void gui_demo(bool& open) {
-
     if (ImGui::Begin("Demo", &open)) ImGui::ShowDemoWindow();
     ImGui::End();
   }
 
   inline void gui_stimuli(gui_state& state) {
-
     std::vector<float> values(state.sim.until/state.sim.dt, 0.0f);
     if (gui_tree(fmt::format("{} Stimuli", icon_stimulus))) {
       for (const auto& locset: state.locsets) {
@@ -824,7 +822,6 @@ namespace {
     if (ImGui::Begin(fmt::format("{} Simulation", icon_sim).c_str())) {
       ImGui::Separator();
       gui_sim(state.sim);
-
       ImGui::Separator();
       gui_cv_policy(state.cv_policy_def, state.renderer.cv_boundaries, state.events);
       ImGui::Separator();
@@ -938,53 +935,60 @@ namespace {
     return {state.builder.morph, decor, state.builder.labels};
   }
 
+  inline void gui_plot(gui_state& state, std::optional<id_type> to_plot) {
+    if (ImGui::BeginChild("TracePlot", {-180.0f, 0.0f})) {
+      if (to_plot) {
+        auto probe = to_plot.value();
+        auto trace = state.sim.traces.at(probe.value);
+        const auto& [lo, hi] = std::accumulate(trace.values.begin(),
+                                               trace.values.end(),
+                                               std::make_pair(std::numeric_limits<float>::max(), std::numeric_limits<float>::min()),
+                                               [] (const auto& p, auto x) -> std::pair<float, float> { return { std::min(x, p.first), std::max(x, p.second)};});
+        auto probe_def = state.probes[probe];
+        auto var = fmt::format("{} {}", probe_def.kind, probe_def.variable);
+
+        if (ImPlot::BeginPlot(fmt::format("Probe {} @ branch {} ({})", probe.value, trace.branch, trace.location).c_str(),
+                              ImVec2(-1, -20))) {
+          ImPlot::SetupAxes("Time (t/ms)", var.c_str());
+          ImPlot::SetupAxesLimits(0, state.sim.until, lo, hi);
+          ImPlot::SetupFinish();
+          ImPlot::PlotLine(var.c_str(), trace.times.data(), trace.values.data(), trace.values.size());
+          ImPlot::EndPlot();
+        }
+      } else {
+        if (ImPlot::BeginPlot("Please select a probe below")) {
+          ImPlot::EndPlot();
+        }
+      }
+    }
+    ImGui::EndChild();
+  }
+
+  inline void gui_trace_select(gui_state& state, std::optional<id_type> to_plot) {
+    if (ImGui::BeginChild("TraceSelect", {150.0f, 0.0f})) {
+      for (const auto& locset: state.locsets) {
+        with_id id{locset};
+        auto locset_def = state.locset_defs[locset];
+        if (gui_tree(fmt::format("{} {}", icon_locset, locset_def.name))) {
+          for (const auto& probe: state.probes.get_children(locset)) {
+            const auto& data = state.probes[probe];
+            if(ImGui::RadioButton(fmt::format("{} {}: {} {}", icon_probe, probe.value, data.kind, data.variable).c_str(),
+                                  to_plot && (to_plot.value() == probe))) {
+              to_plot = probe;
+            }
+          }
+          ImGui::TreePop();
+        }
+      }
+    }
+    ImGui::EndChild();
+  }
+
   void gui_traces(gui_state& state) {
     static std::optional<id_type> to_plot;
     if (ImGui::Begin("Traces")) {
-      if (ImGui::BeginChild("TracePlot", {-180.0f, 0.0f})) {
-        if (to_plot) {
-          auto probe = to_plot.value();
-          auto trace = state.sim.traces.at(probe.value);
-          const auto& [lo, hi] = std::accumulate(trace.values.begin(),
-                                                 trace.values.end(),
-                                                 std::make_pair(std::numeric_limits<float>::max(), std::numeric_limits<float>::min()),
-                                                 [] (const auto& p, auto x) -> std::pair<float, float> { return { std::min(x, p.first), std::max(x, p.second)};});
-          auto probe_def = state.probes[probe];
-          auto var = fmt::format("{} {}", probe_def.kind, probe_def.variable);
-
-          if (ImPlot::BeginPlot(fmt::format("Probe {} @ branch {} ({})", probe.value, trace.branch, trace.location).c_str(),
-                                ImVec2(-1, -20))) {
-            ImPlot::SetupAxes("Time (t/ms)", var.c_str());
-            ImPlot::SetupAxesLimits(0, state.sim.until, lo, hi);
-            ImPlot::SetupFinish();
-            ImPlot::PlotLine(var.c_str(), trace.times.data(), trace.values.data(), trace.values.size());
-            ImPlot::EndPlot();
-          }
-        } else {
-          if (ImPlot::BeginPlot("Please select a probe below")) {
-            ImPlot::EndPlot();
-          }
-        }
-      }
-      ImGui::EndChild();
+      gui_plot(state, to_plot);
       ImGui::SameLine();
-      if (ImGui::BeginChild("TraceSelect", {150.0f, 0.0f})) {
-        for (const auto& locset: state.locsets) {
-          with_id id{locset};
-          auto locset_def = state.locset_defs[locset];
-          if (gui_tree(fmt::format("{} {}", icon_locset, locset_def.name))) {
-            for (const auto& probe: state.probes.get_children(locset)) {
-              const auto& data = state.probes[probe];
-              if(ImGui::RadioButton(fmt::format("{} {}: {} {}", icon_probe, probe.value, data.kind, data.variable).c_str(),
-                                    to_plot && (to_plot.value() == probe))) {
-                to_plot = probe;
-              }
-            }
-            ImGui::TreePop();
-          }
-        }
-      }
-      ImGui::EndChild();
     }
     ImGui::End();
   }
@@ -1418,7 +1422,7 @@ void gui_state::run_simulation() {
   if (parameter_defaults.Vm) prop.default_parameters.init_membrane_potential = parameter_defaults.Vm;
 
   auto cat = arb::mechanism_catalogue{};
-  for (const auto& [k, v]: catalogues) cat.import(v, k + "::");
+  for (const auto& [k, v]: catalogues) cat.extend(v, k + "::");
   prop.catalogue = cat;
 
   for (const auto& ion: ions) {
@@ -1490,5 +1494,6 @@ void gui_state::run_simulation() {
   if (ImGui::BeginPopupModal("Error")) {
     ImGui::Text("Arbor failed to run.");
     if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
   }
 }

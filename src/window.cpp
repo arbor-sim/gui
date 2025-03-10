@@ -59,14 +59,8 @@ Window::Window() {
     ImPlot::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
 
-    // Enable keyboard navigation
+    // Enable keyboard navigation and docking
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    // Update key mapping
-    {
-        #define MAP_KEY(NAV_NO, KEY_NO) { if (io.KeysDown[KEY_NO]) io.NavInputs[NAV_NO] = 1.0f; }
-        MAP_KEY(ImGuiNavInput_Activate, GLFW_KEY_SPACE);
-        #undef MAP_KEY
-    }
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     if (!(io.ConfigFlags & ImGuiConfigFlags_DockingEnable)) log_error("ImGui docking disabled");
 
