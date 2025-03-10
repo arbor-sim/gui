@@ -14,9 +14,9 @@ jobs:
         config:
         - { 
             name: "Ubuntu",
-            os:   "ubuntu-20.04",
-            cc:   "gcc-10",
-            cxx:  "g++-10"
+            os:   "ubuntu-22.04",
+            cc:   "gcc-12",
+            cxx:  "g++-12"
           }
       fail-fast: false
     env:
@@ -26,7 +26,7 @@ jobs:
         bld_dir:    build_dir
     steps:
       - name: "Clone w/ submodules"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: "recursive"
@@ -52,7 +52,7 @@ jobs:
         run: ./linuxdeploy-x86_64.AppImage --appdir="$app_dir" --output=appimage
       - name: Delete Linuxdeploy
         run: rm -f ./linuxdeploy-x86_64.AppImage
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: linux appimage
           path: './*.AppImage*'
@@ -64,7 +64,7 @@ jobs:
         config:
         - {
             name: "MacOS",
-            os:   "macos-11",
+            os:   "macos-12",
             cc:   "clang",
             cxx:  "clang++"
           }
@@ -73,7 +73,7 @@ jobs:
         CXX:        ${{ matrix.config.cxx }}
     steps:
       - name: "Clone w/ submodules"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: "recursive"
@@ -86,7 +86,7 @@ jobs:
       - name: Build
         run: cmake --build build -j 2 --target package
       - name: Upload .dmg
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: apple dmg
           path: build/*.dmg
@@ -103,7 +103,7 @@ jobs:
       - name: Move and rename dmg
         run: mv */*.dmg arbor-gui.dmg
       - name: "Clone w/ submodules"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: "recursive"
