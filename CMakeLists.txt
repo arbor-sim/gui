@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.27)
 find_package(Git)
 
 project(the-arbor-gui
-  VERSION 0.10.1
+  VERSION 0.11.1
   LANGUAGES C CXX)
 
 set(EXPORT_COMPILE_COMMANDS ON)
