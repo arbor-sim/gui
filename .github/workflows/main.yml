@@ -16,13 +16,13 @@ jobs:
       matrix:
         config:
         - { 
-            name: "Ubuntu Low (AppImage)",
+            name: "Ubuntu GCC",
             os:   "ubuntu-24.04",
             cc:   "gcc-14",
             cxx:  "g++-14"
           }
         - { 
-            name: "Ubuntu High",
+            name: "Ubuntu Clang",
             os:   "ubuntu-24.04",
             cc:   "clang-18",
             cxx:  "clang++-18"
