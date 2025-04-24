@@ -112,3 +112,7 @@ jobs:
         run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC -DARBORGUI_BUILD_BUNDLE=ON
       - name: Build
         run: cmake --build build -j 2 --target package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: disk image
+          path: build/*.dmg
