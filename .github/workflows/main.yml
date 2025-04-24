@@ -78,14 +78,20 @@ jobs:
       matrix:
         config:
         - {
-            name: "MacOS Low (DiskIm)",
-            os:   "macos-11",
+            name: "MacOS XIII",
+            os:   "macos-13",
             cc:   "clang",
             cxx:  "clang++"
           }
         - {
-            name: "MacOS High",
-            os:   "macos-12",
+            name: "MacOS XIV",
+            os:   "macos-14",
+            cc:   "clang",
+            cxx:  "clang++"
+          }
+        - {
+            name: "MacOS XV",
+            os:   "macos-15",
             cc:   "clang",
             cxx:  "clang++"
           }
@@ -106,9 +112,3 @@ jobs:
         run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC -DARBORGUI_BUILD_BUNDLE=ON
       - name: Build
         run: cmake --build build -j 2 --target package
-      - name: Upload .dmg
-        if: ${{ matrix.config.os == 'macos-11' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: apple dmg
-          path: build/*.dmg
