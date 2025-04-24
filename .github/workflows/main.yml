@@ -114,5 +114,5 @@ jobs:
         run: cmake --build build -j 2 --target package
       - uses: actions/upload-artifact@v4
         with:
-          name: disk image
+          name: arbor-gui-${{ matrix.os }}
           path: build/*.dmg
