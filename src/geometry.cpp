@@ -699,12 +699,14 @@ void geometry::load_geometry(const arb::morphology& morph, bool reset) {
             branch_to_ids[branch].emplace_back(lo, hi);
         }
     }
+    log_info("Loaded {} segments and {} branches", segments.size(), morph.num_branches());
 
     log_info("Making geometry");
     if (segments.empty()) {
         log_info("Empty geometry");
         return;
     }
+
     root = {(float) segments[0].prox.x, (float) segments[0].prox.y, (float) segments[0].prox.z};
     log_debug("New root x={} y={} z={}", root.x, root.y, root.z);
     {
@@ -723,6 +725,7 @@ void geometry::load_geometry(const arb::morphology& morph, bool reset) {
         if (indices.size()  != segments.size()*n_indices)  log_error("Size mismatch: indices ./. segments");
     }
     log_debug("Frustra generated: {} ({} points)", indices.size()/n_indices, vertices.size());
+
 
     {
         // Re-scale into [-1, 1]^3 box

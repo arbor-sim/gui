@@ -1,7 +1,6 @@
 #include "gui_state.hpp"
 
 #include <cmath>
-#include <regex>
 #include <string>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -24,6 +23,7 @@
 #include <arbor/simulation.hpp>
 #include <arbor/context.hpp>
 #include <arbor/load_balance.hpp>
+#include <arbor/units.hpp>
 
 #include "gui.hpp"
 #include "utils.hpp"
@@ -37,6 +37,7 @@ extern float delta_zoom;
 extern glm::vec2 mouse;
 
 using namespace std::literals;
+namespace U = arb::units;
 
 namespace {
   inline void gui_read_morphology(gui_state& state, bool& open);
@@ -127,16 +128,14 @@ namespace {
           loader_error.clear();
           ImGui::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
-      }
+      } // load error
 
       if (ko) open = false;
       ImGui::EndPopup();
-    }
+    } // Load
   }
 
   inline void gui_read_cat(gui_state& state, bool& open) {
-
     with_id id{"loading cat"};
     ImGui::OpenPopup("Load");
     static std::vector<std::string> suffixes{".so"};
@@ -249,7 +248,6 @@ namespace {
   }
 
   inline void gui_main(gui_state& state) {
-
     static bool opt_fullscreen = true;
     static bool opt_padding = false;
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_None;
@@ -291,12 +289,12 @@ namespace {
     // DockSpace
     ImGuiIO& io = ImGui::GetIO();
 
-    if (io.ConfigFlags&  ImGuiConfigFlags_DockingEnable) {
+    if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable) {
       ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
       ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
     }
     gui_menu_bar(state);
-    ImGui::End();
+    ImGui::End(); // dockspace
   }
 
   inline void gui_read_morphology(gui_state& state, bool& open_file) {
@@ -375,172 +373,181 @@ namespace {
   inline bool gui_axes(axes& ax) {
     ImGui::Text("%s Axes", icon_axes);
     gui_right_margin();
-    gui_toggle(icon_on, icon_off, ax.active);
+    gui_toggle(fmt::format("{}##{}", icon_on, "ax").c_str(), fmt::format("{}##{}", icon_off, "ax").c_str(), ax.active);
     auto mv = ImGui::InputFloat3("Position", &ax.origin[0]);
     auto sz = ImGui::InputFloat("Size", &ax.scale, 0, 0, "%f µm");
     return mv || sz;
   }
 
+  inline void gui_cell_context_menu(gui_state& state) {
+    if (ImGui::BeginPopupContextWindow()) {
+      ImGui::Text("%s Camera", icon_camera);
+      {
+        with_indent indent{};
+        ImGui::SliderFloat("Auto-rotate", &state.auto_omega, 0.1f, 2.0f);
+        gui_right_margin();
+        gui_toggle(icon_on, icon_off, state.demo_mode);
+        ImGui::InputFloat3("Target", &state.view.target[0]);
+        ImGui::ColorEdit3("Background",& (state.renderer.cell.clear_color.x), ImGuiColorEditFlags_NoInputs);
+        {
+          ImGui::SameLine();
+          if (ImGui::BeginCombo("Colormap", state.renderer.cmap.c_str())) {
+            with_item_width iw(80.0f);
+            for (const auto& [k, v]: state.renderer.cmaps) {
+              if (ImGui::Selectable(k.c_str(), k == state.renderer.cmap)) state.renderer.cmap = k;
+            }
+            ImGui::EndCombo();
+          }
+        }
+        if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {
+          for (const auto& id: state.locsets) {
+            const auto& ls = state.locset_defs[id];
+            if (ls.state != def_state::good) continue;
+            if (ImGui::BeginMenu(fmt::format("{} {}", icon_locset, ls.name).c_str())) {
+              auto points = state.builder.make_points(ls.data.value());
+              for (const auto& point: points) {
+                const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
+                if (ImGui::MenuItem(lbl.c_str())) {
+                  state.view.offset = {0.0, 0.0};
+                  state.view.target = point;
+                }
+              }
+              ImGui::EndMenu();
+            }
+          }
+          ImGui::EndMenu();
+        }
+        if (gui_menu_item("Reset##camera", icon_refresh)) {
+          state.view.offset = {0.0f, 0.0f};
+          state.view.rotate = glm::mat4(1.0f);
+          state.view.target = {0.0f, 0.0f, 0.0f};
+          state.renderer.cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
+        }
+      }
+      ImGui::Separator();
+      if(gui_axes(state.renderer.ax)) state.renderer.make_ruler();
+      ImGui::Separator();
+      ImGui::Text("%s Model", icon_cell);
+      {
+        with_indent indent{};
+        int tmp = state.renderer.n_faces;
+        if (ImGui::DragInt("Frustrum Resolution", &tmp, 1.0f, 8, 64, "%d", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp)) {
+          state.renderer.n_faces = tmp;
+          state.renderer.load_geometry(state.builder.morph);
+          for (const auto& rg: state.regions) state.update_region(rg);
+          for (const auto& ls: state.locsets) state.update_locset(ls);
+        }
+      }
+      ImGui::Separator();
+      if (gui_menu_item("Snapshot", icon_paint)) state.store_snapshot();
+      ImGui::InputText("Output",& state.snapshot_path);
+      ImGui::EndPopup();
+    }
+  }
+
   inline void gui_cell(gui_state& state) {
     if (ImGui::Begin("Cell")) {
-      ImGui::BeginChild("Cell Render");
-      auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
-      auto& vs = state.view;
-      vs.size = to_glmvec(size);
-      state.renderer.render(vs, {mouse.x - win_pos.x, size.y + win_pos.y - mouse.y});
-      ImGui::Image(reinterpret_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
-      if (ImGui::IsItemHovered()) {
-        auto shft = ImGui::IsKeyDown(GLFW_KEY_LEFT_SHIFT) || ImGui::IsKeyDown(GLFW_KEY_RIGHT_SHIFT);
-        auto ctrl = ImGui::IsKeyDown(GLFW_KEY_LEFT_CONTROL) || ImGui::IsKeyDown(GLFW_KEY_RIGHT_CONTROL);
-        if (shft || ctrl) {
-          auto what = shft ? ImGuizmo::ROTATE : ImGuizmo::TRANSLATE;
-          glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
-          glm::mat4 V  = glm::lookAt(vs.camera, vs.target/state.renderer.rescale + shift, vs.up);
-          glm::mat4 P  = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
-          ImGuizmo::SetDrawlist();
-          ImGuizmo::SetRect(win_pos.x, win_pos.y, size.x, size.y);
-          ImGuizmo::Manipulate(glm::value_ptr(V), glm::value_ptr(P), what, ImGuizmo::LOCAL, glm::value_ptr(vs.rotate));
-        } else {
-          vs.zoom = std::clamp(vs.zoom + delta_zoom, 1.0f, 45.0f);
-        }
-      }
-
-      static float t_last = 0.0;
-      float t_now = glfwGetTime();
-      if (state.demo_mode) vs.rotate = glm::rotate(vs.rotate, state.auto_omega*(t_now - t_last), glm::vec3{0.0f, 1.0f, 0.0f});
-      t_last = t_now;
-
-      state.object = state.renderer.get_id();
-
-      if (ImGui::BeginPopupContextWindow()) {
-        ImGui::Text("%s Camera", icon_camera);
-        {
-          with_indent indent{};
-          ImGui::SliderFloat("Auto-rotate", &state.auto_omega, 0.1f, 2.0f);
-          gui_right_margin();
-          gui_toggle(icon_on, icon_off, state.demo_mode);
-          ImGui::InputFloat3("Target", &state.view.target[0]);
-          ImGui::ColorEdit3("Background",& (state.renderer.cell.clear_color.x), ImGuiColorEditFlags_NoInputs);
-          {
-            ImGui::SameLine();
-            if (ImGui::BeginCombo("Colormap", state.renderer.cmap.c_str())) {
-              with_item_width iw(80.0f);
-              for (const auto& [k, v]: state.renderer.cmaps) {
-                if (ImGui::Selectable(k.c_str(), k == state.renderer.cmap)) state.renderer.cmap = k;
-              }
-              ImGui::EndCombo();
-            }
+      if (ImGui::BeginChild("Cell Render")) {
+        auto size = ImGui::GetWindowSize(), win_pos = ImGui::GetWindowPos();
+        auto& vs = state.view;
+        vs.size = to_glmvec(size);
+        state.renderer.render(vs, {mouse.x - win_pos.x, size.y + win_pos.y - mouse.y});
+        ImGui::Image(static_cast<ImTextureID>(state.renderer.cell.tex), size, ImVec2(0, 1), ImVec2(1, 0));
+        if (ImGui::IsItemHovered()) {
+          auto shft = ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift);
+          auto ctrl = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl);
+          if (shft || ctrl) {
+            auto what = shft ? ImGuizmo::ROTATE : ImGuizmo::TRANSLATE;
+            glm::vec3 shift = {vs.offset.x/vs.size.x, vs.offset.y/vs.size.y, 0.0f};
+            glm::mat4 V = glm::lookAt(vs.camera, vs.target/state.renderer.rescale + shift, vs.up);
+            glm::mat4 P = glm::perspective(glm::radians(vs.zoom), vs.size.x/vs.size.y, 0.1f, 100.0f);
+            ImGuizmo::SetDrawlist();
+            ImGuizmo::SetRect(win_pos.x, win_pos.y, size.x, size.y);
+            ImGuizmo::Manipulate(glm::value_ptr(V), glm::value_ptr(P), what, ImGuizmo::LOCAL, glm::value_ptr(vs.rotate));
           }
-          if (ImGui::BeginMenu(fmt::format("{} Snap", icon_locset).c_str())) {
-            for (const auto& id: state.locsets) {
-              const auto& ls = state.locset_defs[id];
-              if (ls.state != def_state::good) continue;
-              if (ImGui::BeginMenu(fmt::format("{} {}", icon_locset, ls.name).c_str())) {
-                auto points = state.builder.make_points(ls.data.value());
-                for (const auto& point: points) {
-                  const auto lbl = fmt::format("({: 7.3f} {: 7.3f} {: 7.3f})", point.x, point.y, point.z);
-                  if (ImGui::MenuItem(lbl.c_str())) {
-                    state.view.offset = {0.0, 0.0};
-                    state.view.target = point;
-                  }
-                }
-                ImGui::EndMenu();
-              }
-            }
-            ImGui::EndMenu();
-          }
-          if (gui_menu_item("Reset##camera", icon_refresh)) {
-            state.view.offset = {0.0f, 0.0f};
-            state.view.rotate = glm::mat4(1.0f);
-            state.view.target = {0.0f, 0.0f, 0.0f};
-            state.renderer.cell.clear_color = {214.0f/255, 214.0f/255, 214.0f/255};
+          else {
+            vs.zoom = std::clamp(vs.zoom + delta_zoom, 1.0f, 45.0f);
           }
         }
-        ImGui::Separator();
-        if(gui_axes(state.renderer.ax)) state.renderer.make_ruler();
-        ImGui::Separator();
-        ImGui::Text("%s Model", icon_cell);
-        {
-          with_indent indent{};
-          int tmp = state.renderer.n_faces;
-          if (ImGui::DragInt("Frustrum Resolution", &tmp, 1.0f, 8, 64, "%d", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp)) {
-            state.renderer.n_faces = tmp;
-            state.renderer.load_geometry(state.builder.morph);
-            for (const auto& rg: state.regions) state.update_region(rg);
-            for (const auto& ls: state.locsets) state.update_locset(ls);
-          }
-        }
-        ImGui::Separator();
-        if (gui_menu_item("Snapshot", icon_paint)) state.store_snapshot();
-        ImGui::InputText("Output",& state.snapshot_path);
-        ImGui::EndPopup();
-      }
+
+        //
+        static float t_last = 0.0;
+        float t_now = glfwGetTime();
+        if (state.demo_mode) vs.rotate = glm::rotate(vs.rotate, state.auto_omega*(t_now - t_last), glm::vec3{0.0f, 1.0f, 0.0f});
+        t_last = t_now;
+
+        state.object = state.renderer.get_id();
+      } // cell render
       ImGui::EndChild();
-    }
+    } // cell
     ImGui::End();
+  }
+
+  inline void gui_morph_info(gui_state& state) {
+    auto& object = state.object.value();
+    ImGui::BulletText("Segment %u", object.data.id);
+    {
+      with_indent indent;
+      auto
+        px = object.data.prox.x, dx = object.data.dist.x, lx = dx - px,
+        py = object.data.prox.y, dy = object.data.dist.y, ly = dy - py,
+        pz = object.data.prox.z, dz = object.data.dist.z, lz = dz - pz;
+      ImGui::BulletText("Extent (%.1f, %.1f, %.1f) -- (%.1f, %.1f, %.1f)", px, py, pz, dx, dy, dz);
+      ImGui::BulletText("Radii  %g µm %g µm", object.data.prox.radius, object.data.dist.radius);
+      ImGui::BulletText("Length %g µm", std::sqrt(lx*lx + ly*ly + lz*lz));
+    }
+    ImGui::BulletText("Branch %zu", object.branch);
+    {
+      with_indent indent;
+      ImGui::BulletText("Segments");
+      auto count = 0ul;
+      for (const auto& [lo, hi]: *object.segment_ids) {
+        ImGui::SameLine();
+        if (lo == hi) {
+          ImGui::Text("%zu", lo);
+        } else {
+          ImGui::Text("%zu-%zu", lo, hi);
+        }
+        count += hi - lo + 1;
+      }
+      ImGui::BulletText("Count %zu", count);
+    }
+  }
+
+  inline void gui_loc_info(gui_state& state) {
+    auto& object = state.object.value();
+    ImGui::BulletText("IExprs");
+    {
+      with_indent indent;
+      for (const auto& iex: state.iexpr_defs.items) {
+        if (iex.state == def_state::good) {
+          auto& info = iex.info;
+          const auto& [pv, dv] = info.values.at(object.data.id);
+          ImGui::BulletText("%s: %f -- %f", iex.name.c_str(), pv, dv);
+        }
+      }
+    }
+    ImGui::BulletText("Regions");
+    {
+      with_indent indent;
+      for (const auto& region: state.segment_to_regions[object.data.id]) {
+        ImGui::ColorButton("", to_imvec(state.renderer.regions[region].color));
+        ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("%s", state.region_defs[region].name.c_str());
+      }
+    }
   }
 
   inline void gui_cell_info(gui_state& state) {
     if (ImGui::Begin(fmt::format("{} Morphology##info", icon_branch).c_str())) {
-      if (state.object) {
-        auto& object = state.object.value();
-        ImGui::BulletText("Segment %u", object.data.id);
-        {
-          with_indent indent;
-          auto
-            px = object.data.prox.x, dx = object.data.dist.x, lx = dx - px,
-            py = object.data.prox.y, dy = object.data.dist.y, ly = dy - py,
-            pz = object.data.prox.z, dz = object.data.dist.z, lz = dz - pz;
-          ImGui::BulletText("Extent (%.1f, %.1f, %.1f) -- (%.1f, %.1f, %.1f)", px, py, pz, dx, dy, dz);
-          ImGui::BulletText("Radii  %g µm %g µm", object.data.prox.radius, object.data.dist.radius);
-          ImGui::BulletText("Length %g µm", std::sqrt(lx*lx + ly*ly + lz*lz));
-        }
-        ImGui::BulletText("Branch %zu", object.branch);
-        {
-          with_indent indent;
-          ImGui::BulletText("Segments");
-          auto count = 0ul;
-          for (const auto& [lo, hi]: *object.segment_ids) {
-            ImGui::SameLine();
-            if (lo == hi) {
-              ImGui::Text("%zu", lo);
-            } else {
-              ImGui::Text("%zu-%zu", lo, hi);
-            }
-            count += hi - lo + 1;
-          }
-          ImGui::BulletText("Count %zu", count);
-        }
-      }
-      ImGui::End();
+      if (state.object) gui_morph_info(state);
     }
+    ImGui::End();
     if (ImGui::Begin(fmt::format("{} Locations##info", icon_location).c_str())) {
-      if (state.object) {
-        auto& object = state.object.value();
-        ImGui::BulletText("IExprs");
-        {
-          with_indent indent;
-          for (const auto& iex: state.iexpr_defs.items) {
-            if (iex.state == def_state::good) {
-              auto& info = iex.info;
-              const auto& [pv, dv] = info.values.at(object.data.id);
-              ImGui::BulletText("%s: %f -- %f", iex.name.c_str(), pv, dv);
-            }
-          }
-        }
-        ImGui::BulletText("Regions");
-        {
-          with_indent indent;
-          for (const auto& region: state.segment_to_regions[object.data.id]) {
-            ImGui::ColorButton("", to_imvec(state.renderer.regions[region].color));
-            ImGui::SameLine();
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("%s", state.region_defs[region].name.c_str());
-          }
-        }
-      }
-      ImGui::End();
+      if (state.object) gui_loc_info(state);
     }
+    ImGui::End();
   }
 
   template<typename Item>
@@ -550,7 +557,6 @@ namespace {
                           component_unique<renderable>& renderables,
                           event_queue& events,
                           bool show_color=true) {
-
     with_id guard{name};
     auto from = -1, to = -1;
     auto open = gui_tree_add(name, [&](){ events.emplace_back(evt_add_locdef<Item>{}); });
@@ -635,7 +641,7 @@ namespace {
       ImGui::Separator();
       gui_locdefs(fmt::format("{} Inhomogeneous", icon_iexpr), state.iexprs, state.iexpr_defs, state.renderer.iexprs, state.events, false);
     }
-    ImGui::End();
+    ImGui::End(); // locations
   }
 
   inline void gui_ion_settings(gui_state& state) {
@@ -655,7 +661,6 @@ namespace {
   }
 
   inline void gui_ion_defaults(gui_state& state) {
-
     with_id guard{"ion-defaults"};
     auto open = gui_tree_add(fmt::format("{} Default", icon_default), [&]() { state.add_ion(); });
     if (open) {
@@ -685,7 +690,6 @@ namespace {
   }
 
   inline void gui_parameters(gui_state& state) {
-
     with_id id{"parameters"};
     if (ImGui::Begin(fmt::format("{} Parameters", icon_list).c_str())) {
       if (gui_tree(fmt::format("{} Cable Cell Properties", icon_sliders))) {
@@ -715,7 +719,7 @@ namespace {
       }
       ImGui::Separator();
       gui_mechanisms(state);
-    }
+    } // parameter
     ImGui::End();
   }
 
@@ -736,8 +740,11 @@ namespace {
           }
         }
       }
-      std::sort(state_vars.begin(), state_vars.end());
-      std::unique(state_vars.begin(), state_vars.end());
+      {
+        std::sort(state_vars.begin(), state_vars.end());
+        auto last = std::unique(state_vars.begin(), state_vars.end());
+        state_vars.erase(last, state_vars.end());
+      }
 
       for (const auto& locset: state.locsets) {
         with_id id{locset};
@@ -775,13 +782,11 @@ namespace {
   inline void gui_debug(bool& open) {  ImGui::ShowMetricsWindow(&open); }
 
   inline void gui_style(bool& open) {
-
     if (ImGui::Begin("Style", &open)) ImGui::ShowStyleEditor();
     ImGui::End();
   }
 
   inline void gui_about(bool& open) {
-
     if (ImGui::Begin("About", &open)) {
       ImGui::Text("Version: %s", gui_git_commit);
       ImGui::Text("Webpage: %s", gui_web_page);
@@ -790,15 +795,12 @@ namespace {
     ImGui::End();
   }
 
-
   inline void gui_demo(bool& open) {
-
     if (ImGui::Begin("Demo", &open)) ImGui::ShowDemoWindow();
     ImGui::End();
   }
 
   inline void gui_stimuli(gui_state& state) {
-
     std::vector<float> values(state.sim.until/state.sim.dt, 0.0f);
     if (gui_tree(fmt::format("{} Stimuli", icon_stimulus))) {
       for (const auto& locset: state.locsets) {
@@ -820,7 +822,6 @@ namespace {
     if (ImGui::Begin(fmt::format("{} Simulation", icon_sim).c_str())) {
       ImGui::Separator();
       gui_sim(state.sim);
-
       ImGui::Separator();
       gui_cv_policy(state.cv_policy_def, state.renderer.cv_boundaries, state.events);
       ImGui::Separator();
@@ -850,20 +851,22 @@ namespace {
         i_clamp.frequency = item.frequency;
         i_clamp.phase     = item.phase;
         std::sort(item.envelope.begin(), item.envelope.end());
-        for (const auto& [t, i]: item.envelope) i_clamp.envelope.emplace_back(arb::i_clamp::envelope_point{t, i});
+        for (const auto& [t, i]: item.envelope) {
+          i_clamp.envelope.emplace_back(arb::i_clamp::envelope_point{t * U::ms , i * U::nA });
+        }
         decor.place(locset, i_clamp, item.tag);
       }
       for (const auto child: state.detectors.get_children(id)) {
         auto item = state.detectors[child];
-        decor.place(locset, arb::threshold_detector{item.threshold}, item.tag);
+        decor.place(locset, arb::threshold_detector{item.threshold * U::mV}, item.tag);
       }
     }
 
     auto param = state.parameter_defaults;
-    if (param.RL) decor.set_default(arb::axial_resistivity{param.RL.value()});
-    if (param.Cm) decor.set_default(arb::membrane_capacitance{param.Cm.value()});
-    if (param.TK) decor.set_default(arb::temperature_K{param.TK.value()});
-    if (param.Vm) decor.set_default(arb::init_membrane_potential{param.Vm.value()});
+    if (param.RL) decor.set_default(arb::axial_resistivity{param.RL.value() * U::Ohm * U::cm});
+    if (param.Cm) decor.set_default(arb::membrane_capacitance{param.Cm.value() * U::F / U::m2});
+    if (param.TK) decor.set_default(arb::temperature{param.TK.value() * U::Kelvin });
+    if (param.Vm) decor.set_default(arb::init_membrane_potential{param.Vm.value() * U::mV});
 
     for (const auto& ion: state.ions) {
       const auto& data = state.ion_defaults[ion];
@@ -876,13 +879,13 @@ namespace {
 
       if (state.presets.ion_data.contains(name)) {
         auto p = state.presets.ion_data.at(name);
-        decor.set_default(arb::init_int_concentration{name,  data.Xi.value_or(p.init_int_concentration.value())});
-        decor.set_default(arb::init_ext_concentration{name,  data.Xo.value_or(p.init_ext_concentration.value())});
-        decor.set_default(arb::init_reversal_potential{name, data.Er.value_or(p.init_reversal_potential.value())});
+        decor.set_default(arb::init_int_concentration{name,  data.Xi.value_or(p.init_int_concentration.value()) * U::mM});
+        decor.set_default(arb::init_ext_concentration{name,  data.Xo.value_or(p.init_ext_concentration.value()) * U::mM});
+        decor.set_default(arb::init_reversal_potential{name, data.Er.value_or(p.init_reversal_potential.value())* U::mV});
       } else {
-        decor.set_default(arb::init_int_concentration{name,  data.Xi.value()});
-        decor.set_default(arb::init_ext_concentration{name,  data.Xo.value()});
-        decor.set_default(arb::init_reversal_potential{name, data.Er.value()});
+        decor.set_default(arb::init_int_concentration{name,  data.Xi.value() * U::mM});
+        decor.set_default(arb::init_ext_concentration{name,  data.Xo.value() * U::mM});
+        decor.set_default(arb::init_reversal_potential{name, data.Er.value() * U::mV});
       }
     }
 
@@ -890,17 +893,17 @@ namespace {
       auto rg = state.region_defs[id];
       if (!rg.data) continue;
       auto param  = state.parameter_defs[id];
-      if (param.RL) decor.paint(rg.data.value(), arb::axial_resistivity{param.RL.value()});
-      if (param.Cm) decor.paint(rg.data.value(), arb::membrane_capacitance{param.Cm.value()});
-      if (param.TK) decor.paint(rg.data.value(), arb::temperature_K{param.TK.value()});
-      if (param.Vm) decor.paint(rg.data.value(), arb::init_membrane_potential{param.Vm.value()});
+      if (param.RL) decor.paint(rg.data.value(), arb::axial_resistivity{param.RL.value() * U::Ohm * U::cm});
+      if (param.Cm) decor.paint(rg.data.value(), arb::membrane_capacitance{param.Cm.value() * U::F / U::m2});
+      if (param.TK) decor.paint(rg.data.value(), arb::temperature{param.TK.value() * U::Kelvin});
+      if (param.Vm) decor.paint(rg.data.value(), arb::init_membrane_potential{param.Vm.value() * U::mV});
 
       for (const auto& ion: state.ions) {
         const auto& data = state.ion_par_defs[{id, ion}];
         const auto& name = state.ion_defs[ion].name;
-        if (data.Xi) decor.paint(rg.data.value(), arb::init_int_concentration{name,  data.Xi.value()});
-        if (data.Xo) decor.paint(rg.data.value(), arb::init_ext_concentration{name,  data.Xo.value()});
-        if (data.Er) decor.paint(rg.data.value(), arb::init_reversal_potential{name, data.Er.value()});
+        if (data.Xi) decor.paint(rg.data.value(), arb::init_int_concentration{name,  data.Xi.value() * U::mM});
+        if (data.Xo) decor.paint(rg.data.value(), arb::init_ext_concentration{name,  data.Xo.value() * U::mM});
+        if (data.Er) decor.paint(rg.data.value(), arb::init_reversal_potential{name, data.Er.value() * U::mV});
       }
 
       for (const auto child: state.mechanisms.get_children(id)) {
@@ -932,53 +935,60 @@ namespace {
     return {state.builder.morph, decor, state.builder.labels};
   }
 
+  inline void gui_plot(gui_state& state, std::optional<id_type> to_plot) {
+    if (ImGui::BeginChild("TracePlot", {-180.0f, 0.0f})) {
+      if (to_plot) {
+        auto probe = to_plot.value();
+        auto trace = state.sim.traces.at(probe.value);
+        const auto& [lo, hi] = std::accumulate(trace.values.begin(),
+                                               trace.values.end(),
+                                               std::make_pair(std::numeric_limits<float>::max(), std::numeric_limits<float>::min()),
+                                               [] (const auto& p, auto x) -> std::pair<float, float> { return { std::min(x, p.first), std::max(x, p.second)};});
+        auto probe_def = state.probes[probe];
+        auto var = fmt::format("{} {}", probe_def.kind, probe_def.variable);
+
+        if (ImPlot::BeginPlot(fmt::format("Probe {} @ branch {} ({})", probe.value, trace.branch, trace.location).c_str(),
+                              ImVec2(-1, -20))) {
+          ImPlot::SetupAxes("Time (t/ms)", var.c_str());
+          ImPlot::SetupAxesLimits(0, state.sim.until, lo, hi);
+          ImPlot::SetupFinish();
+          ImPlot::PlotLine(var.c_str(), trace.times.data(), trace.values.data(), trace.values.size());
+          ImPlot::EndPlot();
+        }
+      } else {
+        if (ImPlot::BeginPlot("Please select a probe below")) {
+          ImPlot::EndPlot();
+        }
+      }
+    }
+    ImGui::EndChild();
+  }
+
+  inline void gui_trace_select(gui_state& state, std::optional<id_type> to_plot) {
+    if (ImGui::BeginChild("TraceSelect", {150.0f, 0.0f})) {
+      for (const auto& locset: state.locsets) {
+        with_id id{locset};
+        auto locset_def = state.locset_defs[locset];
+        if (gui_tree(fmt::format("{} {}", icon_locset, locset_def.name))) {
+          for (const auto& probe: state.probes.get_children(locset)) {
+            const auto& data = state.probes[probe];
+            if(ImGui::RadioButton(fmt::format("{} {}: {} {}", icon_probe, probe.value, data.kind, data.variable).c_str(),
+                                  to_plot && (to_plot.value() == probe))) {
+              to_plot = probe;
+            }
+          }
+          ImGui::TreePop();
+        }
+      }
+    }
+    ImGui::EndChild();
+  }
+
   void gui_traces(gui_state& state) {
     static std::optional<id_type> to_plot;
     if (ImGui::Begin("Traces")) {
-      if (ImGui::BeginChild("TracePlot", {-180.0f, 0.0f})) {
-        if (to_plot) {
-          auto probe = to_plot.value();
-          auto trace = state.sim.traces.at(probe);
-          const auto& [lo, hi] = std::accumulate(trace.values.begin(),
-                                                 trace.values.end(),
-                                                 std::make_pair(std::numeric_limits<float>::max(), std::numeric_limits<float>::min()),
-                                                 [] (const auto& p, auto x) -> std::pair<float, float> { return { std::min(x, p.first), std::max(x, p.second)};});
-          auto probe_def = state.probes[probe];
-          auto var = fmt::format("{} {}", probe_def.kind, probe_def.variable);
-
-          if (ImPlot::BeginPlot(fmt::format("Probe {} @ branch {} ({})", probe.value, trace.branch, trace.location).c_str(),
-                                ImVec2(-1, -20))) {
-            ImPlot::SetupAxes("Time (t/ms)", var.c_str());
-            ImPlot::SetupAxesLimits(0, state.sim.until, lo, hi);
-            ImPlot::SetupFinish();
-            ImPlot::PlotLine(var.c_str(), trace.times.data(), trace.values.data(), trace.values.size());
-            ImPlot::EndPlot();
-          }
-        } else {
-          if (ImPlot::BeginPlot("Please select a probe below")) {
-            ImPlot::EndPlot();
-          }
-        }
-      }
-      ImGui::EndChild();
+      gui_plot(state, to_plot);
       ImGui::SameLine();
-      if (ImGui::BeginChild("TraceSelect", {150.0f, 0.0f})) {
-        for (const auto& locset: state.locsets) {
-          with_id id{locset};
-          auto locset_def = state.locset_defs[locset];
-          if (gui_tree(fmt::format("{} {}", icon_locset, locset_def.name))) {
-            for (const auto& probe: state.probes.get_children(locset)) {
-              const auto& data = state.probes[probe];
-              if(ImGui::RadioButton(fmt::format("{} {}: {} {}", icon_probe, probe.value, data.kind, data.variable).c_str(),
-                                    to_plot && (to_plot.value() == probe))) {
-                to_plot = probe;
-              }
-            }
-            ImGui::TreePop();
-          }
-        }
-      }
-      ImGui::EndChild();
     }
     ImGui::End();
   }
@@ -1012,9 +1022,9 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
   struct ls_visitor {
     gui_state* state;
     id_type locset;
-    std::string tag;
+    arb::hash_type tag;
 
-    ls_visitor(gui_state* s, const arb::locset& l, const std::string& t): state{s}, tag{t} {
+    ls_visitor(gui_state* s, const arb::locset& l, const arb::hash_type& t): state{s}, tag{t} {
       auto ls = to_string(l);
       auto res = std::find_if(state->locsets.begin(), state->locsets.end(),
                               [&](const auto& id) {
@@ -1082,7 +1092,7 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
 
     void operator()(const arb::init_membrane_potential& t) { state->parameter_defs[region].Vm = t.value; }
     void operator()(const arb::axial_resistivity& t)       { state->parameter_defs[region].RL = t.value; }
-    void operator()(const arb::temperature_K& t)           { state->parameter_defs[region].TK = t.value; }
+    void operator()(const arb::temperature& t)             { state->parameter_defs[region].TK = t.value; }
     void operator()(const arb::membrane_capacitance& t)    { state->parameter_defs[region].Cm = t.value; }
     void operator()(const arb::init_int_concentration& t) {
       auto ion = std::find_if(state->ions.begin(), state->ions.end(),
@@ -1117,20 +1127,7 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       }
     }
     void operator()(const arb::density& d) { make_density(d); }
-  };
-
-  struct df_visitor {
-    gui_state* state;
-    void operator()(const arb::init_membrane_potential& t)       { log_error("Cannot handle this"); }
-    void operator()(const arb::axial_resistivity& t)             { log_error("Cannot handle this"); }
-    void operator()(const arb::temperature_K& t)                 { log_error("Cannot handle this"); }
-    void operator()(const arb::membrane_capacitance& t)          { log_error("Cannot handle this"); }
-    void operator()(const arb::init_int_concentration& t)        { log_error("Cannot handle this"); }
-    void operator()(const arb::init_ext_concentration& t)        { log_error("Cannot handle this"); }
-    void operator()(const arb::init_reversal_potential& t)       { log_error("Cannot handle this"); }
-    void operator()(const arb::ion_reversal_potential_method& t) { log_error("Cannot handle this"); }
-    void operator()(const arb::ion_diffusivity& t)               { log_error("Cannot handle this"); }
-    void operator()(const arb::cv_policy& t)                     { log_error("Cannot handle this"); }
+    void operator()(const arb::voltage_process& d) { log_error("Cannot handle this"); }
   };
 
   struct acc_visitor {
@@ -1425,7 +1422,7 @@ void gui_state::run_simulation() {
   if (parameter_defaults.Vm) prop.default_parameters.init_membrane_potential = parameter_defaults.Vm;
 
   auto cat = arb::mechanism_catalogue{};
-  for (const auto& [k, v]: catalogues) cat.import(v, k + "::");
+  for (const auto& [k, v]: catalogues) cat.extend(v, k + "::");
   prop.catalogue = cat;
 
   for (const auto& ion: ions) {
@@ -1437,15 +1434,15 @@ void gui_state::run_simulation() {
       auto p = presets.ion_data.at(name);
       prop.add_ion(name,
                    data.charge,
-                   def.Xi.value_or(p.init_int_concentration.value()),
-                   def.Xo.value_or(p.init_ext_concentration.value()),
-                   def.Er.value_or(p.init_reversal_potential.value()));
+                   def.Xi.value_or(p.init_int_concentration.value()) * U::mM,
+                   def.Xo.value_or(p.init_ext_concentration.value()) * U::mM,
+                   def.Er.value_or(p.init_reversal_potential.value())* U::mV);
     } else {
       prop.add_ion(name,
                    data.charge,
-                   def.Xi.value(),
-                   def.Xo.value(),
-                   def.Er.value());
+                   def.Xi.value() * U::mM,
+                   def.Xo.value() * U::mM,
+                   def.Er.value() * U::mV);
     }
   }
   auto rec = make_recipe(prop, cell);
@@ -1455,39 +1452,48 @@ void gui_state::run_simulation() {
       const auto& where = locset_defs[ls];
       if (!where.data) continue;
       auto loc = where.data.value();
+      // TODO this is quite crude...
+      auto tag = std::to_string(pb.value);
       if (data.kind == "Voltage") {
-        rec.probes.emplace_back(arb::cable_probe_membrane_voltage{loc}, pb.value);
+        rec.probes.emplace_back(arb::cable_probe_membrane_voltage{loc}, tag);
       } else if (data.kind == "Axial Current") {
-        rec.probes.emplace_back(arb::cable_probe_axial_current{loc}, pb.value);
+        rec.probes.emplace_back(arb::cable_probe_axial_current{loc}, tag);
       } else if (data.kind == "Membrane Current") {
-        rec.probes.emplace_back(arb::cable_probe_total_ion_current_density{loc}, pb.value);
+        rec.probes.emplace_back(arb::cable_probe_total_ion_current_density{loc}, tag);
       }
       // TODO Finish
     }
   }
   // Make simulation
-  auto sm  = arb::simulation(rec);
+  auto sm = arb::simulation(rec);
   sim.traces.clear();
+  sim.tag_to_id.clear();
   sm.add_sampler(arb::all_probes,
-                 arb::regular_schedule(this->sim.dt),
-                 [&](arb::probe_metadata pm, std::size_t n, const arb::sample_record* samples) {
-                    auto loc = arb::util::any_cast<const arb::mlocation*>(pm.meta); 
-                    trace t{(size_t)pm.tag, pm.index, loc->pos, loc->branch, {}, {}};
+                 arb::regular_schedule(this->sim.dt * U::ms),
+                 [&](const arb::probe_metadata pm, std::size_t n, const arb::sample_record* samples) {
+                    auto loc = arb::util::any_cast<const arb::mlocation*>(pm.meta);
+                    auto tag = pm.id.tag;
+                    if (sim.tag_to_id.count(tag) == 0) {
+                      id_type id = {sim.traces.size()};
+                      sim.tag_to_id[tag] = id;
+                      sim.traces.emplace_back(tag, id, pm.index, loc->pos, loc->branch);
+                    }
+                    auto id = sim.tag_to_id[tag];
+                    auto& t = sim.traces.at(id.value);
                     for (std::size_t i = 0; i<n; ++i) {
                       const double* value = arb::util::any_cast<const double*>(samples[i].data);
                       t.times.push_back(samples[i].time);
                       t.values.push_back(*value);
                     }
-                    sim.traces[t.id] = t;                    
-                  },
-                 arb::sampling_policy::exact);
+                  });
   try {
-    sm.run(sim.until, sim.dt);
+    sm.run(sim.until * U::ms, sim.dt * U::ms);
   } catch (...) {
       ImGui::OpenPopup("Error");
   }
   if (ImGui::BeginPopupModal("Error")) {
     ImGui::Text("Arbor failed to run.");
     if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
   }
 }
