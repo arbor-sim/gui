@@ -78,12 +78,6 @@ jobs:
       matrix:
         config:
         - {
-            name: "MacOS XIII",
-            os:   "macos-13",
-            cc:   "clang",
-            cxx:  "clang++"
-          }
-        - {
             name: "MacOS XIV",
             os:   "macos-14",
             cc:   "clang",
