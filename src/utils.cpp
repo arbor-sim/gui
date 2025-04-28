@@ -21,7 +21,7 @@ std::filesystem::path get_resource_path(const std::filesystem::path& fn) {
   CFURLRef appUrlRef = CFBundleCopyBundleURL( CFBundleGetMainBundle() );
   CFStringRef macPath = CFURLCopyFileSystemPath( appUrlRef, kCFURLPOSIXPathStyle );
   CFStringEncoding encodingMethod = CFStringGetSystemEncoding();
-  const char* path = CFStringGetCStringPtr(macPath, encodingMethod);
+  auto path = std::string(CFStringGetCStringPtr(macPath, encodingMethod));
   CFRelease(appUrlRef);
   CFRelease(macPath);
   return std::filesystem::path{path} / "Contents/Resources" / fn;

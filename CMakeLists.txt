@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.27)
 find_package(Git)
 
 project(the-arbor-gui
-  VERSION 0.11.1
+  VERSION 0.11.2
   LANGUAGES C CXX)
 
 set(EXPORT_COMPILE_COMMANDS ON)
@@ -186,22 +186,53 @@ if(ARBORGUI_BUILD_BUNDLE)
 
     set(ARBORGUI_ICON arbor.icns)
     set(ARBORGUI_ICON_PATH ${CMAKE_SOURCE_DIR}/images/${ARBORGUI_ICON})
-    set_source_files_properties(${ARBORGUI_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
-    add_executable(arbor-gui MACOSX_BUNDLE ${ARBORGUI_ICON_PATH} ${gui_srcs} $<TARGET_OBJECTS:imgui>)
-    set_target_properties(arbor-gui PROPERTIES MACOSX_BUNDLE_ICONFILE ${ARBORGUI_ICON})
+    set(arbgui_resources)
+    set_source_files_properties(${CMAKE_SOURCE_DIR}/imgui.ini
+                                PROPERTIES
+                                    MACOSX_PACKAGE_LOCATION Resources)
+    list(APPEND arbgui_resources ${CMAKE_SOURCE_DIR}/imgui.ini)
+
+    file(GLOB_RECURSE shaders ${CMAKE_SOURCE_DIR}/glsl/*/*.glsl)
+    foreach(SHADER_FILE ${shaders})
+      list(APPEND arbgui_resources ${SHADER_FILE})
+      file(RELATIVE_PATH SHADER_REL ${CMAKE_SOURCE_DIR}/glsl ${SHADER_FILE})
+      get_filename_component(SHADER_DIR ${SHADER_REL} DIRECTORY)
+      set_source_files_properties(${SHADER_FILE}
+                                  PROPERTIES
+                                      MACOSX_PACKAGE_LOCATION Resources/glsl/${SHADER_DIR})
+    endforeach()
+
+    file(GLOB_RECURSE fonts ${CMAKE_SOURCE_DIR}/fonts/*/*.ttf)
+    foreach(FONT_FILE ${fonts})
+      list(APPEND arbgui_resources ${FONT_FILE})
+      file(RELATIVE_PATH FONT_REL ${CMAKE_SOURCE_DIR}/fonts ${FONT_FILE})
+      get_filename_component(FONT_DIR ${FONT_REL} DIRECTORY)
+      set_source_files_properties(${FONT_FILE}
+                                  PROPERTIES
+                                      MACOSX_PACKAGE_LOCATION Resources/fonts/${FONT_DIR})
+    endforeach()
+
+    set_source_files_properties(${CMAKE_SOURCE_DIR}/images/arbor.icns
+                                PROPERTIES
+                                    MACOSX_PACKAGE_LOCATION Resources)
+
+    add_executable(arbor-gui MACOSX_BUNDLE ${gui_srcs} $<TARGET_OBJECTS:imgui> ${arbgui_resources} ${CMAKE_SOURCE_DIR}/images/arbor.icns)
+    set_target_properties(arbor-gui
+                          PROPERTIES
+                              BUNDLE True
+                              MACOSX_BUNDLE_BUNDLE_NAME ${PROJECT_NAME}
+                              MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+                              MACOSX_BUNDLE_ICONFILE ${ARBORGUI_ICON}
+                              MACOSX_BUNDLE_INFO_STRING "A GUI for Arbor"
+                              RESOURCE ${arbgui_resources})
     target_compile_definitions(arbor-gui PUBLIC FMT_HEADER_ONLY)
     target_include_directories(arbor-gui PRIVATE src ${CMAKE_CURRENT_BINARY_DIR})
     target_link_libraries(arbor-gui PRIVATE ${ARBORGUI_LIBS} arbor arborio glbinding glfw arbor-gui-deps)
 
     install(TARGETS arbor-gui
-        BUNDLE DESTINATION . COMPONENT Runtime
-        RUNTIME DESTINATION bin COMPONENT Runtime)
-
-    install(FILES     ${ARBORGUI_ICON_PATH} DESTINATION ${resource_path})
-    install(FILES     default.ini           DESTINATION ${resource_path} RENAME imgui.ini)
-    install(DIRECTORY glsl                  DESTINATION ${resource_path})
-    install(DIRECTORY fonts                 DESTINATION ${resource_path})
+            BUNDLE DESTINATION . COMPONENT Runtime
+            RUNTIME DESTINATION bin COMPONENT Runtime)
 
     set(CPACK_BINARY_DRAGNDROP ON)
     set(CPACK_GENERATOR "DragNDrop")
@@ -237,7 +268,7 @@ else()
   endif()
 
   # install resources
-  install(DIRECTORY glsl    DESTINATION ${resource_path})
-  install(DIRECTORY fonts   DESTINATION ${resource_path})
-  install(FILES default.ini DESTINATION ${resource_path} RENAME imgui.ini)
+  install(DIRECTORY glsl      DESTINATION ${resource_path})
+  install(DIRECTORY fonts     DESTINATION ${resource_path})
+  install(FILES     imgui.ini DESTINATION ${resource_path})
 endif()
