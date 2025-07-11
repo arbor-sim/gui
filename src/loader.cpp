@@ -23,13 +23,32 @@ loaded_morphology load_swc(const std::filesystem::path &fn,
 }
 
 loaded_morphology load_neuron_swc(const std::filesystem::path &fn) {
-    auto loaded = arborio::load_swc_neuron(fn);
+    arborio::swc_loader_options opts;
+    auto loaded = arborio::load_swc_neuron(fn, opts);
     loaded_morphology res{.morph=loaded.morphology};
     for (const auto& [k, v]: loaded.labels.regions()) res.regions.emplace_back(k, to_string(v));
     for (const auto& [k, v]: loaded.labels.locsets()) res.locsets.emplace_back(k, to_string(v));
     log_info("Loaded SWC (Neuron) {} branches {} ", loaded.segment_tree.size(), loaded.morphology.num_branches());
     return res;
 }
+
+loaded_morphology load_cnic_swc(const std::filesystem::path &fn) {
+    arborio::swc_loader_options opts {.allow_non_monotonic_ids=true,
+                                      .allow_mismatched_tags=true,
+                                      .tags={{0, "undefined"},
+                                             {1, "soma"}, {2, "axon"}, {3, "dend"}, {4, "apic"},
+                                             {5, "fork point"},
+                                             {6, "end point"}}
+   };
+
+    auto loaded = arborio::load_swc_neuron(fn, opts);
+    loaded_morphology res{.morph=loaded.morphology};
+    for (const auto& [k, v]: loaded.labels.regions()) res.regions.emplace_back(k, to_string(v));
+    for (const auto& [k, v]: loaded.labels.locsets()) res.locsets.emplace_back(k, to_string(v));
+    log_info("Loaded SWC (Neuron) {} branches {} ", loaded.segment_tree.size(), loaded.morphology.num_branches());
+    return res;
+}
+
 
 loaded_morphology load_arbor_swc(const std::filesystem::path &fn) {
     auto loaded = arborio::load_swc_arbor(fn);
@@ -78,7 +97,8 @@ static std::unordered_map<std::string,
                           std::unordered_map<std::string,
                                              std::function<loaded_morphology(const std::filesystem::path &fn)>>>
 loaders{{".swc", {{"Arbor",   load_arbor_swc},
-                  {"Neuron",  load_neuron_swc}}},
+                  {"Neuron",  load_neuron_swc},
+                  {"CNIC",    load_cnic_swc}}},
         {".nml", {{"Cell",    load_neuroml_cell},
                   {"Morph",   load_neuroml_morph}}},
         {".asc", {{"Default", load_asc}}}};
