@@ -12,6 +12,11 @@ int main(int, char**) {
     Window window{};
     gui_state state{};
 
+    // show at least once.
+    window.begin_frame();
+    state.gui();
+    window.end_frame();
+
     for (;window.running() && !state.shutdown_requested;) {
         if (!window.visible()) {
             log_debug("Pausing for events.");

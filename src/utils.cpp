@@ -29,7 +29,7 @@ std::filesystem::path get_resource_path(const std::filesystem::path& fn) {
 }
 
 void log_init() {
-    spdlog::set_level(spdlog::level::info);
+    spdlog::set_level(spdlog::level::debug);
 }
 
 

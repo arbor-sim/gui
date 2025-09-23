@@ -380,7 +380,7 @@ namespace {
   }
 
   inline void gui_cell_context_menu(gui_state& state) {
-    if (ImGui::BeginPopupContextWindow()) {
+    if (ImGui::BeginPopupContextWindow("cell-ctx-window", ImGuiPopupFlags_MouseButtonRight)) {
       ImGui::Text("%s Camera", icon_camera);
       {
         with_indent indent{};
@@ -469,7 +469,7 @@ namespace {
             vs.zoom = std::clamp(vs.zoom + delta_zoom, 1.0f, 45.0f);
           }
         }
-
+        gui_cell_context_menu(state);
         //
         static float t_last = 0.0;
         float t_now = glfwGetTime();
