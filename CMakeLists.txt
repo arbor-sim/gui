@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 4.0.0)
 
 find_package(Git)
 
@@ -252,8 +252,7 @@ else()
   # Set icon on output
   if (APPLE)
     add_custom_command(TARGET arbor-gui POST_BUILD
-      COMMAND sh ${CMAKE_SOURCE_DIR}/scripts/set-osx-icon.sh ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_CURRENT_BINARY_DIR}/arbor-gui
-      DEPENDS ${CMAKE_SOURCE_DIR}/scripts/set-osx-icon.sh ${CMAKE_SOURCE_DIR}/images/arbor.png)
+                       COMMAND sh ${CMAKE_SOURCE_DIR}/scripts/set-osx-icon.sh ${CMAKE_SOURCE_DIR}/images/arbor.png ${CMAKE_CURRENT_BINARY_DIR}/arbor-gui)
   endif()
   if (CMAKE_SYSTEM MATCHES "Linux")
     install(FILES     ${CMAKE_SOURCE_DIR}/images/arbor.png DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/icons/hicolor/256x256/apps/)

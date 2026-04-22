@@ -41,6 +41,8 @@ Window::Window() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, 1);
+    glfwWindowHint(GLFW_FOCUSED, 1);
+    glfwWindowHint(GLFW_VISIBLE, 1);
     glsl_version = "#version 410";
     handle = glfwCreateWindow(1280, 720, "arbor-gui", NULL, NULL);
     if (handle == nullptr) log_fatal("Failed to obtain window");

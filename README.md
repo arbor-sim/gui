@@ -120,31 +120,16 @@ Next, follow the platform specific instructions.
     ``` bash
     sudo apt update
     sudo apt install build-essential libssl-dev \ 
-                     libxml2-dev libxrandr-dev libxinerama-dev \
+                     libxrandr-dev libxinerama-dev \
                      libxcursor-dev libxi-dev libglu1-mesa-dev \
-                     freeglut3-dev mesa-common-dev gcc-10 g++-10
+                     freeglut3-dev mesa-common-dev gcc g++ \
+                     libglfw3 cmake pkg-config xorg-dev libwayland-dev
     ```
-    If your cmake version is less than 3.18, you will need to update it
-    as well
-    ``` bash
-    cmake --version
-      3.16 # default on Ubunte 20.04 LTS
-    # if pip is present
-    pip install --update cmake
-    ```
-2.  Add GCC10 as alternative to GCC and select it:
-    ``` bash
-    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 10
-    sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 10
-    ```
-    Use `gcc --version` to confirm it is now version 10. If not you will
-    need to run `sudo update-alternatives --config gcc` (and its analog for
-    `g++`) and manually select the right number.
-
 3.  Install Arbor GUI
     ```bash
     cmake ..
-    sudo make install -j 4
+    make 
+    sudo make install
     ```
 
 ## Windows (WSL2)

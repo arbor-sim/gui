@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <string>
+#include <numeric>
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -380,7 +381,7 @@ namespace {
   }
 
   inline void gui_cell_context_menu(gui_state& state) {
-    if (ImGui::BeginPopupContextWindow()) {
+    if (ImGui::BeginPopupContextWindow("cell-ctx-window", ImGuiPopupFlags_MouseButtonRight)) {
       ImGui::Text("%s Camera", icon_camera);
       {
         with_indent indent{};
@@ -469,7 +470,7 @@ namespace {
             vs.zoom = std::clamp(vs.zoom + delta_zoom, 1.0f, 45.0f);
           }
         }
-
+        gui_cell_context_menu(state);
         //
         static float t_last = 0.0;
         float t_now = glfwGetTime();
@@ -1078,7 +1079,8 @@ void gui_state::deserialize(const std::filesystem::path& fn) {
       auto cat = split_off(raw, "::");
       if (raw.empty()) log_error("Need 'catalogue::name', got 'name'.");
       auto name = split_off(raw, "/");
-      auto values = t.values();
+      auto values = std::unordered_map<std::string, double>{};
+      for (const auto& [k, v]: t.values()) values[k] = v;
       for (;raw.size();) {
         auto val = split_off(raw, ",");
         auto key = split_off(val, "=");

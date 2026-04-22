@@ -15,13 +15,13 @@ jobs:
     strategy:
       matrix:
         config:
-        - { 
+        - {
             name: "Ubuntu GCC",
             os:   "ubuntu-24.04",
             cc:   "gcc-14",
             cxx:  "g++-14"
           }
-        - { 
+        - {
             name: "Ubuntu Clang",
             os:   "ubuntu-24.04",
             cc:   "clang-18",
@@ -35,10 +35,14 @@ jobs:
         bld_dir:    build_dir
     steps:
       - name: "Clone w/ submodules"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: "recursive"
+      - name: Set up cmake
+        uses: jwlawson/actions-setup-cmake@v2.2
+        with:
+          cmake-version: 4.0.x
       - name: Update apt
         run: sudo apt update
       - name: Install missing packages
@@ -66,7 +70,7 @@ jobs:
       - name: Delete Linuxdeploy
         if: ${{ startsWith(matrix.config.cc, 'gcc') }}
         run: rm -f ./linuxdeploy-x86_64.AppImage
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ startsWith(matrix.config.cc, 'gcc') }}
         with:
           name: linux appimage
@@ -94,10 +98,14 @@ jobs:
         CXX:        ${{ matrix.config.cxx }}
     steps:
       - name: "Clone w/ submodules"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: "recursive"
+      - name: Set up cmake
+        uses: jwlawson/actions-setup-cmake@v2.2
+        with:
+          cmake-version: 4.0.x
       - name: Check config
         run: |
           $CC --version
@@ -106,7 +114,7 @@ jobs:
         run: cmake -S . -B build -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC -DARBORGUI_BUILD_BUNDLE=ON
       - name: Build
         run: cmake --build build -j 2 --target package
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: arbor-gui-${{ matrix.config.os }}
           path: build/*.dmg

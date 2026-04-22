@@ -14,9 +14,9 @@ jobs:
         config:
         - { 
             name: "Ubuntu",
-            os:   "ubuntu-22.04",
-            cc:   "gcc-12",
-            cxx:  "g++-12"
+            os:   "ubuntu-24.04",
+            cc:   "gcc-14",
+            cxx:  "g++-14"
           }
       fail-fast: false
     env:
@@ -26,7 +26,7 @@ jobs:
         bld_dir:    build_dir
     steps:
       - name: "Clone w/ submodules"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: "recursive"
@@ -64,7 +64,7 @@ jobs:
         config:
         - {
             name: "MacOS",
-            os:   "macos-12",
+            os:   "macos-4",
             cc:   "clang",
             cxx:  "clang++"
           }
@@ -73,7 +73,7 @@ jobs:
         CXX:        ${{ matrix.config.cxx }}
     steps:
       - name: "Clone w/ submodules"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: "recursive"
@@ -103,7 +103,7 @@ jobs:
       - name: Move and rename dmg
         run: mv */*.dmg arbor-gui.dmg
       - name: "Clone w/ submodules"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: "recursive"
